@@ -1,0 +1,139 @@
+{
+	"compiler": {
+		"version": "0.8.30+commit.73712a01"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "pythContract",
+						"type": "address"
+					},
+					{
+						"internalType": "bytes32",
+						"name": "_priceFeedId",
+						"type": "bytes32"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "constructor"
+			},
+			{
+				"inputs": [],
+				"name": "getLatestPriceView",
+				"outputs": [
+					{
+						"internalType": "int64",
+						"name": "price",
+						"type": "int64"
+					},
+					{
+						"internalType": "int32",
+						"name": "expo",
+						"type": "int32"
+					},
+					{
+						"internalType": "uint256",
+						"name": "publishTime",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "priceFeedId",
+				"outputs": [
+					{
+						"internalType": "bytes32",
+						"name": "",
+						"type": "bytes32"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "pyth",
+				"outputs": [
+					{
+						"internalType": "contract IPyth",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {
+				"getLatestPriceView()": {
+					"notice": "只读查询价格，不需要fee，只消耗普通查询gas"
+				}
+			},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"CryptoStockContract/contracts/OracleAggregator.sol": "AggregatorPythView"
+		},
+		"evmVersion": "prague",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"@pythnetwork/pyth-sdk-solidity/IPyth.sol": {
+			"keccak256": "0xada6a1f4898b056d2804409ecad466b786dc6a12bc6f8f247e7f1471c1b86fcd",
+			"license": "Apache-2.0",
+			"urls": [
+				"bzz-raw://ecee3c205896236fc11bfb1367f033353448fa462b08e5212a32e767f72022c9",
+				"dweb:/ipfs/QmeEQpRRza2Swm2gCCC61TDxQ2GNLjqPhdtbSznADMuMni"
+			]
+		},
+		"@pythnetwork/pyth-sdk-solidity/IPythEvents.sol": {
+			"keccak256": "0xd67239becd2c39bd9d065830be24e70606f5747ab31b8818bea849d09ac17ddc",
+			"license": "Apache-2.0",
+			"urls": [
+				"bzz-raw://e719bd2d8c1d8d46713aeb700dd6b5ddd766a77830ea9ae3cc9327f67ed775d1",
+				"dweb:/ipfs/QmNQYyRVFLEvLsCSTkHkAemTvvZm4CzLN7hUdMidMcBS7u"
+			]
+		},
+		"@pythnetwork/pyth-sdk-solidity/PythStructs.sol": {
+			"keccak256": "0x474436bf0d558cc9b2c00a9d0ce318147acdf7963f34ef4acadb9248e65bbc7b",
+			"license": "Apache-2.0",
+			"urls": [
+				"bzz-raw://2b8f9bd9de35e67c7bdbf04d8c2e771718fcc8666456ca5f92dbd914e4a5f2b3",
+				"dweb:/ipfs/QmNP3ShBYRp4RiVbAudMB7rNHAqgtwn8pPBzb8JTUaViRh"
+			]
+		},
+		"CryptoStockContract/contracts/OracleAggregator.sol": {
+			"keccak256": "0xa3d95319319ed3b8ebe685edb3a747d0dc05b806d6a6f36d31436fd315108dab",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://0a3264b2f74b73f1bd26692698ea4130a00bc539dde22f38161ff168c46f1410",
+				"dweb:/ipfs/QmSuvJ9pH98xRE2qXE9f7oGAhwNKbZrw2SKWR6YR91YYTL"
+			]
+		}
+	},
+	"version": 1
+}
