@@ -44,6 +44,8 @@
   "dependencies": {
     "@openzeppelin/contracts": "^5.4.0",
     "@openzeppelin/contracts-upgradeable": "^5.4.0",
-    "@pythnetwork/pyth-sdk-solidity": "^4.2.0"
+    "@pythnetwork/client": "^2.22.1",
+    "@pythnetwork/pyth-sdk-solidity": "^4.2.0",
+    "axios": "^1.12.2"
   }
 }

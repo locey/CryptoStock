@@ -96,16 +96,18 @@ contract StockToken is
      * @dev 购买股票代币
      * @param usdtAmount 投入的USDT数量
      * @param minTokenAmount 最少获得的代币数量（滑点保护）
+     * @param updateData 价格更新数据
      */
-    function buy(uint256 usdtAmount, uint256 minTokenAmount) 
+    function buy(uint256 usdtAmount, uint256 minTokenAmount, bytes[] calldata updateData) 
         external 
+        payable
         nonReentrant 
         whenNotPaused 
     {
         require(usdtAmount >= minTradeAmount, "Amount below minimum");
 
-        // 获取当前股票价格
-        (uint256 stockPrice, , , ) = oracleAggregator.getPrice(stockSymbol);
+        // 更新并获取最新股票价格
+        (uint256 stockPrice, , , ) = oracleAggregator.updateAndGetPrice{value: msg.value}(stockSymbol, updateData);
         require(stockPrice > 0, "Invalid stock price");
 
         // 🔥 修复价格计算逻辑
@@ -147,9 +149,11 @@ contract StockToken is
      * @dev 出售股票代币
      * @param tokenAmount 出售的代币数量
      * @param minUsdtAmount 最少获得的USDT数量（滑点保护）
+     * @param updateData 价格更新数据
      */
-    function sell(uint256 tokenAmount, uint256 minUsdtAmount) 
+    function sell(uint256 tokenAmount, uint256 minUsdtAmount, bytes[] calldata updateData) 
         external 
+        payable
         nonReentrant 
         whenNotPaused 
     {
@@ -159,8 +163,8 @@ contract StockToken is
             "Insufficient token balance"
         );
 
-        // 获取当前股票价格
-        (uint256 stockPrice, , , ) = oracleAggregator.getPrice(stockSymbol);
+        // 更新并获取最新股票价格
+        (uint256 stockPrice, , , ) = oracleAggregator.updateAndGetPrice{value: msg.value}(stockSymbol, updateData);
         require(stockPrice > 0, "Invalid stock price");
 
         // 🔥 修复价格计算逻辑
@@ -203,6 +207,7 @@ contract StockToken is
 
     /**
      * @dev 获取购买预估（包含手续费计算）
+     * @notice 此函数使用缓存价格，可能不是最新价格。建议在实际交易前先调用buy函数获取最新价格。
      */
     function getBuyEstimate(uint256 usdtAmount) 
         external 
@@ -219,6 +224,7 @@ contract StockToken is
 
     /**
      * @dev 获取出售预估（包含手续费计算）
+     * @notice 此函数使用缓存价格，可能不是最新价格。建议在实际交易前先调用sell函数获取最新价格。
      */
     function getSellEstimate(uint256 tokenAmount) 
         external 
@@ -291,9 +297,29 @@ contract StockToken is
 
     // ========== 查询功能 ==========
 
+    /**
+     * @dev 获取股票价格
+     * @notice 此函数返回缓存价格，可能不是最新价格。要获取最新价格，请使用updateAndGetStockPrice函数。
+     */
     function getStockPrice() external view returns (uint256) {
         (uint256 price, , , ) = oracleAggregator.getPrice(stockSymbol);
         return price;
+    }
+
+    /**
+     * @dev 更新并获取最新股票价格
+     * @param updateData 价格更新数据
+     * @return price 最新股票价格
+     * @return minPrice 最小价格
+     * @return maxPrice 最大价格
+     * @return publishTime 发布时间
+     */
+    function updateAndGetStockPrice(bytes[] calldata updateData) 
+        external 
+        payable 
+        returns (uint256 price, uint256 minPrice, uint256 maxPrice, uint256 publishTime) 
+    {
+        return oracleAggregator.updateAndGetPrice{value: msg.value}(stockSymbol, updateData);
     }
 
     function getContractTokenBalance() external view returns (uint256) {

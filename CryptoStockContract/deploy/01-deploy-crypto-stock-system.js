@@ -162,13 +162,20 @@ module.exports = async ({ getNamedAccounts, deployments, ethers, network }) => {
     
     console.log(`   创建 ${token.name} (${token.symbol})...`);
     try {
-      await tokenFactoryContract.createToken(
+      const createTx = await tokenFactoryContract.createToken(
         token.name,
         token.symbol,
         token.supply
       );
       
-      const tokenAddress = await tokenFactoryContract.getTokenAddress(token.symbol);
+      // 等待交易确认
+      console.log(`   ⏳ 等待交易确认: ${createTx.hash}`);
+      const receipt = await createTx.wait();
+      console.log(`   ✅ 交易已确认，区块: ${receipt.blockNumber}`);
+      
+      // 从事件中获取代币地址
+      const event = receipt.events?.find(e => e.event === 'TokenCreated');
+      const tokenAddress = event ? event.args.tokenAddress : await tokenFactoryContract.getTokenAddress(token.symbol);
       console.log(`   ✅ ${token.symbol} 代币创建成功: ${tokenAddress}`);
     } catch (error) {
       if (error.message.includes("Token already exists")) {

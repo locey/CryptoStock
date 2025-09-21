@@ -27,6 +27,22 @@ module.exports = {
       gas: 3000000,
       gasPrice: "auto",
       blockGasLimit: 30000000,
+    },
+    localhost: {
+      url: "http://127.0.0.1:8545",
+      chainId: 31337,
+    },
+    sepolia: {
+      url: process.env.SEPOLIA_URL || "https://rpc.sepolia.org",
+      accounts: [
+        process.env.PRIVATE_KEY_1,
+        process.env.PRIVATE_KEY_2,
+        process.env.PRIVATE_KEY_3,
+        process.env.PRIVATE_KEY_4
+      ].filter(key => key !== undefined), // 过滤掉未定义的私钥
+      chainId: 11155111,
+      gas: 3000000,
+      gasPrice: "auto",
     }
   },
   

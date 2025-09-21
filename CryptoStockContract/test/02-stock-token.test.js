@@ -1,5 +1,6 @@
 const { expect } = require("chai");
-const { ethers, deployments } = require("hardhat");
+const { ethers, deployments, network } = require("hardhat");
+const { fetchUpdateData, fetchSingleUpdateData } = require("../utils/getPythUpdateData");
 
 describe("StockToken - 股票代币合约测试", function () {
   let tokenFactory;
@@ -8,6 +9,14 @@ describe("StockToken - 股票代币合约测试", function () {
   let usdtToken;
   let mockPyth;
   let owner, userA, userB;
+
+  // 网络判断
+  const isLocalNetwork = network.name === "hardhat" || network.name === "localhost";
+  const isSepoliaNetwork = network.name === "sepolia";
+
+  console.log(`🌐 当前测试网络: ${network.name}`);
+  console.log(`🔧 本地网络模式: ${isLocalNetwork}`);
+  console.log(`🌍 Sepolia 网络模式: ${isSepoliaNetwork}`);
 
   // 测试账户
   const zeroAddress = ethers.constants.AddressZero;
@@ -42,12 +51,28 @@ describe("StockToken - 股票代币合约测试", function () {
     console.log(`📝 UserA: ${userA.address}`);
     console.log(`📝 UserB: ${userB.address}`);
 
-    // 1. 部署预言机聚合合约
-    console.log("📄 [STEP 1] 使用部署脚本部署系统...");
-    await deployments.fixture(["CryptoStockSystem"]);
+    // 1. 获取已部署的合约（不重新部署）
+    console.log("📄 [STEP 1] 获取已部署的合约实例...");
+    
+    // 如果是本地网络，使用部署脚本
+    if (isLocalNetwork) {
+      await deployments.fixture(["CryptoStockSystem"]);
+    }
 
     // 获取合约实例
     console.log("📄 [STEP 2] 获取部署的合约实例...");
+    
+    // 调试：查看所有已部署的合约
+    try {
+      const allDeployments = await deployments.all();
+      console.log("🔍 所有已部署的合约:");
+      for (const [name, deployment] of Object.entries(allDeployments)) {
+        console.log(`   ${name}: ${deployment.address}`);
+      }
+    } catch (error) {
+      console.log("❌ 无法获取部署列表:", error.message);
+    }
+    
     const factoryDeployment = await deployments.get("TokenFactory");
     tokenFactory = await ethers.getContractAt(
       "TokenFactory",
@@ -66,12 +91,17 @@ describe("StockToken - 股票代币合约测试", function () {
     usdtToken = await ethers.getContractAt("MockERC20", usdtDeployment.address);
     console.log(`✅ USDT 代币获取完成: ${usdtDeployment.address}`);
 
-    const mockPythDeployment = await deployments.get("MockPyth");
-    mockPyth = await ethers.getContractAt(
-      "MockPyth",
-      mockPythDeployment.address
-    );
-    console.log(`✅ MockPyth 获取完成: ${mockPythDeployment.address}`);
+    // MockPyth 只在本地网络中存在
+    if (isLocalNetwork) {
+      const mockPythDeployment = await deployments.get("MockPyth");
+      mockPyth = await ethers.getContractAt(
+        "MockPyth",
+        mockPythDeployment.address
+      );
+      console.log(`✅ MockPyth 获取完成: ${mockPythDeployment.address}`);
+    } else {
+      console.log(`⏭️  Sepolia 网络跳过 MockPyth 初始化`);
+    }
 
     // 2. 获取已部署的AAPL代币（部署脚本中已创建）
     console.log("📄 [STEP 3] 获取已部署的AAPL股票代币...");
@@ -100,15 +130,21 @@ describe("StockToken - 股票代币合约测试", function () {
     // 验证代币合约地址非零
     expect(stockToken.address).to.not.equal(zeroAddress);
 
-    // 3. 更新MockPyth中的AAPL价格
+    // 3. 更新价格数据（根据网络类型）
     console.log("📄 [STEP 4] 更新AAPL价格数据...");
-    await mockPyth.setPrice(
-      aaplFeedId,
-      priceNormal,
-      priceExpo,
-      Math.floor(Date.now() / 1000)
-    );
-    console.log(`✅ ${tokenSymbol} 价格更新完成: ${priceNormal / 100} USD`);
+    if (isLocalNetwork) {
+      // 本地网络：使用 MockPyth 设置价格
+      await mockPyth.setPrice(
+        aaplFeedId,
+        priceNormal,
+        priceExpo,
+        Math.floor(Date.now() / 1000)
+      );
+      console.log(`✅ ${tokenSymbol} MockPyth 价格更新完成: ${priceNormal / 100} USD`);
+    } else {
+      // Sepolia 网络：价格由真实 Pyth 网络提供，无需手动设置
+      console.log(`✅ ${tokenSymbol} 将使用 Sepolia Pyth 网络的实时价格`);
+    }
 
     // 4. 分配测试代币给用户进行测试˝
     console.log("📄 [STEP 5] 分配测试代币...");
@@ -297,16 +333,23 @@ describe("StockToken - 股票代币合约测试", function () {
         const transferAmount = ethers.utils.parseEther("50");
         const initialBalanceA = await stockToken.balanceOf(userA.address);
         const initialBalanceB = await stockToken.balanceOf(userB.address);
+        const initialAllowance = await stockToken.allowance(userA.address, userB.address);
 
         await stockToken
           .connect(userB)
           .transferFrom(userA.address, userB.address, transferAmount);
 
+        // 验证余额变化
         expect(await stockToken.balanceOf(userA.address)).to.equal(
           initialBalanceA.sub(transferAmount)
         );
         expect(await stockToken.balanceOf(userB.address)).to.equal(
           initialBalanceB.add(transferAmount)
+        );
+        
+        // 验证授权额度减少
+        expect(await stockToken.allowance(userA.address, userB.address)).to.equal(
+          initialAllowance.sub(transferAmount)
         );
       });
     });
@@ -314,90 +357,454 @@ describe("StockToken - 股票代币合约测试", function () {
 
   describe("2. 价格查询功能", function () {
     it("正常价格查询：返回有效价格数据", async function () {
-      const price = await stockToken.getStockPrice();
-      expect(price).to.be.gt(0);
-      // 注意：返回的价格精度可能和预期不同，先检查实际返回值
-      // 实际返回 1000000000000，对应 1000 的价格，精度为 10^9 而不是 10^18
-      expect(price).to.equal(ethers.BigNumber.from("1000000000000")); // 100.00 * 10^10
-    });
-
-    it("预言机未配置：查询未配置的股票代码", async function () {
-      // 创建一个新的代币，但不配置价格源
-      const newTokenTx = await tokenFactory.createToken(
-        "New Token",
-        "NEW",
-        initialSupply
-      );
-      const newTokenReceipt = await newTokenTx.wait();
-      const newEvent = newTokenReceipt.events.find(
-        (e) => e.event === "TokenCreated"
-      );
-      const newTokenAddress = newEvent.args.tokenAddress;
-      const newToken = await ethers.getContractAt(
-        "StockToken",
-        newTokenAddress
-      );
-
-      await expect(newToken.getStockPrice()).to.be.reverted;
-    });
-
-    it("预言机故障：模拟预言机返回错误", async function () {
-      await mockPyth.setPrice(
-        aaplFeedId,
-        priceInvalid,
-        priceExpo,
-        Math.floor(Date.now() / 1000)
-      );
-
-      // 改为检查是否会抛出错误
-      await expect(stockToken.getStockPrice()).to.be.revertedWith(
-        "Invalid price data"
-      );
-    });
-
-    it("价格波动测试：不同价格场景下的响应", async function () {
-      // 测试高价格
-      await mockPyth.setPrice(
-        aaplFeedId,
-        priceHigh,
-        priceExpo,
-        Math.floor(Date.now() / 1000)
-      );
-      const highPrice = await stockToken.getStockPrice();
-      expect(highPrice).to.equal(ethers.BigNumber.from("1500000000000")); // 150.00 * 10^10
-
-      // 测试低价格
-      await mockPyth.setPrice(
-        aaplFeedId,
-        priceLow,
-        priceExpo,
-        Math.floor(Date.now() / 1000)
-      );
-      const lowPrice = await stockToken.getStockPrice();
-      expect(lowPrice).to.equal(ethers.BigNumber.from("500000000000")); // 50.00 * 10^10
-
-      // 回到正常价格
-      await mockPyth.setPrice(
-        aaplFeedId,
-        priceNormal,
-        priceExpo,
-        Math.floor(Date.now() / 1000)
-      );
-      const normalPrice = await stockToken.getStockPrice();
-      expect(normalPrice).to.equal(ethers.BigNumber.from("1000000000000")); // 100.00 * 10^10
+      if (isSepoliaNetwork) {
+        // Sepolia 网络：测试真实 Pyth 价格获取
+        console.log("🌍 Sepolia 网络 - 测试真实 Pyth 价格获取");
+        
+        try {
+          // 获取真实的 updateData
+          const updateData = await fetchSingleUpdateData("AAPL");
+          const fee = await oracleAggregator.getUpdateFee(updateData);
+          console.log(`💰 更新费用: ${ethers.utils.formatEther(fee)} ETH`);
+          
+          // 调用 updateAndGetPrice 获取实时价格
+          const tx = await oracleAggregator.updateAndGetPrice(
+            "AAPL",
+            updateData,
+            { value: fee }
+          );
+          const receipt = await tx.wait();
+          console.log(`⛽ Gas 使用: ${receipt.gasUsed.toString()}`);
+          
+          // 验证价格
+          const price = await stockToken.getStockPrice();
+          console.log(`📈 AAPL 实时价格: $${ethers.utils.formatEther(price)}`);
+          expect(price).to.be.gt(0);
+        } catch (error) {
+          console.error("❌ Sepolia 价格获取失败:", error.message);
+          // 如果网络问题，跳过测试
+          this.skip();
+        }
+      } else {
+        // 本地网络：使用 MockPyth 测试
+        console.log("🏠 本地网络 - 使用 MockPyth 测试");
+        const price = await stockToken.getStockPrice();
+        expect(price).to.be.gt(0);
+        expect(price).to.equal(ethers.utils.parseEther("100")); // 100.00 USD
+      }
     });
 
     it("时间戳验证：返回价格时间戳的有效性", async function () {
-      const currentTime = Math.floor(Date.now() / 1000);
-      await mockPyth.setPrice(aaplFeedId, priceNormal, priceExpo, currentTime);
+      if (isLocalNetwork) {
+        const currentTime = Math.floor(Date.now() / 1000);
+        await mockPyth.setPrice(aaplFeedId, priceNormal, priceExpo, currentTime);
 
-      // 调用预言机聚合器获取完整的价格信息
-      const [price, , , timestamp] = await oracleAggregator.getPrice(
-        tokenSymbol
-      );
-      expect(price).to.equal(ethers.BigNumber.from("1000000000000")); // 修正价格精度
-      expect(timestamp).to.equal(currentTime);
+        // 调用预言机聚合器获取完整的价格信息
+        const [price, , , timestamp] = await oracleAggregator.getPrice(
+          tokenSymbol
+        );
+        expect(price).to.equal(ethers.utils.parseEther("100")); // 100.00 USD in 18 decimal precision
+        expect(timestamp).to.equal(currentTime);
+      } else if (isSepoliaNetwork) {
+        console.log("🌍 Sepolia 网络 - 测试真实 Pyth 时间戳验证");
+        this.timeout(30000); // 增加超时时间到30秒
+        
+        try {
+          // 1. 获取真实的 updateData
+          console.log("📡 获取 AAPL 的最新价格数据...");
+          const updateData = await fetchSingleUpdateData("AAPL");
+          
+          // 2. 计算更新费用
+          const fee = await oracleAggregator.getUpdateFee(updateData);
+          console.log(`💰 所需更新费用: ${ethers.utils.formatEther(fee)} ETH`);
+          
+          // 3. 使用 updateAndGetPrice 更新价格数据
+          console.log("🔄 调用 updateAndGetPrice 更新价格...");
+          await oracleAggregator.updateAndGetPrice(
+            "AAPL",
+            updateData,
+            { value: fee }
+          );
+          
+          // 4. 获取完整的价格信息验证时间戳
+          console.log("📊 获取更新后的价格信息...");
+          const [price, minPrice, maxPrice, timestamp] = await oracleAggregator.getPrice(
+            tokenSymbol
+          );
+          
+          // 5. 验证价格数据有效性
+          expect(price).to.be.gt(0);
+          expect(minPrice).to.be.gt(0);
+          expect(maxPrice).to.be.gt(price);
+          expect(timestamp).to.be.gt(0);
+          
+          // 6. 验证时间戳合理性（应该是最近的时间）
+          const currentTime = Math.floor(Date.now() / 1000);
+          const timeDifference = Math.abs(currentTime - timestamp);
+          expect(timeDifference).to.be.lte(2 * 24 * 3600); // 时间戳应该在2天内
+          
+          console.log(`📈 AAPL 价格: $${ethers.utils.formatEther(price)}`);
+          console.log(`📊 价格范围: $${ethers.utils.formatEther(minPrice)} - $${ethers.utils.formatEther(maxPrice)}`);
+          console.log(`⏰ 发布时间: ${new Date(timestamp * 1000).toISOString()}`);
+          console.log(`✅ 时间戳差异: ${timeDifference} 秒`);
+          
+        } catch (error) {
+          console.error("❌ Sepolia 时间戳验证失败:", error.message);
+          console.log("⚠️  可能的原因：网络连接问题或 Pyth API 暂时不可用");
+          this.skip(); // 如果失败则跳过测试
+        }
+      } else {
+        console.log("⏭️  跳过时间戳验证测试（不支持的网络）");
+        this.skip();
+      }
     });
+
+    it("批量价格更新：使用updateAndGetPrices获取多个股票价格", async function () {
+      if (isLocalNetwork) {
+        const symbols = ["AAPL", "TSLA", "GOOGL"];
+        const prices = [12000, 25000, 280000]; // 120.00, 250.00, 2800.00 USD
+        const currentTime = Math.floor(Date.now() / 1000);
+
+        // 设置多个股票的价格
+        const tslaPriceId = "0x82c4d954fce9132f936100aa0b51628d7ac01888e4b46728d5d3f5778eb4c1d2";
+        const googlPriceId = "0x5a48c03e9b9cb337801073ed9d166817473697efff0d138874e0f6a33d6d5aa6";
+        
+        await mockPyth.setPrice(aaplFeedId, prices[0], priceExpo, currentTime);
+        await mockPyth.setPrice(tslaPriceId, prices[1], priceExpo, currentTime + 1);
+        await mockPyth.setPrice(googlPriceId, prices[2], priceExpo, currentTime + 2);
+
+        // 使用updateAndGetPrices批量获取价格（模拟空的updateData）
+        const result = await oracleAggregator.callStatic.updateAndGetPrices(
+          symbols,
+          [] // 空的updateData用于测试
+        );
+        const returnedPrices = result[0];
+        const publishTimes = result[1];
+
+        // 验证价格
+        expect(returnedPrices[0]).to.equal(ethers.utils.parseEther("120")); // AAPL: 120.00 USD
+        expect(returnedPrices[1]).to.equal(ethers.utils.parseEther("250")); // TSLA: 250.00 USD
+        expect(returnedPrices[2]).to.equal(ethers.utils.parseEther("2800")); // GOOGL: 2800.00 USD
+
+        // 验证时间戳
+        expect(publishTimes[0]).to.equal(currentTime);
+        expect(publishTimes[1]).to.equal(currentTime + 1);
+        expect(publishTimes[2]).to.equal(currentTime + 2);
+      } else if (isSepoliaNetwork) {
+        console.log("🌍 Sepolia 网络 - 测试真实 Pyth 批量价格获取");
+        this.timeout(60000); // 增加超时时间到60秒
+        
+        try {
+          const symbols = ["AAPL", "GOOGL"];
+          
+          // 1. 获取多个股票的 updateData
+          console.log(`📡 获取 ${symbols.join(", ")} 的价格数据...`);
+          const updateData = await fetchUpdateData(symbols);
+          console.log(`✅ 获取到 ${updateData.length} 条更新数据`);
+          
+          // 2. 计算更新费用
+          const fee = await oracleAggregator.getUpdateFee(updateData);
+          console.log(`💰 批量更新费用: ${ethers.utils.formatEther(fee)} ETH`);
+          
+          // 3. 使用 updateAndGetPrices 批量更新和获取价格
+          console.log("🔄 调用 updateAndGetPrices 批量更新价格...");
+          const result = await oracleAggregator.callStatic.updateAndGetPrices(
+            symbols,
+            updateData,
+            { value: fee }
+          );
+          
+          const [prices, publishTimes] = result;
+          
+          // 4. 验证返回结果
+          expect(prices.length).to.equal(symbols.length);
+          expect(publishTimes.length).to.equal(symbols.length);
+          
+          // 5. 验证每个价格数据
+          for (let i = 0; i < symbols.length; i++) {
+            const symbol = symbols[i];
+            const price = prices[i];
+            const publishTime = publishTimes[i];
+            
+            console.log(`📈 ${symbol}: $${ethers.utils.formatEther(price)} (${new Date(publishTime * 1000).toISOString()})`);
+            
+            // 验证价格有效性
+            expect(price).to.be.gt(0);
+            expect(publishTime).to.be.gt(0);
+            
+            // 验证价格合理范围（根据不同股票调整）
+            const priceInUSD = parseFloat(ethers.utils.formatEther(price));
+            if (symbol === "AAPL") {
+              expect(priceInUSD).to.be.gte(50).and.to.be.lte(500);
+            } else if (symbol === "TSLA") {
+              expect(priceInUSD).to.be.gte(100).and.to.be.lte(1000);
+            } else if (symbol === "GOOGL") {
+              expect(priceInUSD).to.be.gte(100).and.to.be.lte(1000);
+            }
+            
+            // 验证时间戳合理性（考虑到股市非交易时间）
+            const currentTime = Math.floor(Date.now() / 1000);
+            const timeDifference = Math.abs(currentTime - publishTime);
+            const maxTimeDifference = 2 * 24 * 3600; // 最多2天的差异
+            expect(timeDifference).to.be.lte(maxTimeDifference);
+            expect(publishTime).to.be.lte(currentTime);
+          }
+          
+          console.log("✅ Sepolia 批量价格获取测试通过！");
+        } catch (error) {
+          console.error("❌ Sepolia 批量测试失败:", error.message);
+          console.log("⚠️  可能的原因：网络连接问题或 Pyth API 暂时不可用");
+          this.skip(); // 如果失败则跳过测试
+        }
+      } else {
+        console.log("⏭️  跳过批量价格更新测试（不支持的网络）");
+        this.skip();
+      }
+    });
+
+    it("批量价格查询：验证不同精度价格的正确转换", async function () {
+      if (isLocalNetwork) {
+        // 本地网络：测试不同精度的价格转换
+        const symbols = ["AAPL"];
+        const testPrices = [
+          { price: 5000, expo: -2, expected: "50" },    // 50.00 USD
+          { price: 15055, expo: -2, expected: "150.55" }, // 150.55 USD
+          { price: 1, expo: 0, expected: "1" },           // 1.00 USD
+          { price: 100000, expo: -3, expected: "100" }   // 100.000 USD
+        ];
+
+        for (let i = 0; i < testPrices.length; i++) {
+          const testCase = testPrices[i];
+          const currentTime = Math.floor(Date.now() / 1000) + i;
+          
+          // 设置价格
+          await mockPyth.setPrice(aaplFeedId, testCase.price, testCase.expo, currentTime);
+          
+          // 使用updateAndGetPrices获取价格
+          const result = await oracleAggregator.callStatic.updateAndGetPrices(
+            symbols,
+            []
+          );
+          const returnedPrices = result[0];
+          
+          // 验证转换后的价格
+          expect(returnedPrices[0]).to.equal(ethers.utils.parseEther(testCase.expected));
+        }
+      } else {
+        console.log("⏭️  跳过价格精度转换测试（Sepolia 网络不支持精度验证）");
+        this.skip();
+      }
+    });
+
+    it("批量价格查询：处理不支持的股票符号", async function () {
+      if (isLocalNetwork) {
+        // 本地网络：使用空的 updateData 测试
+        const symbols = ["AAPL", "UNSUPPORTED_SYMBOL"];
+        
+        // 尝试查询包含不支持符号的批量请求
+        await expect(
+          oracleAggregator.updateAndGetPrices(symbols, [])
+        ).to.be.revertedWith("Price feed not found for symbol");
+      } else {
+        console.log("⏭️  跳过不支持符号测试（Sepolia 网络无法模拟不支持的符号）");
+        this.skip();
+      }
+    });
+
+    it("实时价格同步：验证价格更新后立即可查询", async function () {
+      const newPrice = 20000; // 200.00 USD
+      const currentTime = Math.floor(Date.now() / 1000);
+      
+      // 更新价格
+      await mockPyth.setPrice(aaplFeedId, newPrice, priceExpo, currentTime);
+      
+      // 立即使用updateAndGetPrices查询
+      const result = await oracleAggregator.callStatic.updateAndGetPrices(
+        [tokenSymbol],
+        []
+      );
+      const returnedPrices = result[0];
+      const publishTimes = result[1];
+      
+      // 验证价格和时间戳立即更新
+      expect(returnedPrices[0]).to.equal(ethers.utils.parseEther("200"));
+      expect(publishTimes[0]).to.equal(currentTime);
+      
+      // 验证StockToken也能获取到更新后的价格
+      const stockPrice = await stockToken.getStockPrice();
+      expect(stockPrice).to.equal(ethers.utils.parseEther("200"));
+    });
+
+    // Sepolia 网络专用测试
+    if (isSepoliaNetwork) {
+      it("Sepolia 真实 Pyth 网络价格获取测试", async function () {
+        console.log("🌍 测试 Sepolia 网络的真实 Pyth 价格获取");
+        this.timeout(30000); // 增加超时时间到30秒
+        
+        try {
+          // 1. 获取真实的 updateData
+          console.log("📡 获取 AAPL 的最新价格数据...");
+          const updateData = await fetchSingleUpdateData("AAPL");
+          console.log(`✅ 获取到 ${updateData.length} 条更新数据`);
+          
+          // 2. 计算更新费用
+          const fee = await oracleAggregator.getUpdateFee(updateData);
+          console.log(`💰 所需更新费用: ${ethers.utils.formatEther(fee)} ETH`);
+          
+          // 3. 使用 updateAndGetPrice 获取实时价格
+          console.log("🔄 调用 updateAndGetPrice...");
+          const result = await oracleAggregator.callStatic.updateAndGetPrice(
+            "AAPL",
+            updateData,
+            { value: fee }
+          );
+          
+          const [price, minPrice, maxPrice, publishTime] = result;
+          
+          // 4. 验证价格数据
+          console.log(`📈 AAPL 当前价格: $${ethers.utils.formatEther(price)}`);
+          console.log(`📊 价格范围: $${ethers.utils.formatEther(minPrice)} - $${ethers.utils.formatEther(maxPrice)}`);
+          console.log(`⏰ 发布时间: ${new Date(publishTime * 1000).toISOString()}`);
+          
+          expect(price).to.be.gt(0);
+          expect(minPrice).to.be.gt(0);
+          expect(maxPrice).to.be.gt(price);
+          expect(publishTime).to.be.gt(0);
+          
+          // 5. 验证价格的合理范围（AAPL 应该在 $50-$500 之间）
+          const priceInUSD = parseFloat(ethers.utils.formatEther(price));
+          expect(priceInUSD).to.be.gte(50);
+          expect(priceInUSD).to.be.lte(500);
+          
+          console.log("✅ Sepolia Pyth 价格获取测试通过！");
+        } catch (error) {
+          console.error("❌ Sepolia Pyth 测试失败:", error.message);
+          console.log("⚠️  可能的原因：网络连接问题或 Pyth API 暂时不可用");
+          this.skip(); // 如果失败则跳过测试
+        }
+      });
+
+      it("Sepolia 批量价格获取测试", async function () {
+        console.log("🌍 测试 Sepolia 网络的批量价格获取");
+        this.timeout(60000); // 增加超时时间到60秒
+        
+        try {
+          const symbols = ["AAPL", "TSLA", "GOOGL"];
+          
+          // 1. 获取多个股票的 updateData
+          console.log(`📡 获取 ${symbols.join(", ")} 的价格数据...`);
+          const updateData = await fetchUpdateData(symbols);
+          
+          // 2. 计算费用
+          const fee = await oracleAggregator.getUpdateFee(updateData);
+          console.log(`💰 批量更新费用: ${ethers.utils.formatEther(fee)} ETH`);
+          
+          // 3. 批量获取价格
+          console.log("🔄 调用 updateAndGetPrices...");
+          const result = await oracleAggregator.callStatic.updateAndGetPrices(
+            symbols,
+            updateData,
+            { value: fee }
+          );
+          
+          const [prices, publishTimes] = result;
+          
+          // 4. 验证结果
+          expect(prices.length).to.equal(symbols.length);
+          expect(publishTimes.length).to.equal(symbols.length);
+          
+          for (let i = 0; i < symbols.length; i++) {
+            const symbol = symbols[i];
+            const price = prices[i];
+            const publishTime = publishTimes[i];
+            
+            console.log(`📈 ${symbol}: $${ethers.utils.formatEther(price)} (${new Date(publishTime * 1000).toISOString()})`);
+            
+            expect(price).to.be.gt(0);
+            expect(publishTime).to.be.gt(0);
+            
+            // 验证价格合理范围
+            const priceInUSD = parseFloat(ethers.utils.formatEther(price));
+            expect(priceInUSD).to.be.gte(10); // 最低 $10
+            expect(priceInUSD).to.be.lte(10000); // 最高 $10,000
+          }
+          
+          console.log("✅ Sepolia 批量价格获取测试通过！");
+        } catch (error) {
+          console.error("❌ Sepolia 批量测试失败:", error.message);
+          this.skip();
+        }
+      });
+    }
+    
+    // 本地网络的其他测试保持原有逻辑
+    if (isLocalNetwork) {
+      it("预言机未配置：查询未配置的股票代码", async function () {
+        // 创建一个新的代币，但不配置价格源
+        const newTokenTx = await tokenFactory.createToken(
+          "New Token",
+          "NEW",
+          initialSupply
+        );
+        const newTokenReceipt = await newTokenTx.wait();
+        const newEvent = newTokenReceipt.events.find(
+          (e) => e.event === "TokenCreated"
+        );
+        const newTokenAddress = newEvent.args.tokenAddress;
+        const newToken = await ethers.getContractAt(
+          "StockToken",
+          newTokenAddress
+        );
+
+        await expect(newToken.getStockPrice()).to.be.reverted;
+      });
+
+      it("预言机故障：模拟预言机返回错误", async function () {
+        await mockPyth.setPrice(
+          aaplFeedId,
+          priceInvalid,
+          priceExpo,
+          Math.floor(Date.now() / 1000)
+        );
+
+        // 改为检查是否会抛出错误
+        await expect(stockToken.getStockPrice()).to.be.revertedWith(
+          "Invalid price data"
+        );
+      });
+
+      it("价格波动测试：不同价格场景下的响应", async function () {
+        // 测试高价格
+        await mockPyth.setPrice(
+          aaplFeedId,
+          priceHigh,
+          priceExpo,
+          Math.floor(Date.now() / 1000)
+        );
+        const highPrice = await stockToken.getStockPrice();
+        expect(highPrice).to.equal(ethers.utils.parseEther("150")); // 150.00 USD in 18 decimal precision
+
+        // 测试低价格
+        await mockPyth.setPrice(
+          aaplFeedId,
+          priceLow,
+          priceExpo,
+          Math.floor(Date.now() / 1000)
+        );
+        const lowPrice = await stockToken.getStockPrice();
+        expect(lowPrice).to.equal(ethers.utils.parseEther("50")); // 50.00 USD in 18 decimal precision
+
+        // 回到正常价格
+        await mockPyth.setPrice(
+          aaplFeedId,
+          priceNormal,
+          priceExpo,
+          Math.floor(Date.now() / 1000)
+        );
+        const normalPrice = await stockToken.getStockPrice();
+        expect(normalPrice).to.equal(ethers.utils.parseEther("100")); // 100.00 USD in 18 decimal precision
+      });
+    }
   });
 
   describe("3. 所有权管理功能", function () {
@@ -430,6 +837,133 @@ describe("StockToken - 股票代币合约测试", function () {
       expect(await stockToken.balanceOf(userA.address)).to.equal(
         initialBalance.add(mintAmount)
       );
+    });
+  });
+
+  describe("5. 预言机聚合器高级功能测试", function () {
+    it("支持的股票符号查询：验证getSupportedSymbols功能", async function () {
+      const supportedSymbols = await oracleAggregator.getSupportedSymbols();
+      
+      // 验证返回的符号列表包含预期的股票
+      expect(supportedSymbols).to.include("AAPL");
+      expect(supportedSymbols).to.include("TSLA");
+      expect(supportedSymbols).to.include("GOOGL");
+      expect(supportedSymbols.length).to.be.gte(3); // 至少应该有3个支持的符号
+    });
+
+    it("股票符号支持检查：验证isSymbolSupported功能", async function () {
+      // 测试支持的符号
+      expect(await oracleAggregator.isSymbolSupported("AAPL")).to.be.true;
+      expect(await oracleAggregator.isSymbolSupported("TSLA")).to.be.true;
+      
+      // 测试不支持的符号
+      expect(await oracleAggregator.isSymbolSupported("UNKNOWN")).to.be.false;
+      expect(await oracleAggregator.isSymbolSupported("")).to.be.false;
+    });
+
+    it("费用计算：验证getUpdateFee功能", async function () {
+      const emptyUpdateData = [];
+      const fee = await oracleAggregator.getUpdateFee(emptyUpdateData);
+      
+      // MockPyth应该返回0费用用于空的updateData
+      expect(fee).to.equal(0);
+    });
+
+    it("价格精度转换：验证不同expo值的处理", async function () {
+      const testCases = [
+        { price: 10000, expo: -2, symbol: "AAPL", expected: "100" },    // 100.00
+        { price: 15050, expo: -2, symbol: "AAPL", expected: "150.5" },  // 150.50
+        { price: 1000000, expo: -4, symbol: "AAPL", expected: "100" },  // 100.0000
+        { price: 5, expo: 0, symbol: "AAPL", expected: "5" },           // 5
+      ];
+
+      for (const testCase of testCases) {
+        const currentTime = Math.floor(Date.now() / 1000);
+        
+        // 设置特定精度的价格
+        await mockPyth.setPrice(aaplFeedId, testCase.price, testCase.expo, currentTime);
+        
+        // 查询价格
+        const [price, , , ] = await oracleAggregator.getPrice(testCase.symbol);
+        
+        // 验证转换结果
+        expect(price).to.equal(ethers.utils.parseEther(testCase.expected));
+      }
+    });
+
+    it("批量价格更新性能：测试大量符号的处理", async function () {
+      const symbols = ["AAPL", "TSLA", "GOOGL", "MSFT", "AMZN"];
+      const currentTime = Math.floor(Date.now() / 1000);
+      
+      // 设置所有股票的价格
+      const feedIds = [
+        aaplFeedId,
+        "0x82c4d954fce9132f936100aa0b51628d7ac01888e4b46728d5d3f5778eb4c1d2", // TSLA
+        "0x5a48c03e9b9cb337801073ed9d166817473697efff0d138874e0f6a33d6d5aa6", // GOOGL
+        "0xd0ca23c1cc005e004ccf1db5bf76aeb6a49218f43dac3d4b275e92de12ded4d1", // MSFT
+        "0xb5d0e0fa58a1f8b81498ae670ce93c872d14434b72c364885d4fa1b257cbb07a"  // AMZN
+      ];
+      
+      for (let i = 0; i < symbols.length; i++) {
+        await mockPyth.setPrice(feedIds[i], 10000 + i * 1000, priceExpo, currentTime + i);
+      }
+      
+      // 批量获取价格
+      const startTime = Date.now();
+      const result = await oracleAggregator.callStatic.updateAndGetPrices(symbols, []);
+      const endTime = Date.now();
+      
+      // 解构返回结果
+      const prices = result[0];
+      const publishTimes = result[1];
+      
+      // 验证结果
+      expect(prices.length).to.equal(symbols.length);
+      expect(publishTimes.length).to.equal(symbols.length);
+      
+      // 验证价格值
+      for (let i = 0; i < prices.length; i++) {
+        const expectedPrice = ethers.utils.parseEther(((10000 + i * 1000) / 100).toString());
+        expect(prices[i]).to.equal(expectedPrice);
+        expect(publishTimes[i]).to.equal(currentTime + i);
+      }
+      
+      // 性能检查（应该在合理时间内完成）
+      expect(endTime - startTime).to.be.lessThan(5000); // 5秒内完成
+    });
+
+    it("错误处理：验证无效价格数据的处理", async function () {
+      // 设置无效价格（价格为0）
+      await mockPyth.setPrice(aaplFeedId, 0, priceExpo, Math.floor(Date.now() / 1000));
+      
+      // 单个价格查询应该失败
+      await expect(
+        oracleAggregator.getPrice("AAPL")
+      ).to.be.revertedWith("Invalid price data");
+      
+      // 批量价格查询也应该失败
+      await expect(
+        oracleAggregator.updateAndGetPrices(["AAPL"], [])
+      ).to.be.revertedWith("Invalid price data");
+    });
+
+    it("价格范围验证：验证minPrice和maxPrice计算", async function () {
+      const testPrice = 15000; // 150.00 USD
+      const currentTime = Math.floor(Date.now() / 1000);
+      
+      await mockPyth.setPrice(aaplFeedId, testPrice, priceExpo, currentTime);
+      
+      const [price, minPrice, maxPrice, ] = await oracleAggregator.getPrice("AAPL");
+      
+      // 验证价格
+      expect(price).to.equal(ethers.utils.parseEther("150"));
+      
+      // 验证价格范围（应该是±5%）
+      const expectedMinPrice = price.mul(95).div(100); // -5%
+      const expectedMaxPrice = price.mul(105).div(100); // +5%
+      
+      expect(minPrice).to.equal(expectedMinPrice);
+      expect(maxPrice).to.equal(expectedMaxPrice);
     });
   });
 

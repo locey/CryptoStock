@@ -54,8 +54,9 @@ contract OracleAggregator is Ownable {
         emit FeedIdRemoved(symbol);
     }
 
-    /// @notice 根据股票符号查询价格（安全版本）
-    /// @dev 需要先调用 updatePriceFeeds 更新价格，然后查询
+    /// @notice 根据股票符号查询价格（仅查询版本）
+    /// @dev 只查询已缓存的价格，不会更新。推荐使用 updateAndGetPrices 获取最新价格
+    /// @dev 警告：此函数返回的可能不是最新价格，仅用于查询已缓存的价格数据
     function getPrice(string memory symbol) external view returns (
         uint256 price, 
         uint256 minPrice, 
@@ -65,26 +66,97 @@ contract OracleAggregator is Ownable {
         bytes32 feedId = symbolToFeedId[symbol];
         require(feedId != bytes32(0), "Price feed not found for symbol");
         
-        // 使用安全的价格查询方法，会验证价格的有效性和时效性
-        // 注意，这里存在严重的安全隐患，pyth并不是实时更新价格，需要客户端或者后端去对接pythSDK，调用updatePriceFeeds方法来更新链上价格
+        // 获取缓存的价格数据（可能不是最新的）
+        // 要获取最新价格，请使用 updateAndGetPrices 函数
         PythStructs.Price memory p = pyth.getPriceUnsafe(feedId);
         require(p.price > 0, "Invalid price data");
         
-        // 转换为 18 位小数精度的正数
-        uint256 basePrice;
-        if (p.expo >= 0) {
-            basePrice = uint256(uint64(p.price)) * (10 ** uint256(int256(p.expo)));
-        } else {
-            basePrice = uint256(uint64(p.price)) / (10 ** uint256(-int256(p.expo)));
-        }
+        // 动态转换为 18 位小数精度
+        // Pyth价格格式：price * 10^expo = 实际价格
+        // 我们需要转换为：实际价格 * 10^18
         
-        // 调整到 18 位小数精度
-        price = basePrice * 1e18 / 1e8; // 假设 Pyth 价格是 8 位小数
+        uint256 absPrice = uint256(uint64(p.price)); // 确保为正数
+        
+        if (p.expo >= 0) {
+            // expo >= 0: price已经是整数，需要乘以10^expo，然后再乘以10^18
+            price = absPrice * (10 ** uint256(int256(p.expo))) * 1e18;
+        } else {
+            // expo < 0: price需要除以10^(-expo)来得到实际价格，然后乘以10^18
+            // 为了避免精度丢失，我们重新排列计算顺序
+            int256 negExpo = -int256(p.expo);
+            if (negExpo >= 18) {
+                // 如果负指数大于等于18，结果会很小
+                price = absPrice * 1e18 / (10 ** uint256(negExpo));
+            } else {
+                // 如果负指数小于18，我们可以优化计算避免精度丢失
+                uint256 adjustment = 18 - uint256(negExpo);
+                price = absPrice * (10 ** adjustment);
+            }
+        }
         
         // 简单设置最小最大价格（可以根据需要调整）
         minPrice = price * 95 / 100; // -5%
         maxPrice = price * 105 / 100; // +5%
         publishTime = p.publishTime;
+    }
+    
+    /// @notice 更新并获取单个股票的最新价格
+    /// @param symbol 股票符号
+    /// @param updateData 价格更新数据
+    /// @return price 转换为18位小数的价格
+    /// @return minPrice 最小价格（-5%）
+    /// @return maxPrice 最大价格（+5%）
+    /// @return publishTime 发布时间
+    function updateAndGetPrice(
+        string memory symbol,
+        bytes[] calldata updateData
+    ) external payable returns (
+        uint256 price,
+        uint256 minPrice,
+        uint256 maxPrice,
+        uint256 publishTime
+    ) {
+        // 1. 更新链上价格
+        uint fee = pyth.getUpdateFee(updateData);
+        require(msg.value >= fee, "Insufficient fee");
+        pyth.updatePriceFeeds{value: fee}(updateData);
+        
+        // 2. 获取最新价格
+        bytes32 feedId = symbolToFeedId[symbol];
+        require(feedId != bytes32(0), "Price feed not found for symbol");
+        
+        PythStructs.Price memory p = pyth.getPriceUnsafe(feedId);
+        require(p.price > 0, "Invalid price data");
+        
+        // 动态转换为 18 位小数精度
+        uint256 absPrice = uint256(uint64(p.price)); // 确保为正数
+        
+        if (p.expo >= 0) {
+            // expo >= 0: price已经是整数，需要乘以10^expo，然后再乘以10^18
+            price = absPrice * (10 ** uint256(int256(p.expo))) * 1e18;
+        } else {
+            // expo < 0: price需要除以10^(-expo)来得到实际价格，然后乘以10^18
+            // 为了避免精度丢失，我们重新排列计算顺序
+            int256 negExpo = -int256(p.expo);
+            if (negExpo >= 18) {
+                // 如果负指数大于等于18，结果会很小
+                price = absPrice * 1e18 / (10 ** uint256(negExpo));
+            } else {
+                // 如果负指数小于18，我们可以优化计算避免精度丢失
+                uint256 adjustment = 18 - uint256(negExpo);
+                price = absPrice * (10 ** adjustment);
+            }
+        }
+        
+        // 简单设置最小最大价格（可以根据需要调整）
+        minPrice = price * 95 / 100; // -5%
+        maxPrice = price * 105 / 100; // +5%
+        publishTime = p.publishTime;
+        
+        // 返还多余的费用
+        if (msg.value > fee) {
+            payable(msg.sender).transfer(msg.value - fee);
+        }
     }
     
     /// @notice 更新价格数据（在查询价格前调用）
@@ -134,15 +206,26 @@ contract OracleAggregator is Ownable {
             PythStructs.Price memory p = pyth.getPriceUnsafe(feedId);
             require(p.price > 0, "Invalid price data");
             
-            // 转换价格
-            uint256 basePrice;
+            // 动态转换为 18 位小数精度（与getPrice函数保持一致）
+            uint256 absPrice = uint256(uint64(p.price)); // 确保为正数
+            
             if (p.expo >= 0) {
-                basePrice = uint256(uint64(p.price)) * (10 ** uint256(int256(p.expo)));
+                // expo >= 0: price已经是整数，需要乘以10^expo，然后再乘以10^18
+                prices[i] = absPrice * (10 ** uint256(int256(p.expo))) * 1e18;
             } else {
-                basePrice = uint256(uint64(p.price)) / (10 ** uint256(-int256(p.expo)));
+                // expo < 0: price需要除以10^(-expo)来得到实际价格，然后乘以10^18
+                // 为了避免精度丢失，我们重新排列计算顺序
+                int256 negExpo = -int256(p.expo);
+                if (negExpo >= 18) {
+                    // 如果负指数大于等于18，结果会很小
+                    prices[i] = absPrice * 1e18 / (10 ** uint256(negExpo));
+                } else {
+                    // 如果负指数小于18，我们可以优化计算避免精度丢失
+                    uint256 adjustment = 18 - uint256(negExpo);
+                    prices[i] = absPrice * (10 ** adjustment);
+                }
             }
             
-            prices[i] = basePrice * 1e18 / 1e8;
             publishTimes[i] = p.publishTime;
         }
         
