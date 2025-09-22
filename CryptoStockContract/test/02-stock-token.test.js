@@ -374,7 +374,14 @@ describe("StockToken - 股票代币合约测试", function () {
             { value: fee }
           );
           const receipt = await tx.wait();
-          console.log(`⛽ Gas 使用: ${receipt.gasUsed.toString()}`);
+          
+          // 详细的 Gas 使用情况统计，调用一次 大概花费 0.5分钱 人民币
+          console.log("\n💰 调用方法: updateAndGetPrice");
+          console.log(`- Gas价格: ${ethers.utils.formatUnits(tx.gasPrice, "gwei")} gwei`);
+          console.log(`- Gas用量: ${receipt.gasUsed.toString()}`);
+          console.log(`- 实际费用: ${ethers.utils.formatEther(receipt.gasUsed.mul(tx.gasPrice))} ETH`);
+          console.log(`- 更新费用: ${ethers.utils.formatEther(fee)} ETH`);
+          console.log(`- 总费用: ${ethers.utils.formatEther(receipt.gasUsed.mul(tx.gasPrice).add(fee))} ETH`);
           
           // 验证价格
           const price = await stockToken.getStockPrice();
@@ -420,11 +427,20 @@ describe("StockToken - 股票代币合约测试", function () {
           
           // 3. 使用 updateAndGetPrice 更新价格数据
           console.log("🔄 调用 updateAndGetPrice 更新价格...");
-          await oracleAggregator.updateAndGetPrice(
+          const updateTx = await oracleAggregator.updateAndGetPrice(
             "AAPL",
             updateData,
             { value: fee }
           );
+          const updateReceipt = await updateTx.wait();
+          
+          // 详细的 Gas 使用情况统计
+          console.log("\n💰 调用方法: updateAndGetPrice");
+          console.log(`- Gas价格: ${ethers.utils.formatUnits(updateTx.gasPrice, "gwei")} gwei`);
+          console.log(`- Gas用量: ${updateReceipt.gasUsed.toString()}`);
+          console.log(`- 实际费用: ${ethers.utils.formatEther(updateReceipt.gasUsed.mul(updateTx.gasPrice))} ETH`);
+          console.log(`- 更新费用: ${ethers.utils.formatEther(fee)} ETH`);
+          console.log(`- 总费用: ${ethers.utils.formatEther(updateReceipt.gasUsed.mul(updateTx.gasPrice).add(fee))} ETH`);
           
           // 4. 获取完整的价格信息验证时间戳
           console.log("📊 获取更新后的价格信息...");

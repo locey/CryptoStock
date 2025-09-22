@@ -34,9 +34,9 @@ contract StockToken is
     string public stockSymbol;
     
     // 交易参数
-    uint256 public minTradeAmount = 1e6; // 最小交易金额 1 USDT (6 decimals)
-    uint256 public maxSlippage = 300; // 最大滑点 3% (基点表示)
-    uint256 public tradeFeeRate = 30; // 交易手续费 0.3% (基点表示)
+    uint256 public minTradeAmount ; // 最小交易金额 1 USDT (6 decimals)
+    uint256 public maxSlippage ; // 最大滑点 3% (基点表示)
+    uint256 public tradeFeeRate ; // 交易手续费 0.3% (基点表示)
     address public feeReceiver; // 手续费接收地址
     
     // 事件
@@ -68,6 +68,11 @@ contract StockToken is
         oracleAggregator = OracleAggregator(oracleAggregator_);
         usdtToken = IERC20(usdtToken_);
         feeReceiver = owner_; // 默认手续费接收者为owner
+        
+        // 设置默认交易参数
+        minTradeAmount = 1e6; // 最小交易金额 1 USDT (6 decimals)
+        maxSlippage = 300; // 最大滑点 3% (基点表示)
+        tradeFeeRate = 30; // 交易手续费 0.3% (基点表示)
         
         // 🔥 关键改进：代币分配给owner而不是合约
         _mint(owner_, initialSupply_);
