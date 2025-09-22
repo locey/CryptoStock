@@ -3,7 +3,7 @@ package config
 import (
 	"strings"
 
-	"github.com/locey/CryptoStock/StockCoinBase/evm/erc"
+	//"github.com/locey/CryptoStock/StockCoinBase/evm/erc"
 	//"github.com/locey/CryptoStock/StockCoinBase/image"
 	logging "github.com/locey/CryptoStock/StockCoinBase/logger"
 	"github.com/locey/CryptoStock/StockCoinBase/stores/gdb"
@@ -15,9 +15,9 @@ type Config struct {
 	ProjectCfg *ProjectCfg     `toml:"project_cfg" mapstructure:"project_cfg" json:"project_cfg"`
 	Log        logging.LogConf `toml:"log" json:"log"`
 	//ImageCfg       *image.Config     `toml:"image_cfg" mapstructure:"image_cfg" json:"image_cfg"`
-	DB             gdb.Config        `toml:"db" json:"db"`
-	Kv             *KvConf           `toml:"kv" json:"kv"`
-	Evm            *erc.NftErc       `toml:"evm" json:"evm"`
+	DB gdb.Config `toml:"db" json:"db"`
+	Kv *KvConf    `toml:"kv" json:"kv"`
+	//Evm            *erc.NftErc       `toml:"evm" json:"evm"`
 	MetadataParse  *MetadataParse    `toml:"metadata_parse" mapstructure:"metadata_parse" json:"metadata_parse"`
 	ChainSupported []*ChainSupported `toml:"chain_supported" mapstructure:"chain_supported" json:"chain_supported"`
 }

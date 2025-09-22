@@ -12,7 +12,7 @@ import (
 
 const (
 	// port       = ":9000"
-	repoRoot          = ""
+	//repoRoot          = ""
 	defaultConfigPath = "./config/config.toml"
 )
 

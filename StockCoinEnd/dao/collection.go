@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/locey/CryptoStock/StockCoinBase/ordermanager"
+	//"github.com/locey/CryptoStock/StockCoinBase/ordermanager"
 	"github.com/locey/CryptoStock/StockCoinBase/stores/gdb/orderbookmodel/multi"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
@@ -420,26 +420,26 @@ func (d *Dao) QueryCollectionsListed(ctx context.Context, chain string, collecti
 		return collectionsListed, nil
 	}
 
-	for _, address := range collectionAddrs {
-		count, err := d.KvStore.GetInt(ordermanager.GenCollectionListedKey(chain, address))
-		if err != nil {
-			return nil, errors.Wrap(err, "failed on set collection listed count")
-		}
-		collectionsListed = append(collectionsListed, types.CollectionListed{
-			CollectionAddr: address,
-			Count:          count,
-		})
-	}
+	// for _, address := range collectionAddrs {
+	// 	count, err := d.KvStore.GetInt(ordermanager.GenCollectionListedKey(chain, address))
+	// 	if err != nil {
+	// 		return nil, errors.Wrap(err, "failed on set collection listed count")
+	// 	}
+	// 	collectionsListed = append(collectionsListed, types.CollectionListed{
+	// 		CollectionAddr: address,
+	// 		Count:          count,
+	// 	})
+	// }
 
 	return collectionsListed, nil
 }
 
 // CacheCollectionsListed 缓存集合的上架数量
 func (d *Dao) CacheCollectionsListed(ctx context.Context, chain string, collectionAddr string, listedCount int) error {
-	err := d.KvStore.SetInt(ordermanager.GenCollectionListedKey(chain, collectionAddr), listedCount)
-	if err != nil {
-		return errors.Wrap(err, "failed on set collection listed count")
-	}
+	// err := d.KvStore.SetInt(ordermanager.GenCollectionListedKey(chain, collectionAddr), listedCount)
+	// if err != nil {
+	// 	return errors.Wrap(err, "failed on set collection listed count")
+	// }
 
 	return nil
 }

@@ -7,9 +7,10 @@ import (
 	"sync"
 
 	"github.com/locey/CryptoStock/StockCoinBase/errcode"
-	"github.com/locey/CryptoStock/StockCoinBase/evm/eip"
+	//"github.com/locey/CryptoStock/StockCoinBase/evm/eip"
 	"github.com/locey/CryptoStock/StockCoinBase/logger/xzap"
-	"github.com/locey/CryptoStock/StockCoinBase/ordermanager"
+
+	//"github.com/locey/CryptoStock/StockCoinBase/ordermanager"
 	"github.com/locey/CryptoStock/StockCoinBase/stores/gdb/orderbookmodel/multi"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
@@ -565,31 +566,32 @@ func GetHistorySalesPrice(ctx context.Context, svcCtx *svc.ServerCtx, chain, col
 
 // GetItemOwner 获取NFT Item的所有者信息
 func GetItemOwner(ctx context.Context, svcCtx *svc.ServerCtx, chainID int64, chain, collectionAddr, tokenID string) (*types.ItemOwner, error) {
-	// 从链上获取NFT所有者地址
-	address, err := svcCtx.NodeSrvs[chainID].FetchNftOwner(collectionAddr, tokenID)
-	if err != nil {
-		xzap.WithContext(ctx).Error("failed on fetch nft owner onchain", zap.Error(err))
-		return nil, errcode.ErrUnexpected
-	}
+	// // 从链上获取NFT所有者地址
+	// address, err := svcCtx.NodeSrvs[chainID].FetchNftOwner(collectionAddr, tokenID)
+	// if err != nil {
+	// 	xzap.WithContext(ctx).Error("failed on fetch nft owner onchain", zap.Error(err))
+	// 	return nil, errcode.ErrUnexpected
+	// }
 
-	// 将地址转换为校验和格式
-	owner, err := eip.ToCheckSumAddress(address.String())
-	if err != nil {
-		xzap.WithContext(ctx).Error("invalid address", zap.Error(err), zap.String("address", address.String()))
-		return nil, errcode.ErrUnexpected
-	}
+	// // 将地址转换为校验和格式
+	// owner, err := eip.ToCheckSumAddress(address.String())
+	// if err != nil {
+	// 	xzap.WithContext(ctx).Error("invalid address", zap.Error(err), zap.String("address", address.String()))
+	// 	return nil, errcode.ErrUnexpected
+	// }
 
-	// 更新数据库中的所有者信息
-	if err := svcCtx.Dao.UpdateItemOwner(ctx, chain, collectionAddr, tokenID, owner); err != nil {
-		xzap.WithContext(ctx).Error("failed on update item owner", zap.Error(err), zap.String("address", address.String()))
-	}
+	// // 更新数据库中的所有者信息
+	// if err := svcCtx.Dao.UpdateItemOwner(ctx, chain, collectionAddr, tokenID, owner); err != nil {
+	// 	xzap.WithContext(ctx).Error("failed on update item owner", zap.Error(err), zap.String("address", address.String()))
+	// }
 
 	// 返回NFT所有者信息
-	return &types.ItemOwner{
-		CollectionAddress: collectionAddr,
-		TokenID:           tokenID,
-		Owner:             owner,
-	}, nil
+	// return &types.ItemOwner{
+	// 	CollectionAddress: collectionAddr,
+	// 	TokenID:           tokenID,
+	// 	Owner:             owner,
+	// }, nil
+	return &types.ItemOwner{}, nil
 }
 
 // GetItemTraits 获取NFT的 Trait信息
@@ -732,15 +734,15 @@ func GetCollectionDetail(ctx context.Context, svcCtx *svc.ServerCtx, chain strin
 	}
 
 	// 如果地板价发生变化,更新价格事件
-	if !floorPrice.Equal(collection.FloorPrice) {
-		if err := ordermanager.AddUpdatePriceEvent(svcCtx.KvStore, &ordermanager.TradeEvent{
-			EventType:      ordermanager.UpdateCollection,
-			CollectionAddr: collectionAddr,
-			Price:          floorPrice,
-		}, chain); err != nil {
-			xzap.WithContext(ctx).Error("failed on update floor price", zap.Error(err))
-		}
-	}
+	// if !floorPrice.Equal(collection.FloorPrice) {
+	// 	if err := ordermanager.AddUpdatePriceEvent(svcCtx.KvStore, &ordermanager.TradeEvent{
+	// 		EventType:      ordermanager.UpdateCollection,
+	// 		CollectionAddr: collectionAddr,
+	// 		Price:          floorPrice,
+	// 	}, chain); err != nil {
+	// 		xzap.WithContext(ctx).Error("failed on update floor price", zap.Error(err))
+	// 	}
+	// }
 
 	// 获取24小时交易量和销售数量
 	var volume24h decimal.Decimal
