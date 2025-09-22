@@ -1,7 +1,7 @@
 package svc
 
 import (
-	"github.com/locey/CryptoStock/StockCoinBase/evm/erc"
+	//"github.com/locey/CryptoStock/StockCoinBase/evm/erc"
 	//"github.com/locey/CryptoStock/StockCoinBase/image"
 	"github.com/locey/CryptoStock/StockCoinBase/stores/xkv"
 	"gorm.io/gorm"
@@ -14,7 +14,7 @@ type CtxConfig struct {
 	//imageMgr image.ImageManager
 	dao     *dao.Dao
 	KvStore *xkv.Store
-	Evm     erc.Erc
+	//Evm     erc.Erc
 }
 
 type CtxOption func(conf *CtxConfig)

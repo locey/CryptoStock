@@ -1,0 +1,56 @@
+[project_cfg]
+name = "StockCoin"
+
+[api]
+port = ":80"
+max_num = 500
+
+[log]
+compress = false
+leep_days = 7
+level = "info"
+mode = "console"
+path = "logs/v1-end"
+service_name = "v1-end"
+
+[[kv.redis]]
+pass = ""
+host = "127.0.0.1:6379"
+type = "node"
+
+[db]
+database = "cryptostock"
+password = "root"
+port = 3306 #4000
+max_open_conns = 1500
+host = "127.0.0.1"
+log_level = "info"
+max_conn_max_lifetime = 300
+user = "root"
+max_idle_conns = 10
+
+[[chain_supported]]
+name="sepolia"
+chain_id=11155111
+endpoint = "https://rpc.ankr.com/eth_sepolia"
+
+[easyswap_market]
+apikey = ""
+name = "EasySwap"
+version= "1"
+contract= "0x1466ceE9XXXXXXXXXXXXXXXXXXXcD4"
+fee=100
+
+[image_cfg]
+valid_file_type = [".jpeg", ".gif", ".png", ".mp4", ".jpg", ".glb", ".gltf", ".mp3", ".wav", ".svg"]
+time_out = 40
+public_ipfs_gateways = ["https://gateway.pinata.cloud/ipfs/","https://cf-ipfs.com/ipfs/","https://ipfs.infura.io/ipfs/","https://ipfs.pixura.io/ipfs/","https://ipfs.io/ipfs/","https://www.via0.com/ipfs/"]
+local_ipfs_gateways = ["https://gateway.pinata.cloud/ipfs/","https://cf-ipfs.com/ipfs/","https://ipfs.infura.io/ipfs/","https://ipfs.pixura.io/ipfs/","https://ipfs.io/ipfs/","https://www.via0.com/ipfs/"]
+default_oss_uri = "https://test.easyswap.link/"
+
+[metadata_parse]
+name_tags = ["name", "title"]
+image_tags = ["image", "image_url", "animation_url", "media_url", "image_data", "imageUrl"]
+attributes_tags = ["attributes", "properties", "attribute"]
+trait_name_tags = ["trait_type"]
+trait_value_tags = ["value"]
