@@ -268,8 +268,17 @@ describe("TokenFactory - 代币工厂合约测试", function () {
       // 部署新的预言机合约用于测试更新
       const mockPythAddress = "0x4305FB66699C3B2702D4d05CF36551390A4c69C6";
       const OracleAggregator = await ethers.getContractFactory("OracleAggregator");
-      newOracleAggregator = await OracleAggregator.deploy(mockPythAddress);
-      await newOracleAggregator.deployed();
+      
+      // 使用代理模式部署
+      const ERC1967Proxy = await ethers.getContractFactory("ERC1967Proxy");
+      const implementation = await OracleAggregator.deploy();
+      await implementation.deployed();
+      
+      const initData = OracleAggregator.interface.encodeFunctionData("initialize", [mockPythAddress]);
+      const proxy = await ERC1967Proxy.deploy(implementation.address, initData);
+      await proxy.deployed();
+      
+      newOracleAggregator = OracleAggregator.attach(proxy.address);
     });
 
     it("owner 应该能更新预言机地址", async function () {

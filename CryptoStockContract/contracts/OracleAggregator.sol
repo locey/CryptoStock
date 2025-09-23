@@ -3,9 +3,11 @@ pragma solidity ^0.8.20;
 
 import "@pythnetwork/pyth-sdk-solidity/IPyth.sol";
 import "@pythnetwork/pyth-sdk-solidity/PythStructs.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
-contract OracleAggregator is Ownable {
+contract OracleAggregator is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     IPyth public pyth;
     
     // 股票符号 => Pyth Feed ID 映射
@@ -18,9 +20,19 @@ contract OracleAggregator is Ownable {
     event FeedIdUpdated(string indexed symbol, bytes32 feedId);
     event FeedIdRemoved(string indexed symbol);
 
-    constructor(address pythContract) Ownable(msg.sender) {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(address pythContract) public initializer {
+        __Ownable_init(msg.sender);
+        __UUPSUpgradeable_init();
         pyth = IPyth(pythContract);
     }
+
+    // UUPS升级授权
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     // 设置股票符号对应的 Feed ID
     function setFeedId(string memory symbol, bytes32 feedId) external onlyOwner {

@@ -40,8 +40,8 @@ contract StockToken is
     address public feeReceiver; // 手续费接收地址
     
     // 事件
-    event TokenPurchased(address indexed buyer, uint256 usdtAmount, uint256 tokenAmount, uint256 price);
-    event TokenSold(address indexed seller, uint256 tokenAmount, uint256 usdtAmount, uint256 price);
+    event TokenPurchased(address indexed buyer, string indexed stockSymbol, uint256 usdtAmount, uint256 tokenAmount, uint256 price);
+    event TokenSold(address indexed seller, string indexed stockSymbol, uint256 tokenAmount, uint256 usdtAmount, uint256 price);
     event ParameterUpdated(string indexed parameter, uint256 oldValue, uint256 newValue);
     event EmergencyWithdraw(address indexed token, address indexed to, uint256 amount);
 
@@ -147,7 +147,7 @@ contract StockToken is
             _transfer(address(this), feeReceiver, feeAmount);
         }
 
-        emit TokenPurchased(msg.sender, usdtAmount, tokenAmount, stockPrice);
+        emit TokenPurchased(msg.sender, stockSymbol, usdtAmount, tokenAmount, stockPrice);
     }
 
     /**
@@ -207,7 +207,7 @@ contract StockToken is
             );
         }
 
-        emit TokenSold(msg.sender, tokenAmount, usdtAmount, stockPrice);
+        emit TokenSold(msg.sender, stockSymbol, tokenAmount, usdtAmount, stockPrice);
     }
 
     /**

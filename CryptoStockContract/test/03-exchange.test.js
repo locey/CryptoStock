@@ -362,7 +362,7 @@ describe("Exchange - 股票交易所功能测试", function () {
       
       await expect(tx)
         .to.emit(aaplToken, "TokenPurchased")
-        .withArgs(userA.address, buyAmount, actualTokensReceived, await aaplToken.getStockPrice());
+        .withArgs(userA.address, "AAPL", buyAmount, actualTokensReceived, await aaplToken.getStockPrice());
       
       console.log("\n📈 === 交易结果统计 ===");
       console.log(`🏦 交易后用户USDT余额: ${ethers.utils.formatUnits(finalUsdtBalance, 6)} USDT`);
@@ -668,7 +668,7 @@ describe("Exchange - 股票交易所功能测试", function () {
       
       await expect(tx)
         .to.emit(aaplToken, "TokenSold")
-        .withArgs(userA.address, sellAmount, estimatedUsdt, await aaplToken.getStockPrice());
+        .withArgs(userA.address, "AAPL", sellAmount, estimatedUsdt, await aaplToken.getStockPrice());
       
       // 验证余额变化
       const finalUsdtBalance = await usdtToken.balanceOf(userA.address);

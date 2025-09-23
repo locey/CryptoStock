@@ -1,5 +1,5 @@
 require("@nomicfoundation/hardhat-toolbox");
-require("hardhat-deploy");
+require("@nomicfoundation/hardhat-ethers");
 require("@openzeppelin/hardhat-upgrades");
 require("dotenv").config();
 
@@ -41,27 +41,10 @@ module.exports = {
         process.env.PRIVATE_KEY_4
       ].filter(key => key !== undefined), // 过滤掉未定义的私钥
       chainId: 11155111,
-      gas: 3000000,
-      gasPrice: "auto",
+      gas: 5000000, // 5M gas limit (正常水平)
+      gasPrice: 2000000000, // 2 Gwei (正常水平，Sepolia测试网)
+      timeout: 300000, // 5分钟超时
     }
-  },
-  
-  // hardhat-deploy 配置
-  namedAccounts: {
-    deployer: {
-      default: 0, // 默认使用第一个账户作为部署者
-      1: 0, // mainnet 上使用第一个账户
-      11155111: 0, // sepolia 上使用第一个账户
-    },
-    user1: {
-      default: 1, // 默认使用第二个账户作为用户1
-    },
-    user2: {
-      default: 2, // 默认使用第三个账户作为用户2
-    },
-    user3: {
-      default: 3, // 默认使用第四个账户作为用户3
-    },
   },
 
   // Etherscan 验证配置
@@ -78,7 +61,5 @@ module.exports = {
     tests: "./test",
     cache: "./cache",
     artifacts: "./artifacts",
-    deploy: "./deploy",
-    deployments: "./deployments",
   },
 };
