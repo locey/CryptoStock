@@ -54,4 +54,9 @@ func loadV1(r *gin.Engine, svcCtx *svc.ServerCtx) {
 	{
 		orders.GET("", v1.OrderInfosHandler(svcCtx)) // 批量查询出价信息
 	}
+
+	stocks := apiV1.Group("/stocks")
+	{
+		stocks.GET("", v1.GetStockList) // 批量获取activity信息
+	}
 }
