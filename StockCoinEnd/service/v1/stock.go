@@ -57,7 +57,7 @@ func GetStockList(codes []string) ([]StockSummary, error) {
 }
 
 // 定时获取股票信息
-func StartStockDataPoller(interval time.Duration) {
+func StartStockDataPoller(ctx *svc.ServerCtx, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -65,7 +65,7 @@ func StartStockDataPoller(interval time.Duration) {
 		select {
 		case <-ticker.C:
 			log.Println("开始更新股票数据...")
-			updateStockData()
+			updateStockData(ctx)
 		}
 	}
 }
@@ -120,7 +120,7 @@ func Init(ctx *svc.ServerCtx) {
 	ctx.Dao.BatchCreate(stocks)
 }
 
-func updateStockData() {
+func updateStockData(serverCtx *svc.ServerCtx) {
 	client := &http.Client{Timeout: timeout}
 	stockCodes := strings.Split(companies, ",")
 
@@ -142,7 +142,10 @@ func updateStockData() {
 
 	for res := range results {
 		if res.Ticker != "" && res.CurrentPrice > 0 {
-			summary[res.Ticker] = res
+			err := serverCtx.Dao.UpdateStockSummary(res.Ticker, res.AvgGain, res.AvgGainPercent, res.AvgVolume, res.CurrentPrice)
+			if err != nil {
+				log.Println("UpdateStockSummary error: %v", err)
+			}
 		}
 	}
 }
