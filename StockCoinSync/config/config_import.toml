@@ -1,5 +1,5 @@
 [project_cfg]
-name = "OrderBookDex"
+name = "CryptoStockSync"
 
 [monitor]
 pprof_enable = true
@@ -11,17 +11,17 @@ leep_days = 7
 level = "info"
 mode = "console"
 path = "logs/relayer"
-service_name = "easyswap-sync"
+service_name = "cryptostock-sync"
 
 [db]
-database = "easyswap"
-password = "easypasswd"
+database = "cryptostock"
+password = "root"
 port = 3306
 max_open_conns = 1500
 host = "127.0.0.1"
 log_level = "info"
 max_conn_max_lifetime = 300
-user = "easyuser"
+user = "root"
 max_idle_conns = 10
 
 [kv]

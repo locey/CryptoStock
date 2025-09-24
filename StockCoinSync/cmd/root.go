@@ -59,7 +59,7 @@ func initConfig() {
 	}
 	viper.AutomaticEnv() // 读取匹配的环境变量
 	viper.SetConfigType("toml")
-	viper.SetEnvPrefix("EasySwap")
+	viper.SetEnvPrefix("CryptoStock")
 	replacer := strings.NewReplacer(".", "_")
 	viper.SetEnvKeyReplacer(replacer)
 	// 读取找到的配置文件

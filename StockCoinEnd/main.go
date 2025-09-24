@@ -3,11 +3,14 @@ package main
 import (
 	"flag"
 	_ "net/http/pprof"
+	"time"
 
 	"github.com/locey/CryptoStock/StockCoinEnd/api/router"
+	v1 "github.com/locey/CryptoStock/StockCoinEnd/api/v1"
 	"github.com/locey/CryptoStock/StockCoinEnd/app"
 	"github.com/locey/CryptoStock/StockCoinEnd/config"
 	"github.com/locey/CryptoStock/StockCoinEnd/service/svc"
+	"github.com/locey/CryptoStock/StockCoinEnd/service/v1"
 )
 
 const (
@@ -36,6 +39,10 @@ func main() {
 	}
 	// Initialize router
 	r := router.NewRouter(serverCtx)
+	// 启动每分钟轮询股票信息
+	go service.StartStockDataPoller(serverCtx, 1*time.Minute)
+	// 自动初始化一次股票数据，并且与代币绑定上
+	v1.Init(serverCtx)
 	app, err := app.NewPlatform(c, r, serverCtx)
 	if err != nil {
 		panic(err)

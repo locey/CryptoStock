@@ -135,7 +135,7 @@ func PKCS7Padding(ciphertext []byte, blocksize int) []byte {
 }
 
 func genLoginTemplate(nonce string) string {
-	return fmt.Sprintf("Welcome to EasySwap!\nNonce:%s", nonce)
+	return fmt.Sprintf("Welcome to CryptoStock!\nNonce:%s", nonce)
 }
 
 func GetUserLoginMsg(ctx context.Context, svcCtx *svc.ServerCtx, address string) (*types.UserLoginMsgResp, error) {

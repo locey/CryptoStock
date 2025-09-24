@@ -1,0 +1,34 @@
+{
+  "network": "sepolia",
+  "chainId": "11155111",
+  "deployer": "0x46b43ad9F6C20c400aC17a282022E578417F796A",
+  "contracts": {
+    "OracleAggregator": {
+      "proxy": "0x071304F5010BDdC9665c2666b6B930d7a60cf5bB",
+      "implementation": "0xAD5f281CDb7bc55Da007C88E1C828bF17Db3C573"
+    },
+    "TokenFactory": {
+      "proxy": "0xf5E1a44A68815fa627c1588e071fd089478aEB9C",
+      "implementation": "0x19b9493422e360d1EcbbF736A7BfFbb9eE6E7e40"
+    },
+    "StockTokenImplementation": "0x87374F34F562099053507Cbe6d1d5aBb6c8e77e3",
+    "USDT": "0xAd728799474E8606571EBaCa43A9A595d760f613"
+  },
+  "stockTokens": {
+    "AAPL": "0x794f86DD0958be85E99841A78e0f50F2C55C6ede",
+    "TSLA": "0xD2cFbcebc4ee17c721DFf7746E3dEAd85c83DD40",
+    "GOOGL": "0xe15f9419B7Cf542CBF77626F231606dF48a034F5",
+    "MSFT": "0x27fC3eB7631159ce14744CB84Dc4Cf5786CBd30d",
+    "AMZN": "0x7Ab79719005Eacf6Eb6da8e4aF0a35262a3fdaB2",
+    "NVDA": "0x6a44e4B79F0556Ff4e65546dB438F1322b29c54c"
+  },
+  "priceFeeds": {
+    "AAPL": "0x49f6b65cb1de6b10eaf75e7c03ca029c306d0357e91b5311b175084a5ad55688",
+    "TSLA": "0x82c4d954fce9132f936100aa0b51628d7ac01888e4b46728d5d3f5778eb4c1d2",
+    "GOOGL": "0x5a48c03e9b9cb337801073ed9d166817473697efff0d138874e0f6a33d6d5aa6",
+    "MSFT": "0xd0ca23c1cc005e004ccf1db5bf76aeb6a49218f43dac3d4b275e92de12ded4d1",
+    "AMZN": "0xb5d0e0fa58a1f8b81498ae670ce93c872d14434b72c364885d4fa1b257cbb07a",
+    "NVDA": "0xb1073854ed24cbc755dc527418f52b7d271f6cc967bbf8d8129112b18860a593"
+  },
+  "timestamp": "2025-09-24T06:58:39.826Z"
+}

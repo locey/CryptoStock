@@ -10,6 +10,9 @@ typechain-types/
 coverage/
 coverage.json
 
+# Development cache and temporary files
+.deps/
+
 # Hardhat deploy files
 deployments/localhost/
 deployments/hardhat/
@@ -20,6 +23,9 @@ deployments/hardhat/
 !deployments/sepolia/
 !deployments/polygon/
 !deployments/mumbai/
+
+# Keep ABI files for frontend integration
+!abi/
 
 # Dependency directories
 node_modules/

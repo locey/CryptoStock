@@ -64,4 +64,8 @@ func loadV1(r *gin.Engine, svcCtx *svc.ServerCtx) {
 		airdrop.GET("task/rank", v1.GetAirDropRanks(svcCtx))           // 领取空投排行
 		airdrop.GET("task/poolinfo", v1.GetAirDropPoolInfo(svcCtx))    // 领取空投排行
 	}
+	stocks := apiV1.Group("/stocks")
+	{
+		stocks.GET("", v1.GetStockList) // 批量获取activity信息
+	}
 }
