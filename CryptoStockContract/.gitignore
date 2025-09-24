@@ -24,6 +24,9 @@ deployments/hardhat/
 !deployments/polygon/
 !deployments/mumbai/
 
+# Keep ABI files for frontend integration
+!abi/
+
 # Dependency directories
 node_modules/
 

@@ -12,7 +12,9 @@
     "verify:sepolia": "hardhat run scripts/verify-contracts.js --network sepolia",
     "clean": "hardhat clean",
     "coverage": "hardhat coverage",
-    "verify": "hardhat verify"
+    "verify": "hardhat verify",
+    "extract-abi": "node scripts/extract-abi.js",
+    "build": "npm run compile && npm run extract-abi"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.1.0",
