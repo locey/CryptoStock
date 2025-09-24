@@ -1,10 +1,13 @@
 const { expect } = require("chai");
-const { ethers, deployments, network } = require("hardhat");
+const { ethers, network, upgrades } = require("hardhat");
 const { fetchUpdateData, fetchSingleUpdateData } = require("../utils/getPythUpdateData");
+const fs = require("fs");
+const path = require("path");
 
 describe("StockToken - 股票代币合约测试", function () {
   let tokenFactory;
   let stockToken;
+  let stockTokenImplementation;
   let oracleAggregator;
   let usdtToken;
   let mockPyth;
@@ -19,16 +22,16 @@ describe("StockToken - 股票代币合约测试", function () {
   console.log(`🌍 Sepolia 网络模式: ${isSepoliaNetwork}`);
 
   // 测试账户
-  const zeroAddress = ethers.constants.AddressZero;
+  const zeroAddress = ethers.ZeroAddress;
 
   // 代币参数 - 使用预设的AAPL股票代币
   const tokenName = "Apple Inc Stock Token";
   const tokenSymbol = "AAPL";
   const stockCode = "AAPL";
-  const initialSupply = ethers.utils.parseEther("1000000"); // 1,000,000 AAPL
+  const initialSupply = ethers.parseEther("1000000"); // 1,000,000 AAPL
 
   // 测试余额分配
-  const testAmount = ethers.utils.parseEther("1000"); // 1,000 AAPL for tests
+  const testAmount = ethers.parseEther("1000"); // 1,000 AAPL for tests
   const userAUSDT = 10000 * 10 ** 6; // 10,000 USDT (6 decimals)
   const userBUSDT = 5000 * 10 ** 6; // 5,000 USDT (6 decimals)
 
@@ -51,60 +54,146 @@ describe("StockToken - 股票代币合约测试", function () {
     console.log(`📝 UserA: ${userA.address}`);
     console.log(`📝 UserB: ${userB.address}`);
 
-    // 1. 获取已部署的合约（不重新部署）
-    console.log("📄 [STEP 1] 获取已部署的合约实例...");
-    
-    // 如果是本地网络，使用部署脚本
     if (isLocalNetwork) {
-      await deployments.fixture(["CryptoStockSystem"]);
-    }
+      // 本地网络：全新部署所有合约
+      console.log("🏠 [本地网络] 开始全新部署...");
 
-    // 获取合约实例
-    console.log("📄 [STEP 2] 获取部署的合约实例...");
-    
-    // 调试：查看所有已部署的合约
-    try {
-      const allDeployments = await deployments.all();
-      console.log("🔍 所有已部署的合约:");
-      for (const [name, deployment] of Object.entries(allDeployments)) {
-        console.log(`   ${name}: ${deployment.address}`);
-      }
-    } catch (error) {
-      console.log("❌ 无法获取部署列表:", error.message);
-    }
-    
-    const factoryDeployment = await deployments.get("TokenFactory");
-    tokenFactory = await ethers.getContractAt(
-      "TokenFactory",
-      factoryDeployment.address
-    );
-    console.log(`✅ 代币工厂获取完成: ${factoryDeployment.address}`);
+      // 1. 部署 MockPyth 合约
+      console.log("📄 [STEP 1] 部署 MockPyth 合约...");
+      const MockPyth = await ethers.getContractFactory("MockPyth");
+      mockPyth = await MockPyth.deploy();
+      await mockPyth.waitForDeployment();
+      const mockPythAddress = await mockPyth.getAddress();
+      console.log(`✅ MockPyth 部署完成: ${mockPythAddress}`);
 
-    const oracleDeployment = await deployments.get("OracleAggregator");
-    oracleAggregator = await ethers.getContractAt(
-      "OracleAggregator",
-      oracleDeployment.address
-    );
-    console.log(`✅ 预言机聚合器获取完成: ${oracleDeployment.address}`);
+      // 2. 部署 USDT 代币
+      console.log("📄 [STEP 2] 部署 USDT 代币...");
+      const MockERC20 = await ethers.getContractFactory("MockERC20");
+      usdtToken = await MockERC20.deploy("USD Tether", "USDT", 6);
+      await usdtToken.waitForDeployment();
+      const usdtAddress = await usdtToken.getAddress();
+      console.log(`✅ USDT 代币部署完成: ${usdtAddress}`);
 
-    const usdtDeployment = await deployments.get("MockERC20_USDT");
-    usdtToken = await ethers.getContractAt("MockERC20", usdtDeployment.address);
-    console.log(`✅ USDT 代币获取完成: ${usdtDeployment.address}`);
-
-    // MockPyth 只在本地网络中存在
-    if (isLocalNetwork) {
-      const mockPythDeployment = await deployments.get("MockPyth");
-      mockPyth = await ethers.getContractAt(
-        "MockPyth",
-        mockPythDeployment.address
+      // 3. 部署可升级的预言机聚合器
+      console.log("📄 [STEP 3] 部署预言机聚合器...");
+      const OracleAggregator = await ethers.getContractFactory("OracleAggregator");
+      oracleAggregator = await upgrades.deployProxy(
+        OracleAggregator,
+        [mockPythAddress],
+        { 
+          kind: 'uups',
+          initializer: 'initialize'
+        }
       );
-      console.log(`✅ MockPyth 获取完成: ${mockPythDeployment.address}`);
+      await oracleAggregator.waitForDeployment();
+      const oracleAddress = await oracleAggregator.getAddress();
+      console.log(`✅ 预言机聚合器部署完成: ${oracleAddress}`);
+
+      // 4. 部署 StockToken 实现合约
+      console.log("📄 [STEP 4] 部署 StockToken 实现合约...");
+      const StockToken = await ethers.getContractFactory("StockToken");
+      stockTokenImplementation = await StockToken.deploy();
+      await stockTokenImplementation.waitForDeployment();
+      const implementationAddress = await stockTokenImplementation.getAddress();
+      console.log(`✅ StockToken 实现合约部署完成: ${implementationAddress}`);
+
+      // 5. 部署 TokenFactory (可升级合约)
+      console.log("📄 [STEP 5] 部署 TokenFactory...");
+      const TokenFactory = await ethers.getContractFactory("TokenFactory");
+      tokenFactory = await upgrades.deployProxy(
+        TokenFactory,
+        [oracleAddress, implementationAddress, usdtAddress],
+        { 
+          kind: 'uups',
+          initializer: 'initialize'
+        }
+      );
+      await tokenFactory.waitForDeployment();
+      const factoryAddress = await tokenFactory.getAddress();
+      console.log(`✅ TokenFactory 部署完成: ${factoryAddress}`);
+
+      // 6. 设置 MockPyth 的初始价格数据
+      console.log("📄 [STEP 6] 设置价格数据...");
+      await mockPyth.setPrice(
+        aaplFeedId,
+        priceNormal,
+        priceExpo,
+        Math.floor(Date.now() / 1000)
+      );
+      console.log(`✅ AAPL 价格设置完成: ${priceNormal / 100} USD`);
+
+            // 6.1 配置预言机聚合器支持股票符号
+      console.log("📄 [STEP 6.1] 配置预言机聚合器支持股票符号...");
+      // 设置AAPL符号的Feed ID映射
+      await oracleAggregator.setFeedId(tokenSymbol, aaplFeedId);
+      console.log(`✅ ${tokenSymbol} 符号Feed ID配置完成`);
+
+      // 配置其他股票符号用于测试
+      const tslaPriceId = "0x82c4d954fce9132f936100aa0b51628d7ac01888e4b46728d5d3f5778eb4c1d2";
+      const googlPriceId = "0x5a48c03e9b9cb337801073ed9d166817473697efff0d138874e0f6a33d6d5aa6";
+      const msftPriceId = "0xd0ca23c1cc005e004ccf1db5bf76aeb6a49218f43dac3d4b275e92de12ded4d1";
+      const amznPriceId = "0xb5d0e0fa58a1f8b81498ae670ce93c872d14434b72c364885d4fa1b257cbb07a";
+      
+      await oracleAggregator.setFeedId("TSLA", tslaPriceId);
+      await oracleAggregator.setFeedId("GOOGL", googlPriceId);
+      await oracleAggregator.setFeedId("MSFT", msftPriceId);
+      await oracleAggregator.setFeedId("AMZN", amznPriceId);
+      console.log("✅ 其他股票符号Feed ID配置完成");
+
     } else {
-      console.log(`⏭️  Sepolia 网络跳过 MockPyth 初始化`);
+      // 非本地网络：读取已部署的合约地址
+      console.log("🌍 [远程网络] 读取已部署的合约...");
+      
+      const deploymentsPath = path.join(__dirname, '..', 'deployments-uups-sepolia.json');
+      if (!fs.existsSync(deploymentsPath)) {
+        throw new Error(`部署文件不存在: ${deploymentsPath}`);
+      }
+      
+      const deployments = JSON.parse(fs.readFileSync(deploymentsPath, 'utf8'));
+      console.log("📄 [STEP 1] 读取部署文件...");
+      
+      // 获取 TokenFactory - 支持新旧两种结构
+      let tokenFactoryAddress;
+      if (deployments.contracts && deployments.contracts.TokenFactory) {
+        tokenFactoryAddress = deployments.contracts.TokenFactory.proxy;
+      } else if (deployments.TokenFactory) {
+        tokenFactoryAddress = deployments.TokenFactory;
+      } else {
+        throw new Error("TokenFactory 地址未找到");
+      }
+      tokenFactory = await ethers.getContractAt("TokenFactory", tokenFactoryAddress);
+      console.log(`✅ TokenFactory 获取完成: ${tokenFactoryAddress}`);
+
+      // 获取 OracleAggregator - 支持新旧两种结构
+      let oracleAddress;
+      if (deployments.contracts && deployments.contracts.OracleAggregator) {
+        oracleAddress = deployments.contracts.OracleAggregator.proxy;
+      } else if (deployments.OracleAggregator) {
+        oracleAddress = deployments.OracleAggregator;
+      } else {
+        throw new Error("OracleAggregator 地址未找到");
+      }
+      oracleAggregator = await ethers.getContractAt("OracleAggregator", oracleAddress);
+      console.log(`✅ OracleAggregator 获取完成: ${oracleAddress}`);
+
+      // 获取 USDT Token - 支持新旧两种结构
+      let usdtAddress;
+      if (deployments.contracts && deployments.contracts.USDT) {
+        usdtAddress = deployments.contracts.USDT;
+      } else if (deployments.MockERC20_USDT) {
+        usdtAddress = deployments.MockERC20_USDT;
+      } else {
+        throw new Error("USDT 代币地址未找到");
+      }
+      usdtToken = await ethers.getContractAt("MockERC20", usdtAddress);
+      console.log(`✅ USDT Token 获取完成: ${usdtAddress}`);
+
+      // Sepolia 网络没有 MockPyth，跳过
+      console.log("⏭️  Sepolia 网络跳过 MockPyth 初始化");
     }
 
-    // 2. 获取已部署的AAPL代币（部署脚本中已创建）
-    console.log("📄 [STEP 3] 获取已部署的AAPL股票代币...");
+    // 获取或创建股票代币
+    console.log("📄 [STEP 7] 获取/创建AAPL股票代币...");
     try {
       const stockTokenAddress = await tokenFactory.getTokenAddress(tokenSymbol);
       if (stockTokenAddress === zeroAddress) {
@@ -115,23 +204,31 @@ describe("StockToken - 股票代币合约测试", function () {
     } catch (error) {
       console.log("⚠️  AAPL代币不存在，将创建新的代币...");
       // 如果代币不存在，创建一个新的
-      const tx = await tokenFactory.createToken(
+      const createTx = await tokenFactory.createToken(
         tokenName,
         tokenSymbol,
         initialSupply
       );
-      const receipt = await tx.wait();
-      const event = receipt.events.find((e) => e.event === "TokenCreated");
-      const stockTokenAddress = event.args.tokenAddress;
+      const createReceipt = await createTx.wait();
+      const event = createReceipt.logs.find(log => {
+        try {
+          return tokenFactory.interface.parseLog(log).name === "TokenCreated";
+        } catch {
+          return false;
+        }
+      });
+      const parsedEvent = tokenFactory.interface.parseLog(event);
+      const stockTokenAddress = parsedEvent.args.tokenAddress;
       stockToken = await ethers.getContractAt("StockToken", stockTokenAddress);
       console.log(`✅ ${tokenSymbol} 代币创建成功: ${stockTokenAddress}`);
     }
 
     // 验证代币合约地址非零
-    expect(stockToken.address).to.not.equal(zeroAddress);
+    const stockTokenAddr = await stockToken.getAddress();
+    expect(stockTokenAddr).to.not.equal(zeroAddress);
 
-    // 3. 更新价格数据（根据网络类型）
-    console.log("📄 [STEP 4] 更新AAPL价格数据...");
+    // 更新价格数据（根据网络类型）
+    console.log("📄 [STEP 8] 更新AAPL价格数据...");
     if (isLocalNetwork) {
       // 本地网络：使用 MockPyth 设置价格
       await mockPyth.setPrice(
@@ -146,40 +243,41 @@ describe("StockToken - 股票代币合约测试", function () {
       console.log(`✅ ${tokenSymbol} 将使用 Sepolia Pyth 网络的实时价格`);
     }
 
-    // 4. 分配测试代币给用户进行测试˝
-    console.log("📄 [STEP 5] 分配测试代币...");
+    // 分配测试代币给用户进行测试
+    console.log("📄 [STEP 9] 分配测试代币...");
     const ownerBalance = await stockToken.balanceOf(owner.address);
     console.log(
-      `📊 Owner代币余额: ${ethers.utils.formatEther(
+      `📊 Owner代币余额: ${ethers.formatEther(
         ownerBalance
       )} ${tokenSymbol}`
     );
-    if (ownerBalance.gte(testAmount.mul(2))) {
+    if (ownerBalance >= (testAmount * 2n)) {
       await stockToken.connect(owner).transfer(userA.address, testAmount);
       await stockToken.connect(owner).transfer(userB.address, testAmount);
       console.log(
-        `✅ 已向UserA分配: ${ethers.utils.formatEther(
+        `✅ 已向UserA分配: ${ethers.formatEther(
           testAmount
         )} ${tokenSymbol}`
       );
       console.log(
-        `✅ 已向UserB分配: ${ethers.utils.formatEther(
+        `✅ 已向UserB分配: ${ethers.formatEther(
           testAmount
         )} ${tokenSymbol}`
       );
     }
 
-    // 5. 设置USDT测试余额
-    console.log("📄 [STEP 5] 分配USDT测试余额...");
+    // 设置USDT测试余额
+    console.log("📄 [STEP 10] 分配USDT测试余额...");
     await usdtToken.mint(userA.address, userAUSDT);
     await usdtToken.mint(userB.address, userBUSDT);
     console.log(`✅ UserA USDT余额: ${userAUSDT / 10 ** 6} USDT`);
     console.log(`✅ UserB USDT余额: ${userBUSDT / 10 ** 6} USDT`);
 
-    // 6. 配置代币授权
-    console.log("📄 [STEP 6] 配置代币授权...");
-    await usdtToken.connect(userA).approve(stockToken.address, userAUSDT);
-    await usdtToken.connect(userB).approve(stockToken.address, userBUSDT);
+    // 配置代币授权
+    console.log("📄 [STEP 11] 配置代币授权...");
+    const tokenAddr = await stockToken.getAddress();
+    await usdtToken.connect(userA).approve(tokenAddr, userAUSDT);
+    await usdtToken.connect(userB).approve(tokenAddr, userBUSDT);
     console.log(`✅ 授权配置完成`);
 
     console.log("🎉 [SETUP] 测试环境初始化完成！\n");
@@ -188,23 +286,23 @@ describe("StockToken - 股票代币合约测试", function () {
   describe("1. ERC20 标准功能测试", function () {
     describe("转账功能(transfer)", function () {
       it("正常转账：有效账户间转账", async function () {
-        const transferAmount = ethers.utils.parseEther("100"); // 减少转账金额
+        const transferAmount = ethers.parseEther("100"); // 减少转账金额
         const initialBalanceA = await stockToken.balanceOf(userA.address);
         const initialBalanceB = await stockToken.balanceOf(userB.address);
 
         await stockToken.connect(userA).transfer(userB.address, transferAmount);
 
         expect(await stockToken.balanceOf(userA.address)).to.equal(
-          initialBalanceA.sub(transferAmount)
+          initialBalanceA - transferAmount
         );
         expect(await stockToken.balanceOf(userB.address)).to.equal(
-          initialBalanceB.add(transferAmount)
+          initialBalanceB + transferAmount
         );
       });
 
       it("超额转账：超过余额的转账尝试", async function () {
         const userBalance = await stockToken.balanceOf(userA.address);
-        const excessiveAmount = userBalance.add(ethers.utils.parseEther("1"));
+        const excessiveAmount = userBalance + ethers.parseEther("1");
         await expect(
           stockToken.connect(userA).transfer(userB.address, excessiveAmount)
         ).to.be.reverted; // 简化错误检查
@@ -214,7 +312,7 @@ describe("StockToken - 股票代币合约测试", function () {
         await expect(
           stockToken
             .connect(userA)
-            .transfer(zeroAddress, ethers.utils.parseEther("100"))
+            .transfer(zeroAddress, ethers.parseEther("100"))
         ).to.be.reverted; // 简化错误检查
       });
 
@@ -227,14 +325,14 @@ describe("StockToken - 股票代币合约测试", function () {
         await expect(
           stockToken
             .connect(userA)
-            .transfer(userB.address, ethers.constants.MaxUint256)
+            .transfer(userB.address, ethers.MaxUint256)
         ).to.be.reverted; // 简化错误检查
       });
     });
 
     describe("授权功能(approve)", function () {
       it("正常授权：设置有效授权额度", async function () {
-        const approveAmount = ethers.utils.parseEther("500"); // 减少授权金额
+        const approveAmount = ethers.parseEther("500"); // 减少授权金额
         await stockToken.connect(userA).approve(userB.address, approveAmount);
 
         expect(
@@ -244,9 +342,7 @@ describe("StockToken - 股票代币合约测试", function () {
 
       it("超额授权：超过账户余额的授权", async function () {
         const userBalance = await stockToken.balanceOf(userA.address);
-        const excessiveAmount = userBalance.add(
-          ethers.utils.parseEther("50000")
-        );
+        const excessiveAmount = userBalance + ethers.parseEther("50000");
         await stockToken.connect(userA).approve(userB.address, excessiveAmount);
 
         expect(
@@ -257,20 +353,20 @@ describe("StockToken - 股票代币合约测试", function () {
       it("重复授权：同一授权对象多次授权", async function () {
         await stockToken
           .connect(userA)
-          .approve(userB.address, ethers.utils.parseEther("1000"));
+          .approve(userB.address, ethers.parseEther("1000"));
         await stockToken
           .connect(userA)
-          .approve(userB.address, ethers.utils.parseEther("2000"));
+          .approve(userB.address, ethers.parseEther("2000"));
 
         expect(
           await stockToken.allowance(userA.address, userB.address)
-        ).to.equal(ethers.utils.parseEther("2000"));
+        ).to.equal(ethers.parseEther("2000"));
       });
 
       it("授权撤销：将授权额度设为0", async function () {
         await stockToken
           .connect(userA)
-          .approve(userB.address, ethers.utils.parseEther("1000"));
+          .approve(userB.address, ethers.parseEther("1000"));
         await stockToken.connect(userA).approve(userB.address, 0);
 
         expect(
@@ -283,12 +379,12 @@ describe("StockToken - 股票代币合约测试", function () {
       beforeEach(async function () {
         // 为每个测试设置基础授权 - 使用实际余额
         const userBalance = await stockToken.balanceOf(userA.address);
-        const approveAmount = userBalance.div(2); // 授权一半余额
+        const approveAmount = userBalance / 2n; // 授权一半余额
         await stockToken.connect(userA).approve(userB.address, approveAmount);
       });
 
       it("正常授权转账", async function () {
-        const transferAmount = ethers.utils.parseEther("100");
+        const transferAmount = ethers.parseEther("100");
         const initialAllowance = await stockToken.allowance(
           userA.address,
           userB.address
@@ -300,16 +396,16 @@ describe("StockToken - 股票代币合约测试", function () {
           .transferFrom(userA.address, owner.address, transferAmount);
 
         expect(await stockToken.balanceOf(owner.address)).to.equal(
-          initialOwnerBalance.add(transferAmount)
+          initialOwnerBalance + transferAmount
         );
         expect(
           await stockToken.allowance(userA.address, userB.address)
-        ).to.equal(initialAllowance.sub(transferAmount));
+        ).to.equal(initialAllowance - transferAmount);
       });
 
       it("超额授权转账", async function () {
         const userBalance = await stockToken.balanceOf(userA.address);
-        const excessiveAmount = userBalance.add(ethers.utils.parseEther("1"));
+        const excessiveAmount = userBalance + ethers.parseEther("1");
         await expect(
           stockToken
             .connect(userB)
@@ -324,13 +420,13 @@ describe("StockToken - 股票代币合约测试", function () {
             .transferFrom(
               userA.address,
               userB.address,
-              ethers.utils.parseEther("10")
+              ethers.parseEther("10")
             )
         ).to.be.reverted; // 简化错误检查
       });
 
       it("授权后余额变化场景", async function () {
-        const transferAmount = ethers.utils.parseEther("50");
+        const transferAmount = ethers.parseEther("50");
         const initialBalanceA = await stockToken.balanceOf(userA.address);
         const initialBalanceB = await stockToken.balanceOf(userB.address);
         const initialAllowance = await stockToken.allowance(userA.address, userB.address);
@@ -341,15 +437,15 @@ describe("StockToken - 股票代币合约测试", function () {
 
         // 验证余额变化
         expect(await stockToken.balanceOf(userA.address)).to.equal(
-          initialBalanceA.sub(transferAmount)
+          initialBalanceA - transferAmount
         );
         expect(await stockToken.balanceOf(userB.address)).to.equal(
-          initialBalanceB.add(transferAmount)
+          initialBalanceB + transferAmount
         );
         
         // 验证授权额度减少
         expect(await stockToken.allowance(userA.address, userB.address)).to.equal(
-          initialAllowance.sub(transferAmount)
+          initialAllowance - transferAmount
         );
       });
     });
@@ -365,7 +461,7 @@ describe("StockToken - 股票代币合约测试", function () {
           // 获取真实的 updateData
           const updateData = await fetchSingleUpdateData("AAPL");
           const fee = await oracleAggregator.getUpdateFee(updateData);
-          console.log(`💰 更新费用: ${ethers.utils.formatEther(fee)} ETH`);
+          console.log(`💰 更新费用: ${ethers.formatEther(fee)} ETH`);
           
           // 调用 updateAndGetPrice 获取实时价格
           const tx = await oracleAggregator.updateAndGetPrice(
@@ -377,15 +473,15 @@ describe("StockToken - 股票代币合约测试", function () {
           
           // 详细的 Gas 使用情况统计，调用一次 大概花费 0.5分钱 人民币
           console.log("\n💰 调用方法: updateAndGetPrice");
-          console.log(`- Gas价格: ${ethers.utils.formatUnits(tx.gasPrice, "gwei")} gwei`);
+          console.log(`- Gas价格: ${ethers.formatUnits(tx.gasPrice, "gwei")} gwei`);
           console.log(`- Gas用量: ${receipt.gasUsed.toString()}`);
-          console.log(`- 实际费用: ${ethers.utils.formatEther(receipt.gasUsed.mul(tx.gasPrice))} ETH`);
-          console.log(`- 更新费用: ${ethers.utils.formatEther(fee)} ETH`);
-          console.log(`- 总费用: ${ethers.utils.formatEther(receipt.gasUsed.mul(tx.gasPrice).add(fee))} ETH`);
+          console.log(`- 实际费用: ${ethers.formatEther(receipt.gasUsed * tx.gasPrice)} ETH`);
+          console.log(`- 更新费用: ${ethers.formatEther(fee)} ETH`);
+          console.log(`- 总费用: ${ethers.formatEther(receipt.gasUsed * tx.gasPrice + fee)} ETH`);
           
           // 验证价格
           const price = await stockToken.getStockPrice();
-          console.log(`📈 AAPL 实时价格: $${ethers.utils.formatEther(price)}`);
+          console.log(`📈 AAPL 实时价格: $${ethers.formatEther(price)}`);
           expect(price).to.be.gt(0);
         } catch (error) {
           console.error("❌ Sepolia 价格获取失败:", error.message);
@@ -395,9 +491,11 @@ describe("StockToken - 股票代币合约测试", function () {
       } else {
         // 本地网络：使用 MockPyth 测试
         console.log("🏠 本地网络 - 使用 MockPyth 测试");
-        const price = await stockToken.getStockPrice();
+        
+        // 通过预言机聚合器获取价格，解构返回的4个值
+        const [price, , , ] = await oracleAggregator.getPrice(tokenSymbol);
         expect(price).to.be.gt(0);
-        expect(price).to.equal(ethers.utils.parseEther("100")); // 100.00 USD
+        expect(price).to.equal(ethers.parseEther("100")); // 100.00 USD
       }
     });
 
@@ -410,7 +508,7 @@ describe("StockToken - 股票代币合约测试", function () {
         const [price, , , timestamp] = await oracleAggregator.getPrice(
           tokenSymbol
         );
-        expect(price).to.equal(ethers.utils.parseEther("100")); // 100.00 USD in 18 decimal precision
+        expect(price).to.equal(ethers.parseEther("100")); // 100.00 USD in 18 decimal precision
         expect(timestamp).to.equal(currentTime);
       } else if (isSepoliaNetwork) {
         console.log("🌍 Sepolia 网络 - 测试真实 Pyth 时间戳验证");
@@ -423,7 +521,7 @@ describe("StockToken - 股票代币合约测试", function () {
           
           // 2. 计算更新费用
           const fee = await oracleAggregator.getUpdateFee(updateData);
-          console.log(`💰 所需更新费用: ${ethers.utils.formatEther(fee)} ETH`);
+          console.log(`💰 所需更新费用: ${ethers.formatEther(fee)} ETH`);
           
           // 3. 使用 updateAndGetPrice 更新价格数据
           console.log("🔄 调用 updateAndGetPrice 更新价格...");
@@ -436,11 +534,11 @@ describe("StockToken - 股票代币合约测试", function () {
           
           // 详细的 Gas 使用情况统计
           console.log("\n💰 调用方法: updateAndGetPrice");
-          console.log(`- Gas价格: ${ethers.utils.formatUnits(updateTx.gasPrice, "gwei")} gwei`);
+          console.log(`- Gas价格: ${ethers.formatUnits(updateTx.gasPrice, "gwei")} gwei`);
           console.log(`- Gas用量: ${updateReceipt.gasUsed.toString()}`);
-          console.log(`- 实际费用: ${ethers.utils.formatEther(updateReceipt.gasUsed.mul(updateTx.gasPrice))} ETH`);
-          console.log(`- 更新费用: ${ethers.utils.formatEther(fee)} ETH`);
-          console.log(`- 总费用: ${ethers.utils.formatEther(updateReceipt.gasUsed.mul(updateTx.gasPrice).add(fee))} ETH`);
+          console.log(`- 实际费用: ${ethers.formatEther(updateReceipt.gasUsed * updateTx.gasPrice)} ETH`);
+          console.log(`- 更新费用: ${ethers.formatEther(fee)} ETH`);
+          console.log(`- 总费用: ${ethers.formatEther(updateReceipt.gasUsed * updateTx.gasPrice + fee)} ETH`);
           
           // 4. 获取完整的价格信息验证时间戳
           console.log("📊 获取更新后的价格信息...");
@@ -459,8 +557,8 @@ describe("StockToken - 股票代币合约测试", function () {
           const timeDifference = Math.abs(currentTime - timestamp);
           expect(timeDifference).to.be.lte(2 * 24 * 3600); // 时间戳应该在2天内
           
-          console.log(`📈 AAPL 价格: $${ethers.utils.formatEther(price)}`);
-          console.log(`📊 价格范围: $${ethers.utils.formatEther(minPrice)} - $${ethers.utils.formatEther(maxPrice)}`);
+          console.log(`📈 AAPL 价格: $${ethers.formatEther(price)}`);
+          console.log(`📊 价格范围: $${ethers.formatEther(minPrice)} - $${ethers.formatEther(maxPrice)}`);
           console.log(`⏰ 发布时间: ${new Date(timestamp * 1000).toISOString()}`);
           console.log(`✅ 时间戳差异: ${timeDifference} 秒`);
           
@@ -490,7 +588,7 @@ describe("StockToken - 股票代币合约测试", function () {
         await mockPyth.setPrice(googlPriceId, prices[2], priceExpo, currentTime + 2);
 
         // 使用updateAndGetPrices批量获取价格（模拟空的updateData）
-        const result = await oracleAggregator.callStatic.updateAndGetPrices(
+        const result = await oracleAggregator.updateAndGetPrices.staticCall(
           symbols,
           [] // 空的updateData用于测试
         );
@@ -498,9 +596,9 @@ describe("StockToken - 股票代币合约测试", function () {
         const publishTimes = result[1];
 
         // 验证价格
-        expect(returnedPrices[0]).to.equal(ethers.utils.parseEther("120")); // AAPL: 120.00 USD
-        expect(returnedPrices[1]).to.equal(ethers.utils.parseEther("250")); // TSLA: 250.00 USD
-        expect(returnedPrices[2]).to.equal(ethers.utils.parseEther("2800")); // GOOGL: 2800.00 USD
+        expect(returnedPrices[0]).to.equal(ethers.parseEther("120")); // AAPL: 120.00 USD
+        expect(returnedPrices[1]).to.equal(ethers.parseEther("250")); // TSLA: 250.00 USD
+        expect(returnedPrices[2]).to.equal(ethers.parseEther("2800")); // GOOGL: 2800.00 USD
 
         // 验证时间戳
         expect(publishTimes[0]).to.equal(currentTime);
@@ -520,11 +618,11 @@ describe("StockToken - 股票代币合约测试", function () {
           
           // 2. 计算更新费用
           const fee = await oracleAggregator.getUpdateFee(updateData);
-          console.log(`💰 批量更新费用: ${ethers.utils.formatEther(fee)} ETH`);
+          console.log(`💰 批量更新费用: ${ethers.formatEther(fee)} ETH`);
           
           // 3. 使用 updateAndGetPrices 批量更新和获取价格
           console.log("🔄 调用 updateAndGetPrices 批量更新价格...");
-          const result = await oracleAggregator.callStatic.updateAndGetPrices(
+          const result = await oracleAggregator.updateAndGetPrices.staticCall(
             symbols,
             updateData,
             { value: fee }
@@ -542,14 +640,14 @@ describe("StockToken - 股票代币合约测试", function () {
             const price = prices[i];
             const publishTime = publishTimes[i];
             
-            console.log(`📈 ${symbol}: $${ethers.utils.formatEther(price)} (${new Date(publishTime * 1000).toISOString()})`);
+            console.log(`📈 ${symbol}: $${ethers.formatEther(price)} (${new Date(publishTime * 1000).toISOString()})`);
             
             // 验证价格有效性
             expect(price).to.be.gt(0);
             expect(publishTime).to.be.gt(0);
             
             // 验证价格合理范围（根据不同股票调整）
-            const priceInUSD = parseFloat(ethers.utils.formatEther(price));
+            const priceInUSD = parseFloat(ethers.formatEther(price));
             if (symbol === "AAPL") {
               expect(priceInUSD).to.be.gte(50).and.to.be.lte(500);
             } else if (symbol === "TSLA") {
@@ -597,14 +695,14 @@ describe("StockToken - 股票代币合约测试", function () {
           await mockPyth.setPrice(aaplFeedId, testCase.price, testCase.expo, currentTime);
           
           // 使用updateAndGetPrices获取价格
-          const result = await oracleAggregator.callStatic.updateAndGetPrices(
+          const result = await oracleAggregator.updateAndGetPrices.staticCall(
             symbols,
             []
           );
           const returnedPrices = result[0];
           
           // 验证转换后的价格
-          expect(returnedPrices[0]).to.equal(ethers.utils.parseEther(testCase.expected));
+          expect(returnedPrices[0]).to.equal(ethers.parseEther(testCase.expected));
         }
       } else {
         console.log("⏭️  跳过价格精度转换测试（Sepolia 网络不支持精度验证）");
@@ -635,7 +733,7 @@ describe("StockToken - 股票代币合约测试", function () {
       await mockPyth.setPrice(aaplFeedId, newPrice, priceExpo, currentTime);
       
       // 立即使用updateAndGetPrices查询
-      const result = await oracleAggregator.callStatic.updateAndGetPrices(
+      const result = await oracleAggregator.updateAndGetPrices.staticCall(
         [tokenSymbol],
         []
       );
@@ -643,12 +741,12 @@ describe("StockToken - 股票代币合约测试", function () {
       const publishTimes = result[1];
       
       // 验证价格和时间戳立即更新
-      expect(returnedPrices[0]).to.equal(ethers.utils.parseEther("200"));
+      expect(returnedPrices[0]).to.equal(ethers.parseEther("200"));
       expect(publishTimes[0]).to.equal(currentTime);
       
-      // 验证StockToken也能获取到更新后的价格
-      const stockPrice = await stockToken.getStockPrice();
-      expect(stockPrice).to.equal(ethers.utils.parseEther("200"));
+      // 验证通过getPrice也能获取到更新后的价格
+      const [stockPrice, , , ] = await oracleAggregator.getPrice(tokenSymbol);
+      expect(stockPrice).to.equal(ethers.parseEther("200"));
     });
 
     // Sepolia 网络专用测试
@@ -665,11 +763,11 @@ describe("StockToken - 股票代币合约测试", function () {
           
           // 2. 计算更新费用
           const fee = await oracleAggregator.getUpdateFee(updateData);
-          console.log(`💰 所需更新费用: ${ethers.utils.formatEther(fee)} ETH`);
+          console.log(`💰 所需更新费用: ${ethers.formatEther(fee)} ETH`);
           
           // 3. 使用 updateAndGetPrice 获取实时价格
           console.log("🔄 调用 updateAndGetPrice...");
-          const result = await oracleAggregator.callStatic.updateAndGetPrice(
+          const result = await oracleAggregator.updateAndGetPrice.staticCall(
             "AAPL",
             updateData,
             { value: fee }
@@ -678,8 +776,8 @@ describe("StockToken - 股票代币合约测试", function () {
           const [price, minPrice, maxPrice, publishTime] = result;
           
           // 4. 验证价格数据
-          console.log(`📈 AAPL 当前价格: $${ethers.utils.formatEther(price)}`);
-          console.log(`📊 价格范围: $${ethers.utils.formatEther(minPrice)} - $${ethers.utils.formatEther(maxPrice)}`);
+          console.log(`📈 AAPL 当前价格: $${ethers.formatEther(price)}`);
+          console.log(`📊 价格范围: $${ethers.formatEther(minPrice)} - $${ethers.formatEther(maxPrice)}`);
           console.log(`⏰ 发布时间: ${new Date(publishTime * 1000).toISOString()}`);
           
           expect(price).to.be.gt(0);
@@ -688,7 +786,7 @@ describe("StockToken - 股票代币合约测试", function () {
           expect(publishTime).to.be.gt(0);
           
           // 5. 验证价格的合理范围（AAPL 应该在 $50-$500 之间）
-          const priceInUSD = parseFloat(ethers.utils.formatEther(price));
+          const priceInUSD = parseFloat(ethers.formatEther(price));
           expect(priceInUSD).to.be.gte(50);
           expect(priceInUSD).to.be.lte(500);
           
@@ -713,11 +811,11 @@ describe("StockToken - 股票代币合约测试", function () {
           
           // 2. 计算费用
           const fee = await oracleAggregator.getUpdateFee(updateData);
-          console.log(`💰 批量更新费用: ${ethers.utils.formatEther(fee)} ETH`);
+          console.log(`💰 批量更新费用: ${ethers.formatEther(fee)} ETH`);
           
           // 3. 批量获取价格
           console.log("🔄 调用 updateAndGetPrices...");
-          const result = await oracleAggregator.callStatic.updateAndGetPrices(
+          const result = await oracleAggregator.updateAndGetPrices.staticCall(
             symbols,
             updateData,
             { value: fee }
@@ -734,13 +832,13 @@ describe("StockToken - 股票代币合约测试", function () {
             const price = prices[i];
             const publishTime = publishTimes[i];
             
-            console.log(`📈 ${symbol}: $${ethers.utils.formatEther(price)} (${new Date(publishTime * 1000).toISOString()})`);
+            console.log(`📈 ${symbol}: $${ethers.formatEther(price)} (${new Date(publishTime * 1000).toISOString()})`);
             
             expect(price).to.be.gt(0);
             expect(publishTime).to.be.gt(0);
             
             // 验证价格合理范围
-            const priceInUSD = parseFloat(ethers.utils.formatEther(price));
+            const priceInUSD = parseFloat(ethers.formatEther(price));
             expect(priceInUSD).to.be.gte(10); // 最低 $10
             expect(priceInUSD).to.be.lte(10000); // 最高 $10,000
           }
@@ -763,16 +861,24 @@ describe("StockToken - 股票代币合约测试", function () {
           initialSupply
         );
         const newTokenReceipt = await newTokenTx.wait();
-        const newEvent = newTokenReceipt.events.find(
-          (e) => e.event === "TokenCreated"
-        );
-        const newTokenAddress = newEvent.args.tokenAddress;
+        const newEvent = newTokenReceipt.logs.find(log => {
+          try {
+            return tokenFactory.interface.parseLog(log).name === "TokenCreated";
+          } catch {
+            return false;
+          }
+        });
+        const parsedEvent = tokenFactory.interface.parseLog(newEvent);
+        const newTokenAddress = parsedEvent.args.tokenAddress;
         const newToken = await ethers.getContractAt(
           "StockToken",
           newTokenAddress
         );
 
-        await expect(newToken.getStockPrice()).to.be.reverted;
+        // 尝试查询未配置的股票符号应该失败
+        await expect(oracleAggregator.getPrice("NEW")).to.be.revertedWith(
+          "Price feed not found for symbol"
+        );
       });
 
       it("预言机故障：模拟预言机返回错误", async function () {
@@ -797,8 +903,8 @@ describe("StockToken - 股票代币合约测试", function () {
           priceExpo,
           Math.floor(Date.now() / 1000)
         );
-        const highPrice = await stockToken.getStockPrice();
-        expect(highPrice).to.equal(ethers.utils.parseEther("150")); // 150.00 USD in 18 decimal precision
+        const [highPrice, , , ] = await oracleAggregator.getPrice(tokenSymbol);
+        expect(highPrice).to.equal(ethers.parseEther("150")); // 150.00 USD in 18 decimal precision
 
         // 测试低价格
         await mockPyth.setPrice(
@@ -807,8 +913,8 @@ describe("StockToken - 股票代币合约测试", function () {
           priceExpo,
           Math.floor(Date.now() / 1000)
         );
-        const lowPrice = await stockToken.getStockPrice();
-        expect(lowPrice).to.equal(ethers.utils.parseEther("50")); // 50.00 USD in 18 decimal precision
+        const [lowPrice, , , ] = await oracleAggregator.getPrice(tokenSymbol);
+        expect(lowPrice).to.equal(ethers.parseEther("50")); // 50.00 USD in 18 decimal precision
 
         // 回到正常价格
         await mockPyth.setPrice(
@@ -817,20 +923,20 @@ describe("StockToken - 股票代币合约测试", function () {
           priceExpo,
           Math.floor(Date.now() / 1000)
         );
-        const normalPrice = await stockToken.getStockPrice();
-        expect(normalPrice).to.equal(ethers.utils.parseEther("100")); // 100.00 USD in 18 decimal precision
+        const [normalPrice, , , ] = await oracleAggregator.getPrice(tokenSymbol);
+        expect(normalPrice).to.equal(ethers.parseEther("100")); // 100.00 USD in 18 decimal precision
       });
     }
   });
 
   describe("3. 所有权管理功能", function () {
     it("mint功能：只有所有者可以mint", async function () {
-      const mintAmount = ethers.utils.parseEther("10000");
+      const mintAmount = ethers.parseEther("10000");
       const initialSupply = await stockToken.totalSupply();
 
       await stockToken.connect(owner).mint(mintAmount);
       expect(await stockToken.totalSupply()).to.equal(
-        initialSupply.add(mintAmount)
+        initialSupply + mintAmount
       );
 
       // 非所有者尝试mint - 使用通用错误检查
@@ -843,15 +949,15 @@ describe("StockToken - 股票代币合约测试", function () {
 
       // 原所有者无法再mint
       await expect(
-        stockToken.connect(owner).mint(ethers.utils.parseEther("1000"))
+        stockToken.connect(owner).mint(ethers.parseEther("1000"))
       ).to.be.reverted; // 简化错误检查
 
       // 新所有者可以mint，并且代币会分配给新所有者
       const initialBalance = await stockToken.balanceOf(userA.address);
-      const mintAmount = ethers.utils.parseEther("1000");
+      const mintAmount = ethers.parseEther("1000");
       await stockToken.connect(userA).mint(mintAmount);
       expect(await stockToken.balanceOf(userA.address)).to.equal(
-        initialBalance.add(mintAmount)
+        initialBalance + mintAmount
       );
     });
   });
@@ -903,7 +1009,7 @@ describe("StockToken - 股票代币合约测试", function () {
         const [price, , , ] = await oracleAggregator.getPrice(testCase.symbol);
         
         // 验证转换结果
-        expect(price).to.equal(ethers.utils.parseEther(testCase.expected));
+        expect(price).to.equal(ethers.parseEther(testCase.expected));
       }
     });
 
@@ -926,7 +1032,7 @@ describe("StockToken - 股票代币合约测试", function () {
       
       // 批量获取价格
       const startTime = Date.now();
-      const result = await oracleAggregator.callStatic.updateAndGetPrices(symbols, []);
+      const result = await oracleAggregator.updateAndGetPrices.staticCall(symbols, []);
       const endTime = Date.now();
       
       // 解构返回结果
@@ -939,7 +1045,7 @@ describe("StockToken - 股票代币合约测试", function () {
       
       // 验证价格值
       for (let i = 0; i < prices.length; i++) {
-        const expectedPrice = ethers.utils.parseEther(((10000 + i * 1000) / 100).toString());
+        const expectedPrice = ethers.parseEther(((10000 + i * 1000) / 100).toString());
         expect(prices[i]).to.equal(expectedPrice);
         expect(publishTimes[i]).to.equal(currentTime + i);
       }
@@ -972,11 +1078,11 @@ describe("StockToken - 股票代币合约测试", function () {
       const [price, minPrice, maxPrice, ] = await oracleAggregator.getPrice("AAPL");
       
       // 验证价格
-      expect(price).to.equal(ethers.utils.parseEther("150"));
+      expect(price).to.equal(ethers.parseEther("150"));
       
       // 验证价格范围（应该是±5%）
-      const expectedMinPrice = price.mul(95).div(100); // -5%
-      const expectedMaxPrice = price.mul(105).div(100); // +5%
+      const expectedMinPrice = (price * 95n) / 100n; // -5%
+      const expectedMaxPrice = (price * 105n) / 100n; // +5%
       
       expect(minPrice).to.equal(expectedMinPrice);
       expect(maxPrice).to.equal(expectedMaxPrice);
@@ -993,7 +1099,7 @@ describe("StockToken - 股票代币合约测试", function () {
       const totalSupply = await stockToken.totalSupply();
 
       // 减去已分配给用户的测试代币
-      const expectedOwnerBalance = totalSupply.sub(testAmount.mul(2));
+      const expectedOwnerBalance = totalSupply - (testAmount * 2n);
       expect(ownerBalance).to.equal(expectedOwnerBalance);
     });
   });

@@ -1,5 +1,6 @@
 require("@nomicfoundation/hardhat-toolbox");
 require("@nomicfoundation/hardhat-ethers");
+require("@nomicfoundation/hardhat-verify");
 require("@openzeppelin/hardhat-upgrades");
 require("dotenv").config();
 
@@ -47,12 +48,9 @@ module.exports = {
     }
   },
 
-  // Etherscan 验证配置
+  // Etherscan 验证配置 - hardhat-verify v2 格式
   etherscan: {
-    apiKey: {
-      sepolia: process.env.ETHERSCAN_API_KEY,
-      mainnet: process.env.ETHERSCAN_API_KEY,
-    }
+    apiKey: process.env.ETHERSCAN_API_KEY,
   },
 
   // 路径配置

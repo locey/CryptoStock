@@ -8,6 +8,8 @@
     "node": "hardhat node",
     "deploy:localhost": "hardhat deploy --network localhost",
     "deploy:sepolia": "hardhat deploy --network sepolia",
+    "deploy:full:sepolia": "hardhat run scripts/deploy-full-system.js --network sepolia",
+    "verify:sepolia": "hardhat run scripts/verify-contracts.js --network sepolia",
     "clean": "hardhat clean",
     "coverage": "hardhat coverage",
     "verify": "hardhat verify"

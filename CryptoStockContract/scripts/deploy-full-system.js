@@ -98,14 +98,25 @@ async function main() {
     { name: "Amazon Stock Token", symbol: "AMZN", supply: ethers.parseEther("200000") },
     { name: "NVIDIA Stock Token", symbol: "NVDA", supply: ethers.parseEther("600000") }
   ];
+
+  const stockTokenAddresses = {};
   for (const token of testTokens) {
     try {
       const tx = await tokenFactoryContract.createToken(token.name, token.symbol, token.supply);
       await tx.wait();
       const tokenAddress = await tokenFactoryContract.getTokenAddress(token.symbol);
+      stockTokenAddresses[token.symbol] = tokenAddress;
       console.log(`   ✅ ${token.symbol} 代币创建成功: ${tokenAddress}`);
     } catch (e) {
       console.log(`   ⚠️ ${token.symbol} 创建失败或已存在:`, e.message);
+      // 如果代币已存在，获取地址
+      try {
+        const tokenAddress = await tokenFactoryContract.getTokenAddress(token.symbol);
+        stockTokenAddresses[token.symbol] = tokenAddress;
+        console.log(`   ℹ️ ${token.symbol} 已存在地址: ${tokenAddress}`);
+      } catch (getError) {
+        console.log(`   ❌ 无法获取 ${token.symbol} 地址:`, getError.message);
+      }
     }
   }
 
@@ -135,6 +146,137 @@ async function main() {
   for (const symbol of Object.keys(FEED_IDS)) {
     console.log(`   ${symbol}: ${FEED_IDS[symbol]}`);
   }
+  
+  // 只在 Sepolia 网络保存部署信息到文件
+  if (network.name === "sepolia") {
+    const deploymentData = {
+      network: network.name,
+      chainId: "11155111", // Sepolia chain ID
+      deployer: await deployer.getAddress(),
+      contracts: {
+        OracleAggregator: {
+          proxy: await oracleAggregatorProxy.getAddress(),
+          implementation: await upgrades.erc1967.getImplementationAddress(await oracleAggregatorProxy.getAddress())
+        },
+        TokenFactory: {
+          proxy: await tokenFactoryProxy.getAddress(),
+          implementation: await upgrades.erc1967.getImplementationAddress(await tokenFactoryProxy.getAddress())
+        },
+        StockTokenImplementation: await stockTokenImplementation.getAddress(),
+        USDT: await usdtToken.getAddress()
+      },
+      stockTokens: stockTokenAddresses,
+      priceFeeds: FEED_IDS,
+      timestamp: new Date().toISOString()
+    };
+    
+    const fs = require('fs');
+    const deploymentFile = `deployments-uups-${network.name}.json`;
+    fs.writeFileSync(deploymentFile, JSON.stringify(deploymentData, null, 2));
+    console.log(`📄 部署信息已保存到: ${deploymentFile}`);
+
+    // STEP 10: 验证合约到Etherscan
+    console.log("\n🔍 [开始验证] 正在验证合约到Etherscan...");
+    try {
+      // 等待几个区块确认
+      console.log("⏳ 等待区块确认...");
+      await new Promise(resolve => setTimeout(resolve, 30000)); // 等待30秒
+
+      // 验证USDT代币合约
+      console.log("🔍 验证USDT代币合约...");
+      try {
+        await hre.run("verify:verify", {
+          address: await usdtToken.getAddress(),
+          constructorArguments: ["USD Tether", "USDT", 6]
+        });
+        console.log("✅ USDT代币合约验证成功");
+      } catch (error) {
+        console.log("⚠️ USDT代币合约验证跳过 (可能已验证):", error.message);
+      }
+
+      // 验证StockToken实现合约
+      console.log("🔍 验证StockToken实现合约...");
+      try {
+        await hre.run("verify:verify", {
+          address: await stockTokenImplementation.getAddress(),
+          constructorArguments: []
+        });
+        console.log("✅ StockToken实现合约验证成功");
+      } catch (error) {
+        console.log("⚠️ StockToken实现合约验证跳过 (可能已验证):", error.message);
+      }
+
+      // 验证OracleAggregator实现合约
+      console.log("🔍 验证OracleAggregator实现合约...");
+      try {
+        const oracleImplementationAddress = await upgrades.erc1967.getImplementationAddress(await oracleAggregatorProxy.getAddress());
+        await hre.run("verify:verify", {
+          address: oracleImplementationAddress,
+          constructorArguments: []
+        });
+        console.log("✅ OracleAggregator实现合约验证成功");
+      } catch (error) {
+        console.log("⚠️ OracleAggregator实现合约验证跳过 (可能已验证):", error.message);
+      }
+
+      // 验证TokenFactory实现合约
+      console.log("🔍 验证TokenFactory实现合约...");
+      try {
+        const factoryImplementationAddress = await upgrades.erc1967.getImplementationAddress(await tokenFactoryProxy.getAddress());
+        await hre.run("verify:verify", {
+          address: factoryImplementationAddress,
+          constructorArguments: []
+        });
+        console.log("✅ TokenFactory实现合约验证成功");
+      } catch (error) {
+        console.log("⚠️ TokenFactory实现合约验证跳过 (可能已验证):", error.message);
+      }
+
+      // 验证代理合约 (注意: OpenZeppelin 代理合约通常已经在Etherscan验证)
+      console.log("🔍 验证代理合约...");
+      try {
+        // OracleAggregator代理
+        await hre.run("verify:verify", {
+          address: await oracleAggregatorProxy.getAddress()
+        });
+        console.log("✅ OracleAggregator代理合约验证成功");
+      } catch (error) {
+        console.log("⚠️ OracleAggregator代理合约验证跳过:", error.message);
+      }
+
+      try {
+        // TokenFactory代理
+        await hre.run("verify:verify", {
+          address: await tokenFactoryProxy.getAddress()
+        });
+        console.log("✅ TokenFactory代理合约验证成功");
+      } catch (error) {
+        console.log("⚠️ TokenFactory代理合约验证跳过:", error.message);
+      }
+
+      // 验证6种股票代币合约
+      console.log("🔍 验证股票代币合约...");
+      for (const [symbol, address] of Object.entries(stockTokenAddresses)) {
+        try {
+          console.log(`🔍 验证 ${symbol} 代币合约...`);
+          // 股票代币是通过工厂创建的clone，构造参数为空
+          await hre.run("verify:verify", {
+            address: address,
+            constructorArguments: []
+          });
+          console.log(`✅ ${symbol} 代币合约验证成功`);
+        } catch (error) {
+          console.log(`⚠️ ${symbol} 代币合约验证跳过 (可能已验证):`, error.message);
+        }
+      }
+
+      console.log("\n✅ [验证完成] 合约验证已完成!");
+    } catch (error) {
+      console.log("⚠️ [验证警告] 合约验证过程中出现问题:", error.message);
+      console.log("💡 提示: 您可以稍后手动验证合约");
+    }
+  }
+  
   console.log("\n✨ 系统已就绪，可以开始测试！");
 }
 

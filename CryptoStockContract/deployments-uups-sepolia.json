@@ -4,15 +4,23 @@
   "deployer": "0x46b43ad9F6C20c400aC17a282022E578417F796A",
   "contracts": {
     "OracleAggregator": {
-      "proxy": "0xbe00900f1037620C6e2B2b9aFd06Cf31C06F37Eb",
+      "proxy": "0x071304F5010BDdC9665c2666b6B930d7a60cf5bB",
       "implementation": "0xAD5f281CDb7bc55Da007C88E1C828bF17Db3C573"
     },
     "TokenFactory": {
-      "proxy": "0xEca7dba416804b0035D7fE440cf3798ee1A71935",
-      "implementation": "0xab450ea66884762Fa645C6D0c48dBc4219f585D9"
+      "proxy": "0xf5E1a44A68815fa627c1588e071fd089478aEB9C",
+      "implementation": "0x19b9493422e360d1EcbbF736A7BfFbb9eE6E7e40"
     },
-    "StockTokenImplementation": "0xA9Bf2B239F6126e3ffd8bc18Aef194ebAD4F2a04",
-    "USDT": "0x14Aef14Cd81364b169Ec28A6C6A35a41E426f222"
+    "StockTokenImplementation": "0x87374F34F562099053507Cbe6d1d5aBb6c8e77e3",
+    "USDT": "0xAd728799474E8606571EBaCa43A9A595d760f613"
+  },
+  "stockTokens": {
+    "AAPL": "0x794f86DD0958be85E99841A78e0f50F2C55C6ede",
+    "TSLA": "0xD2cFbcebc4ee17c721DFf7746E3dEAd85c83DD40",
+    "GOOGL": "0xe15f9419B7Cf542CBF77626F231606dF48a034F5",
+    "MSFT": "0x27fC3eB7631159ce14744CB84Dc4Cf5786CBd30d",
+    "AMZN": "0x7Ab79719005Eacf6Eb6da8e4aF0a35262a3fdaB2",
+    "NVDA": "0x6a44e4B79F0556Ff4e65546dB438F1322b29c54c"
   },
   "priceFeeds": {
     "AAPL": "0x49f6b65cb1de6b10eaf75e7c03ca029c306d0357e91b5311b175084a5ad55688",
@@ -22,5 +30,5 @@
     "AMZN": "0xb5d0e0fa58a1f8b81498ae670ce93c872d14434b72c364885d4fa1b257cbb07a",
     "NVDA": "0xb1073854ed24cbc755dc527418f52b7d271f6cc967bbf8d8129112b18860a593"
   },
-  "timestamp": "2025-09-23T12:14:13.282Z"
+  "timestamp": "2025-09-24T06:58:39.826Z"
 }

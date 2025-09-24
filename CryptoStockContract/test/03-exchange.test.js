@@ -1,27 +1,37 @@
 const { expect } = require("chai");
 const { ethers, deployments } = require("hardhat");
 const { fetchUpdateData } = require("../utils/getPythUpdateData");
+const fs = require("fs");
+const path = require("path");
 
 // 支持的股票符号
 const SYMBOLS = ["AAPL", "GOOGL"];
 
 // 测试账户分配
-const USER_A_USDT = ethers.utils.parseUnits("50000", 6);
-const USER_A_AAPL = ethers.utils.parseEther("50000"); // 增加到50000个AAPL
-const USER_B_USDT = ethers.utils.parseUnits("30000", 6);
-const USER_B_AAPL = ethers.utils.parseEther("30000"); // 增加到30000个AAPL
+const USER_A_USDT = ethers.parseUnits("50000", 6);
+const USER_A_AAPL = ethers.parseEther("50000"); // 增加到50000个AAPL
+const USER_B_USDT = ethers.parseUnits("30000", 6);
+const USER_B_AAPL = ethers.parseEther("30000"); // 增加到30000个AAPL
 
 // 交易参数
 const INIT_FEE_RATE = 30; // 0.3% (以基点表示)
 const INIT_MAX_SLIPPAGE = 300; // 3% (以基点表示)
-const MIN_TRADE_AMOUNT = ethers.utils.parseUnits("1", 6); // 1 USDT
+const MIN_TRADE_AMOUNT = ethers.parseUnits("1", 6); // 1 USDT
 
 // 判断网络类型
 let isLocalNetwork, isSepoliaNetwork;
 
+// 辅助函数：智能等待交易确认
+async function smartWait(tx, description = "交易") {
+  console.log(`⏳ 等待 ${description} 确认...`);
+  const receipt = await tx.wait();
+  console.log(`✅ ${description} 已确认 (区块: ${receipt.blockNumber})`);
+  return receipt;
+}
+
 describe("Exchange - 股票交易所功能测试", function () {
   // 设置长超时时间，适用于 Sepolia 网络的慢出块
-  this.timeout(80000); // 80秒超时
+  this.timeout(180000); // 3分钟超时，适应Sepolia网络
   
   let owner, userA, userB, feeReceiver;
   let usdtToken, aaplToken, googlToken, tokenFactory, oracleAggregator, mockPyth;
@@ -32,8 +42,8 @@ describe("Exchange - 股票交易所功能测试", function () {
     
     // 0. 判断网络类型
     const network = await ethers.provider.getNetwork();
-    isLocalNetwork = ["hardhat", "localhost", 31337].includes(network.name) || network.chainId === 31337;
-    isSepoliaNetwork = network.chainId === 11155111;
+    isLocalNetwork = ["hardhat", "localhost", 31337].includes(network.name) || network.chainId === 31337n || network.chainId === 31337;
+    isSepoliaNetwork = network.chainId === 11155111n || network.chainId === 11155111;
     
     console.log(`🌐 当前网络: ${network.name} (chainId: ${network.chainId})`);
     console.log(`🔧 isLocalNetwork: ${isLocalNetwork}`);
@@ -46,20 +56,119 @@ describe("Exchange - 股票交易所功能测试", function () {
     console.log(`📝 UserB: ${userB.address}`);
     console.log(`📝 FeeReceiver: ${feeReceiver.address}`);
 
+    // Feed IDs 定义
+    aaplFeedId = "0x49f6b65cb1de6b10eaf75e7c03ca029c306d0357e91b5311b175084a5ad55688";
+    googlFeedId = "0x5a48c03e9b9cb337801073ed9d166817473697efff0d138874e0f6a33d6d5aa6";
+
     // 2. 部署所有依赖合约
     if (isLocalNetwork) {
-      await deployments.fixture(["CryptoStockSystem"]);
+      // 本地网络：全新部署所有合约
+      console.log("🏠 [本地网络] 开始全新部署...");
+      
+      // 2.1 部署 MockPyth 合约
+      console.log("📄 [STEP 1] 部署 MockPyth 合约...");
+      const MockPyth = await ethers.getContractFactory("MockPyth");
+      mockPyth = await MockPyth.deploy();
+      await mockPyth.waitForDeployment();
+      const mockPythAddress = await mockPyth.getAddress();
+      console.log(`✅ MockPyth 部署完成: ${mockPythAddress}`);
+      
+      // 2.2 部署 USDT 代币
+      console.log("📄 [STEP 2] 部署 USDT 代币...");
+      const MockERC20 = await ethers.getContractFactory("MockERC20");
+      usdtToken = await MockERC20.deploy("USD Tether", "USDT", 6);
+      await usdtToken.waitForDeployment();
+      const usdtAddress = await usdtToken.getAddress();
+      console.log(`✅ USDT 代币部署完成: ${usdtAddress}`);
+      
+      // 2.3 部署可升级的预言机聚合器
+      console.log("📄 [STEP 3] 部署预言机聚合器...");
+      const OracleAggregator = await ethers.getContractFactory("OracleAggregator");
+      oracleAggregator = await upgrades.deployProxy(
+        OracleAggregator,
+        [mockPythAddress],
+        { 
+          kind: 'uups',
+          initializer: 'initialize'
+        }
+      );
+      await oracleAggregator.waitForDeployment();
+      const oracleAddress = await oracleAggregator.getAddress();
+      console.log(`✅ 预言机聚合器部署完成: ${oracleAddress}`);
+      
+      // 2.4 部署 StockToken 实现合约
+      console.log("📄 [STEP 4] 部署 StockToken 实现合约...");
+      const StockToken = await ethers.getContractFactory("StockToken");
+      const stockTokenImplementation = await StockToken.deploy();
+      await stockTokenImplementation.waitForDeployment();
+      const implementationAddress = await stockTokenImplementation.getAddress();
+      console.log(`✅ StockToken 实现合约部署完成: ${implementationAddress}`);
+      
+      // 2.5 部署 TokenFactory (可升级合约)
+      console.log("📄 [STEP 5] 部署 TokenFactory...");
+      const TokenFactory = await ethers.getContractFactory("TokenFactory");
+      tokenFactory = await upgrades.deployProxy(
+        TokenFactory,
+        [oracleAddress, implementationAddress, usdtAddress],
+        { 
+          kind: 'uups',
+          initializer: 'initialize'
+        }
+      );
+      await tokenFactory.waitForDeployment();
+      const factoryAddress = await tokenFactory.getAddress();
+      console.log(`✅ TokenFactory 部署完成: ${factoryAddress}`);
+      
+      // 2.6 设置 MockPyth 的初始价格数据
+      console.log("📄 [STEP 6] 设置价格数据...");
+      const now = Math.floor(Date.now() / 1000);
+      // 设置合理的价格：AAPL: $1.50, GOOGL: $2.80
+      const setAaplPriceTx = await mockPyth.setPrice(aaplFeedId, 150, -2, now);
+      await setAaplPriceTx.wait();
+      const setGooglPriceTx = await mockPyth.setPrice(googlFeedId, 280, -2, now + 1);
+      await setGooglPriceTx.wait();
+      console.log("✅ MockPyth 价格设置完成 (AAPL: $1.50, GOOGL: $2.80)");
+      
+      // 2.7 配置预言机聚合器支持股票符号
+      console.log("📄 [STEP 7] 配置预言机聚合器支持股票符号...");
+      await oracleAggregator.setFeedId("AAPL", aaplFeedId);
+      await oracleAggregator.setFeedId("GOOGL", googlFeedId);
+      console.log("✅ 股票符号Feed ID配置完成");
     }
 
     // 获取合约实例
-    const usdtDeployment = await deployments.get("MockERC20_USDT");
-    usdtToken = await ethers.getContractAt("MockERC20", usdtDeployment.address);
-    
-    const factoryDeployment = await deployments.get("TokenFactory");
-    tokenFactory = await ethers.getContractAt("TokenFactory", factoryDeployment.address);
-    
-    const oracleDeployment = await deployments.get("OracleAggregator");
-    oracleAggregator = await ethers.getContractAt("OracleAggregator", oracleDeployment.address);
+    if (isLocalNetwork) {
+      // 本地网络：合约已经在上面部署完成，直接使用变量
+      console.log("✅ 本地网络合约实例已准备就绪");
+    } else {
+      // Sepolia网络：从部署文件读取合约地址
+      console.log("🌐 [Sepolia网络] 从部署文件读取合约地址...");
+      const deploymentsPath = path.join(__dirname, '..', 'deployments-uups-sepolia.json');
+      
+      if (!fs.existsSync(deploymentsPath)) {
+        throw new Error(`❌ 部署文件不存在: ${deploymentsPath}`);
+      }
+      
+      const deployments = JSON.parse(fs.readFileSync(deploymentsPath, 'utf8'));
+      
+      if (!deployments.contracts?.TokenFactory?.proxy) {
+        throw new Error("❌ TokenFactory代理地址未找到");
+      }
+      if (!deployments.contracts?.OracleAggregator?.proxy) {
+        throw new Error("❌ OracleAggregator代理地址未找到");
+      }
+      if (!deployments.contracts?.USDT) {
+        throw new Error("❌ USDT地址未找到");
+      }
+      
+      console.log("📡 连接到Sepolia网络合约...");
+      tokenFactory = await ethers.getContractAt("TokenFactory", deployments.contracts.TokenFactory.proxy);
+      oracleAggregator = await ethers.getContractAt("OracleAggregator", deployments.contracts.OracleAggregator.proxy);
+      usdtToken = await ethers.getContractAt("MockERC20", deployments.contracts.USDT);
+      console.log(`✅ TokenFactory获取完成: ${deployments.contracts.TokenFactory.proxy}`);
+      console.log(`✅ OracleAggregator获取完成: ${deployments.contracts.OracleAggregator.proxy}`);
+      console.log(`✅ USDT获取完成: ${deployments.contracts.USDT}`);
+    }
 
     // Feed IDs
     aaplFeedId = "0x49f6b65cb1de6b10eaf75e7c03ca029c306d0357e91b5311b175084a5ad55688";
@@ -67,16 +176,8 @@ describe("Exchange - 股票交易所功能测试", function () {
 
     // 3. 初始化预言机价格源
     if (isLocalNetwork) {
-      const mockPythDeployment = await deployments.get("MockPyth");
-      mockPyth = await ethers.getContractAt("MockPyth", mockPythDeployment.address);
-      
-      const now = Math.floor(Date.now() / 1000);
-      // 设置合理的价格：AAPL: $1.50, GOOGL: $2.80 (这样100 USDT能买到合理数量的代币)
-      const setAaplPriceTx = await mockPyth.setPrice(aaplFeedId, 150, -2, now); // $1.50
-      await setAaplPriceTx.wait(); // 等待交易确认
-      const setGooglPriceTx = await mockPyth.setPrice(googlFeedId, 280, -2, now + 1); // $2.80
-      await setGooglPriceTx.wait(); // 等待交易确认
-      console.log("✅ MockPyth 价格设置完成 (AAPL: $1.50, GOOGL: $2.80)");
+      // 本地网络：MockPyth已经在上面部署并设置了价格
+      console.log("✅ 本地网络MockPyth已准备就绪");
     }
 
     // 4. 创建测试代币
@@ -84,126 +185,141 @@ describe("Exchange - 股票交易所功能测试", function () {
     
     // 创建 AAPL 代币
     const existingAaplAddress = await tokenFactory.getTokenAddress("AAPL");
-    if (existingAaplAddress === ethers.constants.AddressZero) {
+    if (existingAaplAddress === ethers.ZeroAddress) {
+      console.log("🔨 创建 AAPL 代币...");
       const createAaplTx = await tokenFactory.createToken(
         "Apple Stock Token",
         "AAPL",
-        ethers.utils.parseEther("1000000")
+        ethers.parseEther("1000000")
       );
-      await createAaplTx.wait(); // 等待交易确认
+      await smartWait(createAaplTx, "AAPL代币创建");
     }
     const aaplTokenAddress = await tokenFactory.getTokenAddress("AAPL");
+    // ethers v6需要你检查address是否为有效字符串
+    if (!aaplTokenAddress || aaplTokenAddress === ethers.ZeroAddress) {
+      throw new Error("AAPL token address 获取失败，实际为: " + aaplTokenAddress);
+    }
     aaplToken = await ethers.getContractAt("StockToken", aaplTokenAddress);
     console.log(`✅ AAPL 代币创建: ${aaplTokenAddress}`);
 
     // 创建 GOOGL 代币
     const existingGooglAddress = await tokenFactory.getTokenAddress("GOOGL");
-    if (existingGooglAddress === ethers.constants.AddressZero) {
+    if (existingGooglAddress === ethers.ZeroAddress) {
+      console.log("🔨 创建 GOOGL 代币...");
       const createGooglTx = await tokenFactory.createToken(
         "Google Stock Token", 
         "GOOGL",
-        ethers.utils.parseEther("500000")
+        ethers.parseEther("500000")
       );
-      await createGooglTx.wait(); // 等待交易确认
+      await smartWait(createGooglTx, "GOOGL代币创建");
     }
     const googlTokenAddress = await tokenFactory.getTokenAddress("GOOGL");
+    // ethers v6需要你检查address是否为有效字符串
+    if (!googlTokenAddress || googlTokenAddress === ethers.ZeroAddress) {
+      throw new Error("GOOGL token address 获取失败，实际为: " + googlTokenAddress);
+    }
     googlToken = await ethers.getContractAt("StockToken", googlTokenAddress);
     console.log(`✅ GOOGL 代币创建: ${googlTokenAddress}`);
 
     // 5. 分配测试余额
     console.log("📄 [STEP 3] 分配测试余额...");
     
+    // 针对Sepolia网络的批量操作优化
+    if (isSepoliaNetwork) {
+      console.log("🌐 Sepolia网络模式：批量检查所有状态...");
+    }
+    
     // 检查用户A的USDT余额，如果不足才进行mint
     const userAUsdtBalance = await usdtToken.balanceOf(userA.address);
-    if (userAUsdtBalance.lt(USER_A_USDT)) {
-      console.log(`💰 UserA USDT余额不足 (${ethers.utils.formatUnits(userAUsdtBalance, 6)}), 需要mint`);
+    if (userAUsdtBalance < USER_A_USDT) {
+      console.log(`💰 UserA USDT余额不足 (${ethers.formatUnits(userAUsdtBalance, 6)}), 需要mint`);
       const mintUserATx = await usdtToken.mint(userA.address, USER_A_USDT);
-      await mintUserATx.wait(); // 等待交易确认
-      console.log(`✅ UserA 获得 ${ethers.utils.formatUnits(USER_A_USDT, 6)} USDT`);
+      await smartWait(mintUserATx, "UserA USDT mint");
+      console.log(`✅ UserA 获得 ${ethers.formatUnits(USER_A_USDT, 6)} USDT`);
     } else {
-      console.log(`✅ UserA USDT余额充足 (${ethers.utils.formatUnits(userAUsdtBalance, 6)}), 跳过mint`);
+      console.log(`✅ UserA USDT余额充足 (${ethers.formatUnits(userAUsdtBalance, 6)}), 跳过mint`);
     }
     
     // 检查用户B的USDT余额，如果不足才进行mint
     const userBUsdtBalance = await usdtToken.balanceOf(userB.address);
-    if (userBUsdtBalance.lt(USER_B_USDT)) {
-      console.log(`💰 UserB USDT余额不足 (${ethers.utils.formatUnits(userBUsdtBalance, 6)}), 需要mint`);
+    if (userBUsdtBalance < USER_B_USDT) {
+      console.log(`💰 UserB USDT余额不足 (${ethers.formatUnits(userBUsdtBalance, 6)}), 需要mint`);
       const mintUserBTx = await usdtToken.mint(userB.address, USER_B_USDT);
-      await mintUserBTx.wait(); // 等待交易确认
-      console.log(`✅ UserB 获得 ${ethers.utils.formatUnits(USER_B_USDT, 6)} USDT`);
+      await smartWait(mintUserBTx, "UserB USDT mint");
+      console.log(`✅ UserB 获得 ${ethers.formatUnits(USER_B_USDT, 6)} USDT`);
     } else {
-      console.log(`✅ UserB USDT余额充足 (${ethers.utils.formatUnits(userBUsdtBalance, 6)}), 跳过mint`);
+      console.log(`✅ UserB USDT余额充足 (${ethers.formatUnits(userBUsdtBalance, 6)}), 跳过mint`);
     }
     
     // 检查AAPL合约的代币余额，如果不足才进行注入
-    const aaplContractBalance = await aaplToken.balanceOf(aaplToken.address);
-    const requiredAaplBalance = USER_A_AAPL.add(USER_B_AAPL);
-    if (aaplContractBalance.lt(requiredAaplBalance)) {
-      console.log(`🪙 AAPL合约余额不足 (${ethers.utils.formatEther(aaplContractBalance)}), 需要注入`);
+    const aaplContractBalance = await aaplToken.balanceOf(await aaplToken.getAddress());
+    const requiredAaplBalance = USER_A_AAPL + USER_B_AAPL;
+    if (aaplContractBalance < requiredAaplBalance) {
+      console.log(`🪙 AAPL合约余额不足 (${ethers.formatEther(aaplContractBalance)}), 需要注入`);
       const injectAaplTx = await aaplToken.injectTokens(requiredAaplBalance);
-      await injectAaplTx.wait(); // 等待交易确认
-      console.log(`✅ AAPL合约注入 ${ethers.utils.formatEther(requiredAaplBalance)} AAPL`);
+      await smartWait(injectAaplTx, "AAPL代币注入");
+      console.log(`✅ AAPL合约注入 ${ethers.formatEther(requiredAaplBalance)} AAPL`);
     } else {
-      console.log(`✅ AAPL合约余额充足 (${ethers.utils.formatEther(aaplContractBalance)}), 跳过注入`);
+      console.log(`✅ AAPL合约余额充足 (${ethers.formatEther(aaplContractBalance)}), 跳过注入`);
     }
     
     // 检查GOOGL合约的代币余额，如果不足才进行注入
-    const googlContractBalance = await googlToken.balanceOf(googlToken.address);
-    const requiredGooglBalance = ethers.utils.parseEther("10000"); // 增加到10000个GOOGL
-    if (googlContractBalance.lt(requiredGooglBalance)) {
-      console.log(`🪙 GOOGL合约余额不足 (${ethers.utils.formatEther(googlContractBalance)}), 需要注入`);
+    const googlContractBalance = await googlToken.balanceOf(await googlToken.getAddress());
+    const requiredGooglBalance = ethers.parseEther("10000"); // 增加到10000个GOOGL
+    if (googlContractBalance < requiredGooglBalance) {
+      console.log(`🪙 GOOGL合约余额不足 (${ethers.formatEther(googlContractBalance)}), 需要注入`);
       const injectGooglTx = await googlToken.injectTokens(requiredGooglBalance);
-      await injectGooglTx.wait(); // 等待交易确认
-      console.log(`✅ GOOGL合约注入 ${ethers.utils.formatEther(requiredGooglBalance)} GOOGL`);
+      await smartWait(injectGooglTx, "GOOGL代币注入");
+      console.log(`✅ GOOGL合约注入 ${ethers.formatEther(requiredGooglBalance)} GOOGL`);
     } else {
-      console.log(`✅ GOOGL合约余额充足 (${ethers.utils.formatEther(googlContractBalance)}), 跳过注入`);
+      console.log(`✅ GOOGL合约余额充足 (${ethers.formatEther(googlContractBalance)}), 跳过注入`);
     }
 
     // 6. 授权设置
     console.log("📄 [STEP 4] 设置授权...");
     
     // 检查UserA对AAPL的授权额度
-    const userAAllowanceAAPL = await usdtToken.allowance(userA.address, aaplToken.address);
-    if (userAAllowanceAAPL.lt(USER_A_USDT)) {
-      console.log(`🔐 UserA对AAPL授权不足 (${ethers.utils.formatUnits(userAAllowanceAAPL, 6)}), 需要授权`);
-      const approveA1Tx = await usdtToken.connect(userA).approve(aaplToken.address, USER_A_USDT);
-      await approveA1Tx.wait(); // 等待交易确认
-      console.log(`✅ UserA 授权 ${ethers.utils.formatUnits(USER_A_USDT, 6)} USDT 给 AAPL 合约`);
+    const userAAllowanceAAPL = await usdtToken.allowance(userA.address, await aaplToken.getAddress());
+    if (userAAllowanceAAPL < USER_A_USDT) {
+      console.log(`🔐 UserA对AAPL授权不足 (${ethers.formatUnits(userAAllowanceAAPL, 6)}), 需要授权`);
+      const approveA1Tx = await usdtToken.connect(userA).approve(await aaplToken.getAddress(), USER_A_USDT);
+      await smartWait(approveA1Tx, "UserA AAPL授权");
+      console.log(`✅ UserA 授权 ${ethers.formatUnits(USER_A_USDT, 6)} USDT 给 AAPL 合约`);
     } else {
-      console.log(`✅ UserA对AAPL授权充足 (${ethers.utils.formatUnits(userAAllowanceAAPL, 6)}), 跳过授权`);
+      console.log(`✅ UserA对AAPL授权充足 (${ethers.formatUnits(userAAllowanceAAPL, 6)}), 跳过授权`);
     }
     
     // 检查UserB对AAPL的授权额度
-    const userBAllowanceAAPL = await usdtToken.allowance(userB.address, aaplToken.address);
-    if (userBAllowanceAAPL.lt(USER_B_USDT)) {
-      console.log(`🔐 UserB对AAPL授权不足 (${ethers.utils.formatUnits(userBAllowanceAAPL, 6)}), 需要授权`);
-      const approveB1Tx = await usdtToken.connect(userB).approve(aaplToken.address, USER_B_USDT);
-      await approveB1Tx.wait(); // 等待交易确认
-      console.log(`✅ UserB 授权 ${ethers.utils.formatUnits(USER_B_USDT, 6)} USDT 给 AAPL 合约`);
+    const userBAllowanceAAPL = await usdtToken.allowance(userB.address, await aaplToken.getAddress());
+    if (userBAllowanceAAPL < USER_B_USDT) {
+      console.log(`🔐 UserB对AAPL授权不足 (${ethers.formatUnits(userBAllowanceAAPL, 6)}), 需要授权`);
+      const approveB1Tx = await usdtToken.connect(userB).approve(await aaplToken.getAddress(), USER_B_USDT);
+      await smartWait(approveB1Tx, "UserB AAPL授权");
+      console.log(`✅ UserB 授权 ${ethers.formatUnits(USER_B_USDT, 6)} USDT 给 AAPL 合约`);
     } else {
-      console.log(`✅ UserB对AAPL授权充足 (${ethers.utils.formatUnits(userBAllowanceAAPL, 6)}), 跳过授权`);
+      console.log(`✅ UserB对AAPL授权充足 (${ethers.formatUnits(userBAllowanceAAPL, 6)}), 跳过授权`);
     }
     
     // 检查UserA对GOOGL的授权额度
-    const userAAllowanceGOOGL = await usdtToken.allowance(userA.address, googlToken.address);
-    if (userAAllowanceGOOGL.lt(USER_A_USDT)) {
-      console.log(`🔐 UserA对GOOGL授权不足 (${ethers.utils.formatUnits(userAAllowanceGOOGL, 6)}), 需要授权`);
-      const approveA2Tx = await usdtToken.connect(userA).approve(googlToken.address, USER_A_USDT);
-      await approveA2Tx.wait(); // 等待交易确认
-      console.log(`✅ UserA 授权 ${ethers.utils.formatUnits(USER_A_USDT, 6)} USDT 给 GOOGL 合约`);
+    const userAAllowanceGOOGL = await usdtToken.allowance(userA.address, await googlToken.getAddress());
+    if (userAAllowanceGOOGL < USER_A_USDT) {
+      console.log(`🔐 UserA对GOOGL授权不足 (${ethers.formatUnits(userAAllowanceGOOGL, 6)}), 需要授权`);
+      const approveA2Tx = await usdtToken.connect(userA).approve(await googlToken.getAddress(), USER_A_USDT);
+      await smartWait(approveA2Tx, "UserA GOOGL授权");
+      console.log(`✅ UserA 授权 ${ethers.formatUnits(USER_A_USDT, 6)} USDT 给 GOOGL 合约`);
     } else {
-      console.log(`✅ UserA对GOOGL授权充足 (${ethers.utils.formatUnits(userAAllowanceGOOGL, 6)}), 跳过授权`);
+      console.log(`✅ UserA对GOOGL授权充足 (${ethers.formatUnits(userAAllowanceGOOGL, 6)}), 跳过授权`);
     }
     
     // 检查UserB对GOOGL的授权额度
-    const userBAllowanceGOOGL = await usdtToken.allowance(userB.address, googlToken.address);
-    if (userBAllowanceGOOGL.lt(USER_B_USDT)) {
-      console.log(`🔐 UserB对GOOGL授权不足 (${ethers.utils.formatUnits(userBAllowanceGOOGL, 6)}), 需要授权`);
-      const approveB2Tx = await usdtToken.connect(userB).approve(googlToken.address, USER_B_USDT);
-      await approveB2Tx.wait(); // 等待交易确认
-      console.log(`✅ UserB 授权 ${ethers.utils.formatUnits(USER_B_USDT, 6)} USDT 给 GOOGL 合约`);
+    const userBAllowanceGOOGL = await usdtToken.allowance(userB.address, await googlToken.getAddress());
+    if (userBAllowanceGOOGL < USER_B_USDT) {
+      console.log(`🔐 UserB对GOOGL授权不足 (${ethers.formatUnits(userBAllowanceGOOGL, 6)}), 需要授权`);
+      const approveB2Tx = await usdtToken.connect(userB).approve(await googlToken.getAddress(), USER_B_USDT);
+      await smartWait(approveB2Tx, "UserB GOOGL授权");
+      console.log(`✅ UserB 授权 ${ethers.formatUnits(USER_B_USDT, 6)} USDT 给 GOOGL 合约`);
     } else {
-      console.log(`✅ UserB对GOOGL授权充足 (${ethers.utils.formatUnits(userBAllowanceGOOGL, 6)}), 跳过授权`);
+      console.log(`✅ UserB对GOOGL授权充足 (${ethers.formatUnits(userBAllowanceGOOGL, 6)}), 跳过授权`);
     }
 
     console.log("🎉 [SETUP] 交易所测试环境初始化完成！\n");
@@ -211,12 +327,12 @@ describe("Exchange - 股票交易所功能测试", function () {
 
   describe("1. 合约初始化验证", function () {
     it("验证代币工厂地址正确设置", async function () {
-      expect(await aaplToken.oracleAggregator()).to.equal(oracleAggregator.address);
-      expect(await googlToken.oracleAggregator()).to.equal(oracleAggregator.address);
+      expect(await aaplToken.oracleAggregator()).to.equal(await oracleAggregator.getAddress());
+      expect(await googlToken.oracleAggregator()).to.equal(await oracleAggregator.getAddress());
     });
     
     it("验证预言机聚合器地址正确绑定", async function () {
-      expect(await aaplToken.oracleAggregator()).to.equal(oracleAggregator.address);
+      expect(await aaplToken.oracleAggregator()).to.equal(await oracleAggregator.getAddress());
     });
     
     it("检查初始手续费率设置（默认0.3%）", async function () {
@@ -234,23 +350,23 @@ describe("Exchange - 股票交易所功能测试", function () {
 
   describe("2. 买入功能（USDT → 股票代币）", function () {
     it("正常买入流程，用户A用USDT买入AAPL，余额变化验证", async function () {
-      const buyAmount = ethers.utils.parseUnits("100", 6); // 100 USDT
+      const buyAmount = ethers.parseUnits("100", 6); // 100 USDT
       
       console.log("\n📊 === 买入交易详细信息 ===");
-      console.log(`💰 用户输入买入金额: ${ethers.utils.formatUnits(buyAmount, 6)} USDT`);
+      console.log(`💰 用户输入买入金额: ${ethers.formatUnits(buyAmount, 6)} USDT`);
       console.log(`🌐 当前网络: ${isLocalNetwork ? 'localhost (MockPyth)' : 'sepolia (真实Pyth)'}`);
       
       // 获取初始余额
       const initialUsdtBalance = await usdtToken.balanceOf(userA.address);
       const initialTokenBalance = await aaplToken.balanceOf(userA.address);
       
-      console.log(`🏦 交易前用户USDT余额: ${ethers.utils.formatUnits(initialUsdtBalance, 6)} USDT (原始值: ${initialUsdtBalance.toString()})`);
-      console.log(`🪙 交易前用户AAPL余额: ${ethers.utils.formatEther(initialTokenBalance)} AAPL (原始值: ${initialTokenBalance.toString()})`);
-      console.log(`💰 买入金额: ${ethers.utils.formatUnits(buyAmount, 6)} USDT (原始值: ${buyAmount.toString()})`);
+      console.log(`🏦 交易前用户USDT余额: ${ethers.formatUnits(initialUsdtBalance, 6)} USDT (原始值: ${initialUsdtBalance.toString()})`);
+      console.log(`🪙 交易前用户AAPL余额: ${ethers.formatEther(initialTokenBalance)} AAPL (原始值: ${initialTokenBalance.toString()})`);
+      console.log(`💰 买入金额: ${ethers.formatUnits(buyAmount, 6)} USDT (原始值: ${buyAmount.toString()})`);
       
       // 检查用户授权额度
-      const allowance = await usdtToken.allowance(userA.address, aaplToken.address);
-      console.log(`🔐 用户USDT授权额度: ${ethers.utils.formatUnits(allowance, 6)} USDT (原始值: ${allowance.toString()})`);
+      const allowance = await usdtToken.allowance(userA.address, await aaplToken.getAddress());
+      console.log(`🔐 用户USDT授权额度: ${ethers.formatUnits(allowance, 6)} USDT (原始值: ${allowance.toString()})`);
       
       // 根据网络类型获取价格更新数据
       let updateData, fee;
@@ -265,14 +381,15 @@ describe("Exchange - 股票交易所功能测试", function () {
         fee = await oracleAggregator.getUpdateFee(updateData);
         
         // 先更新价格数据到预言机
-        await oracleAggregator.updatePriceFeeds(updateData, { value: fee });
+        const overrides = { value: fee };
+        await oracleAggregator.updatePriceFeeds(updateData, overrides);
         console.log(`🔄 价格数据已更新到预言机`);
       }
       
       // 获取预估结果（此时使用的是最新价格）
       const [estimatedTokens, estimatedFee] = await aaplToken.getBuyEstimate(buyAmount);
-      console.log(`💡 预估获得代币: ${ethers.utils.formatEther(estimatedTokens)} AAPL`);
-      console.log(`💡 预估手续费: ${ethers.utils.formatEther(estimatedFee)} AAPL`);
+      console.log(`💡 预估获得代币: ${ethers.formatEther(estimatedTokens)} AAPL`);
+      console.log(`💡 预估手续费: ${ethers.formatEther(estimatedFee)} AAPL`);
       
       // 根据网络类型获取交易用的更新数据
       let buyUpdateData, buyFee;
@@ -290,41 +407,128 @@ describe("Exchange - 股票交易所功能测试", function () {
       
       // 执行买入交易
       console.log(`\n🚀 === 准备执行买入交易 ===`);
-      console.log(`🎯 买入金额: ${ethers.utils.formatUnits(buyAmount, 6)} USDT`);
-      console.log(`💡 预估代币: ${ethers.utils.formatEther(estimatedTokens)} AAPL`);
-      console.log(`🛡️ 最小代币: ${ethers.utils.formatEther(estimatedTokens.mul(95).div(100))} AAPL (5%滑点保护)`);
+      console.log(`🎯 买入金额: ${ethers.formatUnits(buyAmount, 6)} USDT`);
+      console.log(`💡 预估代币: ${ethers.formatEther(estimatedTokens)} AAPL`);
+      console.log(`🛡️ 最小代币: ${ethers.formatEther(estimatedTokens * 95n / 100n)} AAPL (5%滑点保护)`);
       console.log(`💸 更新费用: ${buyFee.toString()} wei`);
       
       // 根据网络类型设置交易参数
-      const txOptions = {
+      console.log(`🔍 buyFee类型: ${typeof buyFee}, 值: ${buyFee.toString()}`);
+      const transactionOptions = {
         value: buyFee, // 传递正确的更新费用
       };
       
-      if (!isLocalNetwork) {
-        // Sepolia 网络需要更高的 gas 设置
-        txOptions.gasLimit = 300000;
-        txOptions.gasPrice = ethers.utils.parseUnits("30", "gwei");
+      // if (!isLocalNetwork) {
+      //   // Sepolia 网络需要更高的 gas 设置
+      //   transactionOptions.gasLimit = 300000;
+      //   transactionOptions.gasPrice = ethers.parseUnits("30", "gwei");
+      // }
+      
+      // 🔍 详细打印交易参数
+      console.log(`\n🔍 === 详细交易参数调试 ===`);
+      console.log(`📄 buyAmount: ${buyAmount.toString()} (${ethers.formatUnits(buyAmount, 6)} USDT)`);
+      console.log(`📄 minTokenAmount: ${(estimatedTokens * 95n / 100n).toString()} (${ethers.formatEther(estimatedTokens * 95n / 100n)} AAPL)`);
+      console.log(`📄 buyUpdateData类型: ${typeof buyUpdateData}`);
+      console.log(`📄 buyUpdateData是否为数组: ${Array.isArray(buyUpdateData)}`);
+      console.log(`📄 buyUpdateData长度: ${buyUpdateData ? buyUpdateData.length : 'undefined'}`);
+      if (buyUpdateData && buyUpdateData.length > 0) {
+        console.log(`� buyUpdateData[0]类型: ${typeof buyUpdateData[0]}`);
+        console.log(`📄 buyUpdateData[0]长度: ${buyUpdateData[0] ? buyUpdateData[0].length : 'undefined'}`);
+        console.log(`� buyUpdateData[0]前50字符: ${buyUpdateData[0] ? buyUpdateData[0].substring(0, 50) + '...' : 'undefined'}`);
       }
+      console.log(`📄 transactionOptions详情:`);
+      console.log(`   - value: ${transactionOptions.value} (类型: ${typeof transactionOptions.value})`);
+      console.log(`   - value toString: ${transactionOptions.value?.toString()} wei`);
+      console.log(`   - gasLimit: ${transactionOptions.gasLimit} (类型: ${typeof transactionOptions.gasLimit})`);
+      console.log(`   - gasPrice: ${transactionOptions.gasPrice} (类型: ${typeof transactionOptions.gasPrice})`);
+      console.log(`   - gasPrice格式化: ${transactionOptions.gasPrice ? ethers.formatUnits(transactionOptions.gasPrice, 'gwei') + ' gwei' : 'undefined'}`);
+      console.log(`📄 合约地址: ${await aaplToken.getAddress()}`);
+      console.log(`📄 调用者地址: ${userA.address}`);
+      console.log(`📄 网络状态:`);
+      console.log(`   - isLocalNetwork: ${isLocalNetwork}`);
+      console.log(`   - isSepoliaNetwork: ${isSepoliaNetwork}`);
       
-      const tx = await aaplToken.connect(userA).buy(
-        buyAmount,
-        estimatedTokens.mul(95).div(100), // 5% 滑点保护
-        buyUpdateData, // 根据网络使用相应的更新数据
-        txOptions
-      );
-      
-      // 等待交易确认
-      const receipt = await tx.wait();
-      console.log(`✅ 买入交易已确认，区块号: ${receipt.blockNumber}, Gas 使用: ${receipt.gasUsed.toString()}`);
-      
+      let tx, receipt;
+      try {
+        console.log(`\n🚀 开始执行合约调用...`);
+        
+        // ethers v6修复：确保value被正确传递
+        const overrides = {
+          value: buyFee,
+          gasLimit: transactionOptions.gasLimit,
+          gasPrice: transactionOptions.gasPrice
+        };
+        
+        console.log(`🔍 最终overrides: ${JSON.stringify({
+          value: overrides.value?.toString(),
+          gasLimit: overrides.gasLimit?.toString(),
+          gasPrice: overrides.gasPrice?.toString()
+        })}`);
+        
+        tx = await aaplToken.connect(userA).buy(
+          buyAmount,
+          estimatedTokens * 95n / 100n,
+          buyUpdateData,
+          overrides
+        );
+        
+        // 等待交易确认
+        receipt = await tx.wait();
+        console.log(`✅ 买入交易已确认，区块号: ${receipt.blockNumber}, Gas 使用: ${receipt.gasUsed.toString()}`);
+      } catch (error) {
+        console.log("❌ 买入交易失败:");
+        console.log("错误类型:", error.code);
+        console.log("错误消息:", error.message);
+        if (error.reason) {
+          console.log("错误原因:", error.reason);
+        }
+        if (error.data) {
+          console.log("错误数据:", error.data);
+        }
+        if (error.transaction) {
+          console.log("交易参数:", {
+            to: error.transaction.to,
+            from: error.transaction.from,
+            value: error.transaction.value?.toString(),
+            data: error.transaction.data?.slice(0, 50) + "..."
+          });
+        }
+        
+        // 尝试调用合约的预估函数看看问题所在
+        try {
+          console.log("🔍 检查合约状态...");
+          const minTrade = await aaplToken.minTradeAmount();
+          console.log(`最小交易金额: ${ethers.formatUnits(minTrade, 6)} USDT`);
+          
+          const isPaused = await aaplToken.paused();
+          console.log(`合约是否暂停: ${isPaused}`);
+          
+          const contractBalance = await aaplToken.balanceOf(await aaplToken.getAddress());
+          console.log(`合约AAPL余额: ${ethers.formatEther(contractBalance)} AAPL`);
+          
+          const userUsdtBalance = await usdtToken.balanceOf(userA.address);
+          console.log(`用户USDT余额: ${ethers.formatUnits(userUsdtBalance, 6)} USDT`);
+          
+          const allowance = await usdtToken.allowance(userA.address, await aaplToken.getAddress());
+          console.log(`用户USDT授权: ${ethers.formatUnits(allowance, 6)} USDT`);
+          
+          console.log(`买入金额: ${ethers.formatUnits(buyAmount, 6)} USDT`);
+          console.log(`最小代币: ${ethers.formatEther(estimatedTokens * 95n / 100n)} AAPL`);
+          
+        } catch (statusError) {
+          console.log("状态检查失败:", statusError.message);
+        }
+        
+        throw error;
+      }
       // 立即检查余额（交易确认后）
       const immediateUsdtBalance = await usdtToken.balanceOf(userA.address);
       const immediateTokenBalance = await aaplToken.balanceOf(userA.address);
       console.log(`\n📊 === 交易确认后立即余额 ===`);
-      console.log(`🏦 USDT余额: ${ethers.utils.formatUnits(immediateUsdtBalance, 6)} USDT (原始值: ${immediateUsdtBalance.toString()})`);
-      console.log(`🪙 AAPL余额: ${ethers.utils.formatEther(immediateTokenBalance)} AAPL (原始值: ${immediateTokenBalance.toString()})`);
-      console.log(`💸 USDT变化: ${ethers.utils.formatUnits(initialUsdtBalance.sub(immediateUsdtBalance), 6)} USDT`);
-      console.log(`📦 AAPL变化: ${ethers.utils.formatEther(immediateTokenBalance.sub(initialTokenBalance))} AAPL`);
+      console.log(`🏦 USDT余额: ${ethers.formatUnits(immediateUsdtBalance, 6)} USDT (原始值: ${immediateUsdtBalance.toString()})`);
+      console.log(`🪙 AAPL余额: ${ethers.formatEther(immediateTokenBalance)} AAPL (原始值: ${immediateTokenBalance.toString()})`);
+      console.log(`💸 USDT变化: ${ethers.formatUnits(initialUsdtBalance - immediateUsdtBalance, 6)} USDT`);
+      console.log(`📦 AAPL变化: ${ethers.formatEther(immediateTokenBalance - initialTokenBalance)} AAPL`);
       
       // 根据网络类型等待区块确认
       if (!isLocalNetwork) {
@@ -339,54 +543,54 @@ describe("Exchange - 股票交易所功能测试", function () {
       const finalTokenBalance = await aaplToken.balanceOf(userA.address);
       
       console.log(`\n📊 === 等待后最终余额 ===`);
-      console.log(`🏦 USDT余额: ${ethers.utils.formatUnits(finalUsdtBalance, 6)} USDT (原始值: ${finalUsdtBalance.toString()})`);
-      console.log(`🪙 AAPL余额: ${ethers.utils.formatEther(finalTokenBalance)} AAPL (原始值: ${finalTokenBalance.toString()})`);
+      console.log(`🏦 USDT余额: ${ethers.formatUnits(finalUsdtBalance, 6)} USDT (原始值: ${finalUsdtBalance.toString()})`);
+      console.log(`🪙 AAPL余额: ${ethers.formatEther(finalTokenBalance)} AAPL (原始值: ${finalTokenBalance.toString()})`);
       
       // 计算实际变化
-      const actualUsdtSpent = initialUsdtBalance.sub(finalUsdtBalance);
-      const actualTokensReceived = finalTokenBalance.sub(initialTokenBalance);
+      const actualUsdtSpent = initialUsdtBalance - finalUsdtBalance;
+      const actualTokensReceived = finalTokenBalance - initialTokenBalance;
       
       console.log(`\n📊 === 余额变化详细分析 ===`);
-      console.log(`🏦 初始USDT: ${ethers.utils.formatUnits(initialUsdtBalance, 6)} USDT (${initialUsdtBalance.toString()})`);
-      console.log(`🏦 最终USDT: ${ethers.utils.formatUnits(finalUsdtBalance, 6)} USDT (${finalUsdtBalance.toString()})`);
-      console.log(`💸 USDT差值: ${ethers.utils.formatUnits(actualUsdtSpent, 6)} USDT (${actualUsdtSpent.toString()})`);
-      console.log(`📦 期望USDT减少: ${ethers.utils.formatUnits(buyAmount, 6)} USDT (${buyAmount.toString()})`);
-      console.log(`🔍 差值是否为正数: ${actualUsdtSpent.gt(0) ? '是（正常）' : '否（异常）'}`);
-      console.log(`🔍 差值是否等于买入金额: ${actualUsdtSpent.eq(buyAmount) ? '是' : '否'}`);
+      console.log(`🏦 初始USDT: ${ethers.formatUnits(initialUsdtBalance, 6)} USDT (${initialUsdtBalance.toString()})`);
+      console.log(`🏦 最终USDT: ${ethers.formatUnits(finalUsdtBalance, 6)} USDT (${finalUsdtBalance.toString()})`);
+      console.log(`💸 USDT差值: ${ethers.formatUnits(actualUsdtSpent, 6)} USDT (${actualUsdtSpent.toString()})`);
+      console.log(`📦 期望USDT减少: ${ethers.formatUnits(buyAmount, 6)} USDT (${buyAmount.toString()})`);
+      console.log(`🔍 差值是否为正数: ${actualUsdtSpent > 0n ? '是（正常）' : '否（异常）'}`);
+      console.log(`🔍 差值是否等于买入金额: ${actualUsdtSpent === buyAmount ? '是' : '否'}`);
       
       console.log(`\n🪙 AAPL代币变化:`);
-      console.log(`🪙 初始AAPL: ${ethers.utils.formatEther(initialTokenBalance)} AAPL (${initialTokenBalance.toString()})`);
-      console.log(`🪙 最终AAPL: ${ethers.utils.formatEther(finalTokenBalance)} AAPL (${finalTokenBalance.toString()})`);
-      console.log(`📦 AAPL增加: ${ethers.utils.formatEther(actualTokensReceived)} AAPL (${actualTokensReceived.toString()})`);
-      console.log(`🔍 AAPL是否增加: ${actualTokensReceived.gt(0) ? '是（正常）' : '否（异常）'}`);
+      console.log(`🪙 初始AAPL: ${ethers.formatEther(initialTokenBalance)} AAPL (${initialTokenBalance.toString()})`);
+      console.log(`🪙 最终AAPL: ${ethers.formatEther(finalTokenBalance)} AAPL (${finalTokenBalance.toString()})`);
+      console.log(`📦 AAPL增加: ${ethers.formatEther(actualTokensReceived)} AAPL (${actualTokensReceived.toString()})`);
+      console.log(`🔍 AAPL是否增加: ${actualTokensReceived > 0n ? '是（正常）' : '否（异常）'}`);
       
       await expect(tx)
         .to.emit(aaplToken, "TokenPurchased")
         .withArgs(userA.address, "AAPL", buyAmount, actualTokensReceived, await aaplToken.getStockPrice());
       
       console.log("\n📈 === 交易结果统计 ===");
-      console.log(`🏦 交易后用户USDT余额: ${ethers.utils.formatUnits(finalUsdtBalance, 6)} USDT`);
-      console.log(`🪙 交易后用户AAPL余额: ${ethers.utils.formatEther(finalTokenBalance)} AAPL`);
-      console.log(`💸 实际消费USDT: ${ethers.utils.formatUnits(actualUsdtSpent, 6)} USDT`);
-      console.log(`📦 实际获得AAPL: ${ethers.utils.formatEther(actualTokensReceived)} AAPL`);
+      console.log(`🏦 交易后用户USDT余额: ${ethers.formatUnits(finalUsdtBalance, 6)} USDT`);
+      console.log(`🪙 交易后用户AAPL余额: ${ethers.formatEther(finalTokenBalance)} AAPL`);
+      console.log(`💸 实际消费USDT: ${ethers.formatUnits(actualUsdtSpent, 6)} USDT`);
+      console.log(`📦 实际获得AAPL: ${ethers.formatEther(actualTokensReceived)} AAPL`);
       
       console.log("\n🔍 === 预估 vs 实际对比 ===");
-      console.log(`预估获得: ${ethers.utils.formatEther(estimatedTokens)} AAPL`);
-      console.log(`实际获得: ${ethers.utils.formatEther(actualTokensReceived)} AAPL`);
-      console.log(`差异: ${ethers.utils.formatEther(actualTokensReceived.sub(estimatedTokens))} AAPL`);
+      console.log(`预估获得: ${ethers.formatEther(estimatedTokens)} AAPL`);
+      console.log(`实际获得: ${ethers.formatEther(actualTokensReceived)} AAPL`);
+      console.log(`差异: ${ethers.formatEther(actualTokensReceived - estimatedTokens)} AAPL`);
       
       // 验证余额变化（使用实际获得的代币数量，因为价格可能在两次调用间变化）
-      expect(finalUsdtBalance).to.equal(initialUsdtBalance.sub(buyAmount));
-      expect(finalTokenBalance).to.equal(initialTokenBalance.add(actualTokensReceived));
+      expect(finalUsdtBalance).to.equal(initialUsdtBalance - buyAmount);
+      expect(finalTokenBalance).to.equal(initialTokenBalance + actualTokensReceived);
     });
 
     it("手续费计算验证，不同金额和费率", async function () {
       console.log(`🌐 当前网络: ${isLocalNetwork ? 'localhost (MockPyth)' : 'sepolia (真实Pyth)'}`);
       
       const amounts = [
-        ethers.utils.parseUnits("10", 6),   // 10 USDT
-        ethers.utils.parseUnits("100", 6),  // 100 USDT
-        ethers.utils.parseUnits("500", 6)   // 500 USDT
+        ethers.parseUnits("10", 6),   // 10 USDT
+        ethers.parseUnits("100", 6),  // 100 USDT
+        ethers.parseUnits("500", 6)   // 500 USDT
       ];
       
       for (const amount of amounts) {
@@ -396,17 +600,17 @@ describe("Exchange - 股票交易所功能测试", function () {
         // 验证手续费计算: fee = (tokenAmount + fee) * feeRate / 10000
         // 即: tokenAmountBeforeFee = tokenAmount + feeAmount
         // feeAmount = tokenAmountBeforeFee * feeRate / 10000
-        const tokenAmountBeforeFee = tokenAmount.add(feeAmount);
-        const expectedFee = tokenAmountBeforeFee.mul(feeRate).div(10000);
+        const tokenAmountBeforeFee = tokenAmount + feeAmount;
+        const expectedFee = tokenAmountBeforeFee * BigInt(feeRate) / 10000n;
         
-        expect(feeAmount).to.be.closeTo(expectedFee, ethers.utils.parseEther("0.001"));
+        expect(feeAmount).to.be.closeTo(expectedFee, ethers.parseEther("0.001"));
       }
     });
 
     it("滑点保护机制，价格超出范围时交易失败", async function () {
       console.log(`🌐 当前网络: ${isLocalNetwork ? 'localhost (MockPyth)' : 'sepolia (真实Pyth)'}`);
       
-      const buyAmount = ethers.utils.parseUnits("1000", 6);
+      const buyAmount = ethers.parseUnits("1000", 6);
       
       // 根据网络类型获取价格更新数据
       let updateData, fee;
@@ -418,22 +622,25 @@ describe("Exchange - 股票交易所功能测试", function () {
         fee = await oracleAggregator.getUpdateFee(updateData);
         
         // 先更新价格数据到预言机
-        await oracleAggregator.updatePriceFeeds(updateData, { value: fee });
+        const overrides = { value: fee };
+        await oracleAggregator.updatePriceFeeds(updateData, overrides);
       }
       
       // 获取基于最新价格的预估（此时价格已经更新）
       const [estimatedTokens] = await aaplToken.getBuyEstimate(buyAmount);
       
       // 设置极端过高的最小代币数量（模拟极大滑点）
-      const tooHighMinTokens = estimatedTokens.mul(200).div(100); // 期望多获得100%（不可能）
+      const tooHighMinTokens = estimatedTokens * 200n / 100n; // 期望多获得100%（不可能）
       
-      console.log(`💡 预估获得代币: ${ethers.utils.formatEther(estimatedTokens)} AAPL`);
-      console.log(`💡 设置极端过高期望: ${ethers.utils.formatEther(tooHighMinTokens)} AAPL (+100%)`);
+      console.log(`💡 预估获得代币: ${ethers.formatEther(estimatedTokens)} AAPL`);
+      console.log(`💡 设置极端过高期望: ${ethers.formatEther(tooHighMinTokens)} AAPL (+100%)`);
       
       // 在两种网络上，我们检测交易是否失败
       let transactionFailed = false;
       try {
-        const tx = await aaplToken.connect(userA).buy(buyAmount, tooHighMinTokens, updateData, { value: fee });
+        // ethers v6修复：确保value被正确传递
+        const overrides = { value: fee };
+        const tx = await aaplToken.connect(userA).buy(buyAmount, tooHighMinTokens, updateData, overrides);
         await tx.wait(); // 等待交易确认
         console.log("❌ 交易意外成功了");
       } catch (error) {
@@ -457,26 +664,28 @@ describe("Exchange - 股票交易所功能测试", function () {
       } else {
         updateData = await fetchUpdateData(["AAPL"]);
         fee = await oracleAggregator.getUpdateFee(updateData);
-        await oracleAggregator.updatePriceFeeds(updateData, { value: fee });
+        const overrides = { value: fee };
+        await oracleAggregator.updatePriceFeeds(updateData, overrides);
       }
       
       // 获取最小交易金额设置
       const minAmount = await aaplToken.minTradeAmount();
-      console.log(`📝 最小交易金额: ${ethers.utils.formatUnits(minAmount, 6)} USDT`);
+      console.log(`📝 最小交易金额: ${ethers.formatUnits(minAmount, 6)} USDT`);
       
       // 测试1: 零金额交易（应该失败）
       console.log("📝 测试零金额交易...");
       let zeroAmountFailed = false;
       
       // 根据网络类型设置交易参数
-      const testTxOptions = { value: fee };
+      // ethers v6修复：确保value被正确传递
+      const testOverrides = { value: fee };
       if (!isLocalNetwork) {
-        testTxOptions.gasLimit = 200000;
-        testTxOptions.gasPrice = ethers.utils.parseUnits("20", "gwei");
+        testOverrides.gasLimit = 200000;
+        testOverrides.gasPrice = ethers.parseUnits("20", "gwei");
       }
       
       try {
-        const tx = await aaplToken.connect(userA).buy(0, 0, updateData, testTxOptions);
+        const tx = await aaplToken.connect(userA).buy(0, 0, updateData, testOverrides);
         await tx.wait();
         console.log("❌ 零金额交易意外成功了");
       } catch (error) {
@@ -486,7 +695,7 @@ describe("Exchange - 股票交易所功能测试", function () {
       expect(zeroAmountFailed).to.be.true;
       
       // 测试2: 低于最小金额（如果最小金额>0）
-      if (minAmount.gt(0)) {
+      if (minAmount > 0n) {
         console.log("📝 测试低于最小金额交易...");
         let belowMinFailed = false;
         try {
@@ -500,13 +709,14 @@ describe("Exchange - 股票交易所功能测试", function () {
             updateFee = priceUpdate.updateFee;
           }
           
-          const txOptions = { 
+          // ethers v6修复：确保value被正确传递
+          const overrides = { 
             value: updateFee,
             gasLimit: isLocalNetwork ? 200000 : 300000,
-            gasPrice: isLocalNetwork ? ethers.utils.parseUnits("20", "gwei") : ethers.utils.parseUnits("30", "gwei")
+            gasPrice: isLocalNetwork ? ethers.parseUnits("20", "gwei") : ethers.parseUnits("30", "gwei")
           };
           
-          const tx = await aaplToken.connect(userA).buy(minAmount.sub(1), 0, updateData, txOptions);
+          const tx = await aaplToken.connect(userA).buy(minAmount - 1, 0, updateData, overrides);
           await tx.wait();
           console.log("❌ 低于最小金额交易意外成功了");
         } catch (error) {
@@ -518,9 +728,9 @@ describe("Exchange - 股票交易所功能测试", function () {
       
       // 测试3: 最小有效金额交易（应该成功）
       console.log("📝 测试最小有效金额交易...");
-      const testAmount = minAmount.gt(0) ? minAmount : ethers.utils.parseUnits("1", 6); // 如果minAmount为0，使用1 USDT
+      const testAmount = minAmount > 0n ? minAmount : ethers.parseUnits("1", 6); // 如果minAmount为0，使用1 USDT
       const [estimatedTokens] = await aaplToken.getBuyEstimate(testAmount);
-      console.log(`💡 测试金额 ${ethers.utils.formatUnits(testAmount, 6)} USDT，预估获得: ${ethers.utils.formatEther(estimatedTokens)} AAPL`);
+      console.log(`💡 测试金额 ${ethers.formatUnits(testAmount, 6)} USDT，预估获得: ${ethers.formatEther(estimatedTokens)} AAPL`);
       
       let validAmountSuccess = false;
       try {
@@ -534,13 +744,14 @@ describe("Exchange - 股票交易所功能测试", function () {
           updateFee = priceUpdate.updateFee;
         }
         
-        const txOptions = { 
+        // ethers v6修复：确保value被正确传递
+        const overrides = { 
           value: updateFee,
           gasLimit: isLocalNetwork ? 200000 : 300000,
-          gasPrice: isLocalNetwork ? ethers.utils.parseUnits("20", "gwei") : ethers.utils.parseUnits("30", "gwei")
+          gasPrice: isLocalNetwork ? ethers.parseUnits("20", "gwei") : ethers.parseUnits("30", "gwei")
         };
         
-        const tx = await aaplToken.connect(userA).buy(testAmount, estimatedTokens, updateData, txOptions);
+        const tx = await aaplToken.connect(userA).buy(testAmount, estimatedTokens, updateData, overrides);
         await tx.wait();
         validAmountSuccess = true;
         console.log("✅ 有效金额交易成功");
@@ -557,17 +768,17 @@ describe("Exchange - 股票交易所功能测试", function () {
     beforeEach(async function () {
       // 检查用户A的AAPL代币余额，如果足够就跳过买入
       const currentAaplBalance = await aaplToken.balanceOf(userA.address);
-      const requiredAaplBalance = ethers.utils.parseEther("5"); // 需要至少5个AAPL用于卖出测试
+      const requiredAaplBalance = ethers.parseEther("5"); // 需要至少5个AAPL用于卖出测试
       
-      if (currentAaplBalance.gte(requiredAaplBalance)) {
-        console.log(`✅ UserA AAPL余额充足 (${ethers.utils.formatEther(currentAaplBalance)} AAPL), 跳过买入操作`);
+      if (currentAaplBalance >= requiredAaplBalance) {
+        console.log(`✅ UserA AAPL余额充足 (${ethers.formatEther(currentAaplBalance)} AAPL), 跳过买入操作`);
         return;
       }
       
-      console.log(`💰 UserA AAPL余额不足 (${ethers.utils.formatEther(currentAaplBalance)} AAPL), 需要买入代币`);
+      console.log(`💰 UserA AAPL余额不足 (${ethers.formatEther(currentAaplBalance)} AAPL), 需要买入代币`);
       
       // 先让用户A买入一些代币用于卖出测试
-      const buyAmount = ethers.utils.parseUnits("500", 6); // 500 USDT
+      const buyAmount = ethers.parseUnits("500", 6); // 500 USDT
       const [estimatedTokens] = await aaplToken.getBuyEstimate(buyAmount);
       
       let updateData, updateFee;
@@ -580,17 +791,18 @@ describe("Exchange - 股票交易所功能测试", function () {
         updateData = updateData2;
       }
       
-      const txOptions = { 
+      // ethers v6修复：确保value被正确传递
+      const overrides = { 
         value: updateFee,
         gasLimit: isLocalNetwork ? 200000 : 300000,
-        gasPrice: isLocalNetwork ? ethers.utils.parseUnits("20", "gwei") : ethers.utils.parseUnits("30", "gwei")
+        gasPrice: isLocalNetwork ? ethers.parseUnits("20", "gwei") : ethers.parseUnits("30", "gwei")
       };
       
       const tx = await aaplToken.connect(userA).buy(
         buyAmount,
-        estimatedTokens.mul(95).div(100),
+        estimatedTokens * 95n / 100n,
         updateData,
-        txOptions
+        overrides
       );
       
       // 等待买入交易确认
@@ -605,7 +817,7 @@ describe("Exchange - 股票交易所功能测试", function () {
     });
 
     it("正常卖出流程，用户A卖出AAPL换USDT，余额变化验证", async function () {
-      const sellAmount = ethers.utils.parseEther("1"); // 卖出1个AAPL代币
+      const sellAmount = ethers.parseEther("1"); // 卖出1个AAPL代币
       
       // 获取初始余额
       const initialUsdtBalance = await usdtToken.balanceOf(userA.address);
@@ -622,14 +834,15 @@ describe("Exchange - 股票交易所功能测试", function () {
       
       // 先更新价格数据到预言机（仅在真实网络）
       if (!isLocalNetwork) {
-        await oracleAggregator.updatePriceFeeds(updateData, { value: updateFee });
+        const overrides = { value: updateFee };
+        await oracleAggregator.updatePriceFeeds(updateData, overrides);
         console.log(`🔄 价格数据已更新到预言机`);
       }
       
       // 获取预估结果（此时使用的是最新价格）
       const [estimatedUsdt, estimatedFee] = await aaplToken.getSellEstimate(sellAmount);
-      console.log(`💡 预估获得USDT: ${ethers.utils.formatUnits(estimatedUsdt, 6)} USDT`);
-      console.log(`💡 预估手续费: ${ethers.utils.formatUnits(estimatedFee, 6)} USDT`);
+      console.log(`💡 预估获得USDT: ${ethers.formatUnits(estimatedUsdt, 6)} USDT`);
+      console.log(`💡 预估手续费: ${ethers.formatUnits(estimatedFee, 6)} USDT`);
       
       // 获取新的价格更新数据用于实际交易
       let sellUpdateData, sellFee;
@@ -643,17 +856,18 @@ describe("Exchange - 股票交易所功能测试", function () {
       }
       
       // 执行卖出（使用网络相应的价格更新数据）
-      const txOptions = { 
+      // ethers v6修复：确保value被正确传递
+      const overrides = {
         value: sellFee,
         gasLimit: isLocalNetwork ? 200000 : 300000,
-        gasPrice: isLocalNetwork ? ethers.utils.parseUnits("20", "gwei") : ethers.utils.parseUnits("30", "gwei")
+        gasPrice: isLocalNetwork ? ethers.parseUnits("20", "gwei") : ethers.parseUnits("30", "gwei")
       };
       
       const tx = await aaplToken.connect(userA).sell(
         sellAmount,
-        estimatedUsdt.mul(95).div(100), // 5% 滑点保护
+        estimatedUsdt * 95n / 100n, // 5% 滑点保护
         sellUpdateData,
-        txOptions
+        overrides
       );
       
       // 等待交易确认
@@ -674,18 +888,18 @@ describe("Exchange - 股票交易所功能测试", function () {
       const finalUsdtBalance = await usdtToken.balanceOf(userA.address);
       const finalTokenBalance = await aaplToken.balanceOf(userA.address);
       
-      console.log(`🏦 交易后用户USDT余额: ${ethers.utils.formatUnits(finalUsdtBalance, 6)} USDT`);
-      console.log(`🪙 交易后用户AAPL余额: ${ethers.utils.formatEther(finalTokenBalance)} AAPL`);
-      console.log(`💰 实际获得USDT: ${ethers.utils.formatUnits(finalUsdtBalance.sub(initialUsdtBalance), 6)} USDT`);
-      console.log(`📦 实际卖出AAPL: ${ethers.utils.formatEther(initialTokenBalance.sub(finalTokenBalance))} AAPL`);
+      console.log(`🏦 交易后用户USDT余额: ${ethers.formatUnits(finalUsdtBalance, 6)} USDT`);
+      console.log(`🪙 交易后用户AAPL余额: ${ethers.formatEther(finalTokenBalance)} AAPL`);
+      console.log(`💰 实际获得USDT: ${ethers.formatUnits(finalUsdtBalance - initialUsdtBalance, 6)} USDT`);
+      console.log(`📦 实际卖出AAPL: ${ethers.formatEther(initialTokenBalance - finalTokenBalance)} AAPL`);
       
-      expect(finalUsdtBalance).to.equal(initialUsdtBalance.add(estimatedUsdt));
-      expect(finalTokenBalance).to.equal(initialTokenBalance.sub(sellAmount));
+      expect(finalUsdtBalance).to.equal(initialUsdtBalance + estimatedUsdt);
+      expect(finalTokenBalance).to.equal(initialTokenBalance - sellAmount);
     });
 
     it("价格波动场景，价格上涨/下跌时卖出验证", async function () {
       if (isLocalNetwork) {
-        const sellAmount = ethers.utils.parseEther("5");
+        const sellAmount = ethers.parseEther("5");
         
         // 原始价格卖出
         const [originalUsdt] = await aaplToken.getSellEstimate(sellAmount);
@@ -705,11 +919,11 @@ describe("Exchange - 股票交易所功能测试", function () {
       } else {
         console.log("⏭️  价格波动测试（Sepolia网络使用真实价格，只能观察当前价格）");
         
-        const sellAmount = ethers.utils.parseEther("5");
+        const sellAmount = ethers.parseEther("5");
         
         // 获取当前价格的卖出估算
         const [currentUsdt] = await aaplToken.getSellEstimate(sellAmount);
-        console.log(`💡 当前价格下卖出${ethers.utils.formatEther(sellAmount)} AAPL可获得: ${ethers.utils.formatUnits(currentUsdt, 6)} USDT`);
+        console.log(`💡 当前价格下卖出${ethers.formatEther(sellAmount)} AAPL可获得: ${ethers.formatUnits(currentUsdt, 6)} USDT`);
         
         // 在真实网络上，我们验证估算功能正常工作
         expect(currentUsdt).to.be.gt(0);
@@ -724,11 +938,13 @@ describe("Exchange - 股票交易所功能测试", function () {
       // 余额不足
       let insufficientBalanceFailed = false;
       try {
+        // ethers v6修复：确保value被正确传递
+        const overrides = { value: fee };
         const tx = await aaplToken.connect(userA).sell(
-          userTokenBalance.add(ethers.utils.parseEther("1")), // 超出余额
+          userTokenBalance + ethers.parseEther("1"), // 超出余额
           0,
           updateData,
-          { value: fee }
+          overrides
         );
         await tx.wait();
         console.log("❌ 余额不足交易意外成功了");
@@ -741,7 +957,9 @@ describe("Exchange - 股票交易所功能测试", function () {
       // 卖出零数量
       let zeroAmountSellFailed = false;
       try {
-        const tx = await aaplToken.connect(userA).sell(0, 0, updateData, { value: fee });
+        // ethers v6修复：确保value被正确传递
+        const overrides = { value: fee };
+        const tx = await aaplToken.connect(userA).sell(0, 0, updateData, overrides);
         await tx.wait();
         console.log("❌ 零数量卖出意外成功了");
       } catch (error) {
@@ -755,7 +973,7 @@ describe("Exchange - 股票交易所功能测试", function () {
   describe("4. 手续费计算逻辑", function () {
     it("不同费率下的手续费计算（0.1%-10%）", async function () {
       const testFeeRates = [10, 50, 100, 500, 1000]; // 0.1%, 0.5%, 1%, 5%, 10%
-      const buyAmount = ethers.utils.parseUnits("1000", 6);
+      const buyAmount = ethers.parseUnits("1000", 6);
       
       for (const feeRate of testFeeRates) {
         // 设置新的手续费率
@@ -772,9 +990,9 @@ describe("Exchange - 股票交易所功能测试", function () {
         expect(actualFeeRate).to.equal(feeRate);
         
         // 验证手续费计算逻辑
-        const tokenAmountBeforeFee = tokenAmount.add(feeAmount);
-        const expectedFee = tokenAmountBeforeFee.mul(feeRate).div(10000);
-        expect(feeAmount).to.be.closeTo(expectedFee, ethers.utils.parseEther("0.001"));
+        const tokenAmountBeforeFee = tokenAmount + feeAmount;
+        const expectedFee = tokenAmountBeforeFee * BigInt(feeRate) / 10000n;
+        expect(feeAmount).to.be.closeTo(expectedFee, ethers.parseEther("0.001"));
       }
       
       // 恢复默认费率
@@ -787,9 +1005,9 @@ describe("Exchange - 股票交易所功能测试", function () {
 
     it("大额/小额交易手续费验证，精度处理", async function () {
       const amounts = [
-        ethers.utils.parseUnits("1", 6),     // 小额: 1 USDT
-        ethers.utils.parseUnits("10000", 6), // 大额: 10,000 USDT
-        ethers.utils.parseUnits("50000", 6)  // 超大额: 50,000 USDT
+        ethers.parseUnits("1", 6),     // 小额: 1 USDT
+        ethers.parseUnits("10000", 6), // 大额: 10,000 USDT
+        ethers.parseUnits("50000", 6)  // 超大额: 50,000 USDT
       ];
       
       for (const amount of amounts) {
@@ -802,23 +1020,23 @@ describe("Exchange - 股票交易所功能测试", function () {
         expect(tokenAmount).to.be.gt(0);
         
         // 验证精度：手续费应该小于总代币数量
-        expect(feeAmount).to.be.lt(tokenAmount.add(feeAmount));
+        expect(feeAmount).to.be.lt(tokenAmount + feeAmount);
         
-        console.log(`💰 ${ethers.utils.formatUnits(amount, 6)} USDT -> ${ethers.utils.formatEther(tokenAmount)} AAPL (手续费: ${ethers.utils.formatEther(feeAmount)} AAPL)`);
+        console.log(`💰 ${ethers.formatUnits(amount, 6)} USDT -> ${ethers.formatEther(tokenAmount)} AAPL (手续费: ${ethers.formatEther(feeAmount)} AAPL)`);
       }
     });
   });
 
   describe("5. 滑点保护机制", function () {
     it("不同滑点设置下的交易成功率", async function () {
-      const buyAmount = ethers.utils.parseUnits("100", 6);
+      const buyAmount = ethers.parseUnits("100", 6);
       const [estimatedTokens] = await aaplToken.getBuyEstimate(buyAmount);
       
       const slippageTests = [
         { slippage: 0, minTokens: estimatedTokens },                    // 无滑点
-        { slippage: 1, minTokens: estimatedTokens.mul(99).div(100) },   // 1% 滑点
-        { slippage: 5, minTokens: estimatedTokens.mul(95).div(100) },   // 5% 滑点
-        { slippage: 10, minTokens: estimatedTokens.mul(90).div(100) }   // 10% 滑点
+        { slippage: 1, minTokens: estimatedTokens * 99n / 100n },   // 1% 滑点
+        { slippage: 5, minTokens: estimatedTokens * 95n / 100n },   // 5% 滑点
+        { slippage: 10, minTokens: estimatedTokens * 90n / 100n }   // 10% 滑点
       ];
       
       const updateData = isLocalNetwork ? [] : await fetchUpdateData(["AAPL"]);
@@ -828,17 +1046,17 @@ describe("Exchange - 股票交易所功能测试", function () {
         // 理论上正常的滑点应该能成功交易
         let slippageTestSuccess = false;
         try {
-          const txOptions = { 
+          const overrides = { 
             value: fee,
             gasLimit: isLocalNetwork ? 200000 : 300000,
-            gasPrice: isLocalNetwork ? ethers.utils.parseUnits("20", "gwei") : ethers.utils.parseUnits("30", "gwei")
+            gasPrice: isLocalNetwork ? ethers.parseUnits("20", "gwei") : ethers.parseUnits("30", "gwei")
           };
           
           const tx = await aaplToken.connect(userA).buy(
             buyAmount,
             test.minTokens,
             updateData,
-            txOptions
+            overrides
           );
           await tx.wait();
           slippageTestSuccess = true;
@@ -852,7 +1070,7 @@ describe("Exchange - 股票交易所功能测试", function () {
 
     it("实时价格波动对滑点的影响", async function () {
       if (isLocalNetwork) {
-        const buyAmount = ethers.utils.parseUnits("100", 6);
+        const buyAmount = ethers.parseUnits("100", 6);
         
         // 设置初始价格
         let now = Math.floor(Date.now() / 1000);
@@ -869,7 +1087,7 @@ describe("Exchange - 股票交易所功能测试", function () {
           const tx = await aaplToken.connect(userA).buy(buyAmount, estimatedTokens, [], { 
             value: 0,
             gasLimit: 200000,
-            gasPrice: ethers.utils.parseUnits("20", "gwei")
+            gasPrice: ethers.parseUnits("20", "gwei")
           });
           await tx.wait();
           console.log("❌ 价格上涨后交易意外成功了");
@@ -886,7 +1104,7 @@ describe("Exchange - 股票交易所功能测试", function () {
           const tx = await aaplToken.connect(userA).buy(buyAmount, newEstimatedTokens, [], { 
             value: 0,
             gasLimit: 200000,
-            gasPrice: ethers.utils.parseUnits("20", "gwei")
+            gasPrice: ethers.parseUnits("20", "gwei")
           });
           await tx.wait();
           adjustedPriceSuccess = true;
@@ -898,7 +1116,7 @@ describe("Exchange - 股票交易所功能测试", function () {
       } else {
         console.log("⏭️  价格波动测试（Sepolia网络使用真实价格，只能验证当前价格逻辑）");
         
-        const buyAmount = ethers.utils.parseUnits("100", 6);
+        const buyAmount = ethers.parseUnits("100", 6);
         const [estimatedTokens] = await aaplToken.getBuyEstimate(buyAmount);
         
         // 在真实网络上，我们验证当前价格的买入功能
@@ -907,10 +1125,10 @@ describe("Exchange - 股票交易所功能测试", function () {
         
         let realNetworkBuySuccess = false;
         try {
-          const tx = await aaplToken.connect(userA).buy(buyAmount, estimatedTokens.mul(95).div(100), updateData, {
+          const tx = await aaplToken.connect(userA).buy(buyAmount, estimatedTokens * 95 / 100, updateData, {
             value: fee,
             gasLimit: 300000,
-            gasPrice: ethers.utils.parseUnits("30", "gwei")
+            gasPrice: ethers.parseUnits("30", "gwei")
           });
           await tx.wait();
           realNetworkBuySuccess = true;
@@ -923,7 +1141,7 @@ describe("Exchange - 股票交易所功能测试", function () {
     });
 
     it("滑点超出系统最大值处理，零滑点交易验证", async function () {
-      const buyAmount = ethers.utils.parseUnits("100", 6);
+      const buyAmount = ethers.parseUnits("100", 6);
       const [estimatedTokens] = await aaplToken.getBuyEstimate(buyAmount);
       
       const updateData = isLocalNetwork ? [] : await fetchUpdateData(["AAPL"]);
@@ -932,13 +1150,14 @@ describe("Exchange - 股票交易所功能测试", function () {
       // 零滑点交易（要求精确数量）
       let zeroSlippageSuccess = false;
       try {
-        const txOptions = { 
+        // ethers v6修复：确保value被正确传递
+        const overrides = { 
           value: fee,
           gasLimit: isLocalNetwork ? 200000 : 300000,
-          gasPrice: isLocalNetwork ? ethers.utils.parseUnits("20", "gwei") : ethers.utils.parseUnits("30", "gwei")
+          gasPrice: isLocalNetwork ? ethers.parseUnits("20", "gwei") : ethers.parseUnits("30", "gwei")
         };
         
-        const tx = await aaplToken.connect(userA).buy(buyAmount, estimatedTokens, updateData, txOptions);
+        const tx = await aaplToken.connect(userA).buy(buyAmount, estimatedTokens, updateData, overrides);
         await tx.wait();
         zeroSlippageSuccess = true;
         console.log("✅ 零滑点交易成功");
@@ -948,16 +1167,17 @@ describe("Exchange - 股票交易所功能测试", function () {
       expect(zeroSlippageSuccess).to.be.true;
       
       // 过高期望（超出合理范围）
-      const unreasonableMinTokens = estimatedTokens.mul(150).div(100); // 期望多50%
+      const unreasonableMinTokens = estimatedTokens * 150n / 100n; // 期望多50%
       let unreasonableExpectationFailed = false;
       try {
-        const txOptions = { 
+        // ethers v6修复：确保value被正确传递
+        const overrides = { 
           value: fee,
           gasLimit: isLocalNetwork ? 200000 : 300000,
-          gasPrice: isLocalNetwork ? ethers.utils.parseUnits("20", "gwei") : ethers.utils.parseUnits("30", "gwei")
+          gasPrice: isLocalNetwork ? ethers.parseUnits("20", "gwei") : ethers.parseUnits("30", "gwei")
         };
         
-        const tx = await aaplToken.connect(userA).buy(buyAmount, unreasonableMinTokens, updateData, txOptions);
+        const tx = await aaplToken.connect(userA).buy(buyAmount, unreasonableMinTokens, updateData, overrides);
         await tx.wait();
         console.log("❌ 过高期望交易意外成功了");
       } catch (error) {
@@ -1026,18 +1246,19 @@ describe("Exchange - 股票交易所功能测试", function () {
       expect(await aaplToken.feeReceiver()).to.equal(feeReceiver.address);
       
       // 验证手续费转入新地址（通过一次买入交易）
-      const buyAmount = ethers.utils.parseUnits("1000", 6);
+      const buyAmount = ethers.parseUnits("1000", 6);
       const initialFeeReceiverBalance = await aaplToken.balanceOf(feeReceiver.address);
       
       const updateData = isLocalNetwork ? [] : await fetchUpdateData(["AAPL"]);
       const fee = isLocalNetwork ? 0 : await oracleAggregator.getUpdateFee(updateData);
       const [estimatedTokens] = await aaplToken.getBuyEstimate(buyAmount);
       
+      const overrides = { value: fee };
       await aaplToken.connect(userA).buy(
         buyAmount,
-        estimatedTokens.mul(95).div(100),
+        estimatedTokens * 95n / 100n,
         updateData,
-        { value: fee }
+        overrides
       );
       
       const finalFeeReceiverBalance = await aaplToken.balanceOf(feeReceiver.address);
@@ -1046,7 +1267,7 @@ describe("Exchange - 股票交易所功能测试", function () {
       // 零地址更新尝试
       let zeroAddressUpdateFailed = false;
       try {
-        const tx = await aaplToken.setFeeReceiver(ethers.constants.AddressZero);
+        const tx = await aaplToken.setFeeReceiver(ethers.ZeroAddress);
         await tx.wait();
         console.log("❌ 零地址更新意外成功了");
       } catch (error) {
@@ -1092,10 +1313,10 @@ describe("Exchange - 股票交易所功能测试", function () {
 
   describe("7. 多股票代币交易测试", function () {
     it("GOOGL 代币交易功能验证", async function () {
-      const buyAmount = ethers.utils.parseUnits("200", 6); // 200 USDT 买GOOGL
+      const buyAmount = ethers.parseUnits("200", 6); // 200 USDT 买GOOGL
       
       // 授权USDT给GOOGL合约
-      await usdtToken.connect(userA).approve(googlToken.address, buyAmount);
+      await usdtToken.connect(userA).approve(await googlToken.getAddress(), buyAmount);
       
       // 获取初始余额
       const initialUsdtBalance = await usdtToken.balanceOf(userA.address);
@@ -1106,43 +1327,43 @@ describe("Exchange - 股票交易所功能测试", function () {
       const fee = isLocalNetwork ? 0 : await oracleAggregator.getUpdateFee(updateData);
       const [estimatedTokens] = await googlToken.getBuyEstimate(buyAmount);
       
-      const txOptions = { 
+      const overrides = { 
         value: fee,
         gasLimit: isLocalNetwork ? 200000 : 300000,
-        gasPrice: isLocalNetwork ? ethers.utils.parseUnits("20", "gwei") : ethers.utils.parseUnits("30", "gwei")
+        gasPrice: isLocalNetwork ? ethers.parseUnits("20", "gwei") : ethers.parseUnits("30", "gwei")
       };
       
       await googlToken.connect(userA).buy(
         buyAmount,
-        estimatedTokens.mul(95).div(100), // 5% 滑点保护
+        estimatedTokens * 95n / 100n, // 5% 滑点保护
         updateData,
-        txOptions
+        overrides
       );
       
       // 验证余额变化
       const finalUsdtBalance = await usdtToken.balanceOf(userA.address);
       const finalTokenBalance = await googlToken.balanceOf(userA.address);
       
-      expect(finalUsdtBalance).to.equal(initialUsdtBalance.sub(buyAmount));
-      expect(finalTokenBalance).to.equal(initialTokenBalance.add(estimatedTokens));
+      expect(finalUsdtBalance).to.equal(initialUsdtBalance - buyAmount);
+      expect(finalTokenBalance).to.equal(initialTokenBalance + estimatedTokens);
       
-      console.log(`✅ GOOGL 交易成功: ${ethers.utils.formatEther(estimatedTokens)} GOOGL`);
+      console.log(`✅ GOOGL 交易成功: ${ethers.formatEther(estimatedTokens)} GOOGL`);
     });
 
     it("跨股票代币价格对比", async function () {
       const aaplPrice = await aaplToken.getStockPrice();
       const googlPrice = await googlToken.getStockPrice();
       
-      console.log(`📊 AAPL 价格: $${ethers.utils.formatEther(aaplPrice)}`);
-      console.log(`📊 GOOGL 价格: $${ethers.utils.formatEther(googlPrice)}`);
+      console.log(`📊 AAPL 价格: $${ethers.formatEther(aaplPrice)}`);
+      console.log(`📊 GOOGL 价格: $${ethers.formatEther(googlPrice)}`);
       
       // GOOGL 价格应该显著高于 AAPL
       expect(googlPrice).to.be.gt(aaplPrice);
       
       // 验证价格合理范围（基于模拟数据）
       if (isLocalNetwork) {
-        expect(aaplPrice).to.be.closeTo(ethers.utils.parseEther("1.5"), ethers.utils.parseEther("0.1")); // $1.50 ± $0.10
-        expect(googlPrice).to.be.closeTo(ethers.utils.parseEther("2.8"), ethers.utils.parseEther("0.1")); // $2.80 ± $0.10
+        expect(aaplPrice).to.be.closeTo(ethers.parseEther("1.5"), ethers.parseEther("0.1")); // $1.50 ± $0.10
+        expect(googlPrice).to.be.closeTo(ethers.parseEther("2.8"), ethers.parseEther("0.1")); // $2.80 ± $0.10
       }
     });
   });

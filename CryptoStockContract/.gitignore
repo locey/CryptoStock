@@ -10,6 +10,9 @@ typechain-types/
 coverage/
 coverage.json
 
+# Development cache and temporary files
+.deps/
+
 # Hardhat deploy files
 deployments/localhost/
 deployments/hardhat/
