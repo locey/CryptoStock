@@ -3,8 +3,9 @@ package types
 import "github.com/locey/CryptoStock/StockCoinBase/stores/gdb/airdrop"
 
 type ClaimRequest struct {
-	UsesrId uint `json:"user_id" binding:"required"`
-	TaskId  uint `json:"task_id" binding:"required"`
+	UsesrId int64  `json:"user_id" binding:"required"`
+	TaskId  int64  `json:"task_id" binding:"required"`
+	Address string `json:"address" binding:"required"`
 }
 
 type AirdropStats struct {

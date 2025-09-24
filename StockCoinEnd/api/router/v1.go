@@ -54,4 +54,14 @@ func loadV1(r *gin.Engine, svcCtx *svc.ServerCtx) {
 	{
 		orders.GET("", v1.OrderInfosHandler(svcCtx)) // 批量查询出价信息
 	}
+	airdrop := apiV1.Group("airdrop")
+	{
+		airdrop.GET("tasks", v1.GetAirDropTasks(svcCtx))               // 获取空投任务列表
+		airdrop.GET("task/:taskId", v1.GetAirDropClaim(svcCtx))        // 领取任务
+		airdrop.POST("task/:taskId", v1.GetAirDropClaimReward(svcCtx)) // 领取任务奖励
+		airdrop.GET("ref/link", v1.GetRefLink(svcCtx))                 // 获取用户邀请链接
+		airdrop.GET("task/info", v1.GetUserAirDropInfo(svcCtx))        // 领取用户空投信息
+		airdrop.GET("task/rank", v1.GetAirDropRanks(svcCtx))           // 领取空投排行
+		airdrop.GET("task/poolinfo", v1.GetAirDropPoolInfo(svcCtx))    // 领取空投排行
+	}
 }
