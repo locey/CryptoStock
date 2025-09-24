@@ -18,8 +18,9 @@ type Config struct {
 	DB gdb.Config `toml:"db" json:"db"`
 	Kv *KvConf    `toml:"kv" json:"kv"`
 	//Evm            *erc.NftErc       `toml:"evm" json:"evm"`
-	MetadataParse  *MetadataParse    `toml:"metadata_parse" mapstructure:"metadata_parse" json:"metadata_parse"`
-	ChainSupported []*ChainSupported `toml:"chain_supported" mapstructure:"chain_supported" json:"chain_supported"`
+	MetadataParse   *MetadataParse    `toml:"metadata_parse" mapstructure:"metadata_parse" json:"metadata_parse"`
+	ChainSupported  []*ChainSupported `toml:"chain_supported" mapstructure:"chain_supported" json:"chain_supported"`
+	AirdropContract *AirdropContract
 }
 
 type ProjectCfg struct {
@@ -54,6 +55,17 @@ type ChainSupported struct {
 	Name     string `toml:"name" mapstructure:"name" json:"name"`
 	ChainID  int    `toml:"chain_id" mapstructure:"chain_id" json:"chain_id"`
 	Endpoint string `toml:"endpoint" mapstructure:"endpoint" json:"endpoint"`
+}
+
+type AirdropContract struct {
+	RPCEndpoint     string // 以太坊节点RPC地址
+	PrivateKey      string // 私钥（用于签名交易）
+	ContractAddress string // 合约地址
+	GasLimit        uint64 // Gas限制
+	GasPrice        int64  // Gas价格（单位：wei）
+	ChainID         int64  // 链ID
+	AirdropInterval int    // 每次空投的间隔（秒）
+	BatchSize       int    // 批量处理大小
 }
 
 // UnmarshalConfig unmarshal conifg file

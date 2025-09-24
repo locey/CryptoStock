@@ -14,6 +14,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/locey/CryptoStock/StockCoinEnd/config"
+	"github.com/locey/CryptoStock/StockCoinEnd/contract"
 	"github.com/locey/CryptoStock/StockCoinEnd/dao"
 )
 
@@ -21,10 +22,11 @@ type ServerCtx struct {
 	C  *config.Config
 	DB *gorm.DB
 	//ImageMgr image.ImageManager
-	Dao      *dao.Dao
-	KvStore  *xkv.Store
-	RankKey  string
-	NodeSrvs map[int64]*nftchainservice.Service
+	Dao           *dao.Dao
+	KvStore       *xkv.Store
+	RankKey       string
+	NodeSrvs      map[int64]*nftchainservice.Service
+	AirdropClient contract.CSTokenContract
 }
 
 func NewServiceContext(c *config.Config) (*ServerCtx, error) {
