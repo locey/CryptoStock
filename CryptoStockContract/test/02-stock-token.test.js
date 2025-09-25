@@ -60,7 +60,7 @@ describe("StockToken - 股票代币合约测试", function () {
 
       // 1. 部署 MockPyth 合约
       console.log("📄 [STEP 1] 部署 MockPyth 合约...");
-      const MockPyth = await ethers.getContractFactory("MockPyth");
+      const MockPyth = await ethers.getContractFactory("contracts/mock/MockPyth.sol:MockPyth");
       mockPyth = await MockPyth.deploy();
       await mockPyth.waitForDeployment();
       const mockPythAddress = await mockPyth.getAddress();
@@ -68,7 +68,7 @@ describe("StockToken - 股票代币合约测试", function () {
 
       // 2. 部署 USDT 代币
       console.log("📄 [STEP 2] 部署 USDT 代币...");
-      const MockERC20 = await ethers.getContractFactory("MockERC20");
+      const MockERC20 = await ethers.getContractFactory("contracts/mock/MockERC20.sol:MockERC20");
       usdtToken = await MockERC20.deploy("USD Tether", "USDT", 6);
       await usdtToken.waitForDeployment();
       const usdtAddress = await usdtToken.getAddress();
@@ -185,7 +185,7 @@ describe("StockToken - 股票代币合约测试", function () {
       } else {
         throw new Error("USDT 代币地址未找到");
       }
-      usdtToken = await ethers.getContractAt("MockERC20", usdtAddress);
+      usdtToken = await ethers.getContractAt("contracts/mock/MockERC20.sol:MockERC20", usdtAddress);
       console.log(`✅ USDT Token 获取完成: ${usdtAddress}`);
 
       // Sepolia 网络没有 MockPyth，跳过

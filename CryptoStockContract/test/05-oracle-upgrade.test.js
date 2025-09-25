@@ -12,7 +12,7 @@ describe("OracleAggregator UUPS升级测试", function () {
     console.log("🚀 开始部署全新的可升级 OracleAggregator V1...");
     
     // 1. 部署 MockPyth 合约
-    const MockPyth = await ethers.getContractFactory("MockPyth");
+    const MockPyth = await ethers.getContractFactory("contracts/mock/MockPyth.sol:MockPyth");
     mockPyth = await MockPyth.deploy();
     await mockPyth.waitForDeployment();
     const mockPythAddress = await mockPyth.getAddress();

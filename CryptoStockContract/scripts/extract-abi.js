@@ -6,7 +6,7 @@ const path = require('path');
  * 用法: node scripts/extract-abi.js
  */
 
-// 需要提取ABI的合约列表
+// 需要提取ABI的合约列表 - 区分普通合约和mock合约
 const contracts = [
   'StockToken',
   'StockTokenV2', 
@@ -14,9 +14,15 @@ const contracts = [
   'TokenFactoryV2',
   'OracleAggregator',
   'OracleAggregatorV2',
+  'CSToken',
+  'DefiAggregator'
+];
+
+const mockContracts = [
   'MockERC20',
   'MockPyth',
-  'CSToken'
+  'MockAavePool',
+  'MockAToken'
 ];
 
 // 创建abi输出目录
@@ -32,6 +38,7 @@ function extractABI() {
   let successCount = 0;
   let failCount = 0;
   
+  // 处理普通合约
   contracts.forEach(contractName => {
     try {
       // 构建artifact文件路径
@@ -44,26 +51,30 @@ function extractABI() {
         `${contractName}.json`
       );
       
-      // 检查文件是否存在
-      if (!fs.existsSync(artifactPath)) {
-        console.log(`⚠️  跳过 ${contractName}: artifact文件不存在`);
-        failCount++;
-        return;
-      }
+      processContract(contractName, artifactPath);
+      successCount++;
       
-      // 读取artifact文件
-      const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
+    } catch (error) {
+      console.log(`❌ 提取失败 ${contractName}:`, error.message);
+      failCount++;
+    }
+  });
+  
+  // 处理mock合约
+  mockContracts.forEach(contractName => {
+    try {
+      // 构建artifact文件路径 (mock目录)
+      const artifactPath = path.join(
+        __dirname, 
+        '..', 
+        'artifacts', 
+        'contracts',
+        'mock', 
+        `${contractName}.sol`, 
+        `${contractName}.json`
+      );
       
-      // 提取ABI
-      const abi = artifact.abi;
-      
-      // 创建输出文件路径
-      const abiPath = path.join(abiDir, `${contractName}.abi`);
-      
-      // 写入ABI文件 (格式化JSON)
-      fs.writeFileSync(abiPath, JSON.stringify(abi, null, 2));
-      
-      console.log(`✅ 成功提取: ${contractName}.abi`);
+      processContract(contractName, artifactPath);
       successCount++;
       
     } catch (error) {
@@ -76,6 +87,28 @@ function extractABI() {
   console.log(`   成功: ${successCount} 个合约`);
   console.log(`   失败: ${failCount} 个合约`);
   console.log(`   输出目录: ${abiDir}`);
+}
+
+function processContract(contractName, artifactPath) {
+  // 检查文件是否存在
+  if (!fs.existsSync(artifactPath)) {
+    console.log(`⚠️  跳过 ${contractName}: artifact文件不存在`);
+    throw new Error(`Artifact not found: ${artifactPath}`);
+  }
+  
+  // 读取artifact文件
+  const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
+  
+  // 提取ABI
+  const abi = artifact.abi;
+  
+  // 创建输出文件路径
+  const abiPath = path.join(abiDir, `${contractName}.abi`);
+  
+  // 写入ABI文件 (格式化JSON)
+  fs.writeFileSync(abiPath, JSON.stringify(abi, null, 2));
+  
+  console.log(`✅ 成功提取: ${contractName}.abi`);
 }
 
 // 执行提取

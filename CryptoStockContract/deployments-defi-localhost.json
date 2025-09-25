@@ -1,0 +1,12 @@
+{
+  "network": "localhost",
+  "chainId": "31337",
+  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "timestamp": "2025-09-25T03:26:37.795Z",
+  "contracts": {
+    "MockERC20_USDT": "0xa524FFD704A4E33566C230bfcd3567251ca42aD8",
+    "MockAavePool": "0x1F893318a5ec1B9a8D46a5F9700C00A0435E7F93",
+    "SimpleAaveProxy": "0x523d64576BAC70DB1eFfCec31dFc6CFd156Fc95D",
+    "SimpleAaveProxy_Implementation": "0x65dF57F0FE6AB6C0B5FD2e2F30578485040BEEb7"
+  }
+}

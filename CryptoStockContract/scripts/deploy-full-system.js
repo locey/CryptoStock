@@ -20,15 +20,17 @@ async function main() {
 
   // STEP 1: 部署 USDT
   console.log("\n📄 [STEP 1] 部署模拟 USDT 代币...");
-  const MockERC20 = await ethers.getContractFactory("MockERC20");
+  const MockERC20 = await ethers.getContractFactory("contracts/mock/MockERC20.sol:MockERC20");
   const usdtToken = await MockERC20.deploy("USD Tether", "USDT", 6);
   await usdtToken.waitForDeployment();
   console.log("✅ USDT 代币部署完成:", await usdtToken.getAddress());
 
   // STEP 2: 部署 Pyth
   let pythAddress;
-  if (network.name === "hardhat" || network.name === "localhost") {
-    const MockPyth = await ethers.getContractFactory("MockPyth");
+  if (isLocalNetwork) {
+    console.log("🧪 本地网络 - 部署Mock合约...");
+    
+    const MockPyth = await ethers.getContractFactory("contracts/mock/MockPyth.sol:MockPyth");
     const mockPyth = await MockPyth.deploy();
     await mockPyth.waitForDeployment();
     pythAddress = await mockPyth.getAddress();

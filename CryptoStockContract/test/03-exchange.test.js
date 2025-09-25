@@ -67,7 +67,7 @@ describe("Exchange - 股票交易所功能测试", function () {
       
       // 2.1 部署 MockPyth 合约
       console.log("📄 [STEP 1] 部署 MockPyth 合约...");
-      const MockPyth = await ethers.getContractFactory("MockPyth");
+      const MockPyth = await ethers.getContractFactory("contracts/mock/MockPyth.sol:MockPyth");
       mockPyth = await MockPyth.deploy();
       await mockPyth.waitForDeployment();
       const mockPythAddress = await mockPyth.getAddress();
@@ -75,7 +75,7 @@ describe("Exchange - 股票交易所功能测试", function () {
       
       // 2.2 部署 USDT 代币
       console.log("📄 [STEP 2] 部署 USDT 代币...");
-      const MockERC20 = await ethers.getContractFactory("MockERC20");
+      const MockERC20 = await ethers.getContractFactory("contracts/mock/MockERC20.sol:MockERC20");
       usdtToken = await MockERC20.deploy("USD Tether", "USDT", 6);
       await usdtToken.waitForDeployment();
       const usdtAddress = await usdtToken.getAddress();
@@ -164,7 +164,7 @@ describe("Exchange - 股票交易所功能测试", function () {
       console.log("📡 连接到Sepolia网络合约...");
       tokenFactory = await ethers.getContractAt("TokenFactory", deployments.contracts.TokenFactory.proxy);
       oracleAggregator = await ethers.getContractAt("OracleAggregator", deployments.contracts.OracleAggregator.proxy);
-      usdtToken = await ethers.getContractAt("MockERC20", deployments.contracts.USDT);
+      usdtToken = await ethers.getContractAt("contracts/mock/MockERC20.sol:MockERC20", deployments.contracts.USDT);
       console.log(`✅ TokenFactory获取完成: ${deployments.contracts.TokenFactory.proxy}`);
       console.log(`✅ OracleAggregator获取完成: ${deployments.contracts.OracleAggregator.proxy}`);
       console.log(`✅ USDT获取完成: ${deployments.contracts.USDT}`);

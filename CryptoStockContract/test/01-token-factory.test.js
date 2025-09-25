@@ -30,7 +30,7 @@ describe("TokenFactory - 代币工厂合约测试", function () {
 
     // 1. 部署 MockPyth 合约
     console.log("📄 [STEP 1] 部署 MockPyth 合约...");
-    const MockPyth = await ethers.getContractFactory("MockPyth");
+    const MockPyth = await ethers.getContractFactory("contracts/mock/MockPyth.sol:MockPyth");
     mockPyth = await MockPyth.deploy();
     await mockPyth.waitForDeployment();
     const mockPythAddress = await mockPyth.getAddress();
@@ -38,7 +38,7 @@ describe("TokenFactory - 代币工厂合约测试", function () {
 
     // 2. 部署 USDT 代币
     console.log("📄 [STEP 2] 部署 USDT 代币...");
-    const MockERC20 = await ethers.getContractFactory("MockERC20");
+    const MockERC20 = await ethers.getContractFactory("contracts/mock/MockERC20.sol:MockERC20");
     usdtToken = await MockERC20.deploy("USD Tether", "USDT", 6);
     await usdtToken.waitForDeployment();
     const usdtAddress = await usdtToken.getAddress();
@@ -342,7 +342,7 @@ describe("TokenFactory - 代币工厂合约测试", function () {
 
     beforeEach(async function () {
       // 部署新的 USDT 代币用于测试更新
-      const MockERC20 = await ethers.getContractFactory("MockERC20");
+      const MockERC20 = await ethers.getContractFactory("contracts/mock/MockERC20.sol:MockERC20");
       newUSDTToken = await MockERC20.deploy("New USDT", "USDT2", 18);
       await newUSDTToken.waitForDeployment();
     });
