@@ -66,7 +66,8 @@ func loadV1(r *gin.Engine, svcCtx *svc.ServerCtx) {
 	}
 	stocks := apiV1.Group("/stocks")
 	{
-		stocks.GET("", v1.GetStockList(svcCtx))         // 批量获取activity信息
-		stocks.GET("/overview", v1.GetOverview(svcCtx)) // 批量获取activity信息
+		stocks.GET("", v1.GetStockList(svcCtx))              // 批量获取activity信息
+		stocks.GET("/overview", v1.GetOverview(svcCtx))      // 获取股票总览信息
+		stocks.GET("/:code/price", v1.GetStockPrice(svcCtx)) // 获取股票价格
 	}
 }

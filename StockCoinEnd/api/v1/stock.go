@@ -1,13 +1,14 @@
 package v1
 
 import (
+	"log"
+	"strconv"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/locey/CryptoStock/StockCoinBase/xhttp"
 	"github.com/locey/CryptoStock/StockCoinEnd/service/svc"
 	"github.com/locey/CryptoStock/StockCoinEnd/service/v1"
-	"log"
-	"strconv"
-	"time"
 )
 
 func GetStockList(svcCtx *svc.ServerCtx) gin.HandlerFunc {
@@ -56,4 +57,16 @@ func GetOverview(svcCtx *svc.ServerCtx) gin.HandlerFunc {
 		xhttp.OkJson(ctx, overview)
 	}
 
+}
+
+// 通过股票代码获取股票价格
+func GetStockPrice(svcCtx *svc.ServerCtx) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		stockCode := ctx.Param("code")
+		price, err := service.GetStockPrice(svcCtx, stockCode)
+		if err != nil {
+			log.Fatalf("获取股票价格失败: %v", err)
+		}
+		xhttp.OkJson(ctx, price)
+	}
 }

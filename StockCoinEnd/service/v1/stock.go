@@ -472,3 +472,12 @@ func GetOverview(svcCtx *svc.ServerCtx) (StockOverview, error) {
 		AvgGainPercent: avgGainPercent,
 	}, nil
 }
+
+// 通过股票代码获取股票价格
+func GetStockPrice(svcCtx *svc.ServerCtx, stockCode string) (float64, error) {
+	ticker, err := svcCtx.Dao.GetByTicker(stockCode)
+	if err != nil {
+		return 0, err
+	}
+	return ticker.CurrentPrice, nil
+}
