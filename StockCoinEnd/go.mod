@@ -18,6 +18,7 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/zeromicro/go-zero v1.9.0
 	go.uber.org/zap v1.27.0
+	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df
 	gorm.io/gorm v1.31.0
 )
 

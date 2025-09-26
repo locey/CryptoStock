@@ -1,25 +1,59 @@
 package v1
 
 import (
-	"log"
-
 	"github.com/gin-gonic/gin"
 	"github.com/locey/CryptoStock/StockCoinBase/xhttp"
 	"github.com/locey/CryptoStock/StockCoinEnd/service/svc"
 	"github.com/locey/CryptoStock/StockCoinEnd/service/v1"
+	"log"
+	"strconv"
+	"time"
 )
 
-func GetStockList(ctx *gin.Context) {
-	stockCodes := []string{"AAPL", "TSLA", "GOOGL", "MSFT", "AMZN", "NVDA"}
+func GetStockList(svcCtx *svc.ServerCtx) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		pageSize := ctx.Query("pageSize")
+		pageNum := ctx.Query("pageNum")
+		pageSizeInt, err := strconv.Atoi(pageSize)
+		if err != nil {
+			return
+		}
+		pageNumInt, err := strconv.Atoi(pageNum)
+		if err != nil {
+			return
+		}
+		summary, err := service.GetStockList(svcCtx, pageSizeInt, pageNumInt)
+		if err != nil {
+			log.Fatalf("获取股票数据失败: %v", err)
+		}
 
-	summary, err := service.GetStockList(stockCodes)
-	if err != nil {
-		log.Fatalf("获取股票数据失败: %v", err)
+		xhttp.OkJson(ctx, summary)
 	}
 
-	xhttp.OkJson(ctx, summary)
 }
-func Init(svcCtx *svc.ServerCtx) {
-	// 批量初始化股票代码等各种信息
-	service.Init(svcCtx)
+func Init(svcCtx *svc.ServerCtx, interval time.Duration) {
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			log.Println("开始初始化股票基础数据...")
+			// 批量初始化股票代码等各种信息
+			service.Init(svcCtx)
+		}
+	}
+
+}
+func GetOverview(svcCtx *svc.ServerCtx) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		overview, err := service.GetOverview(svcCtx)
+		if err != nil {
+			log.Fatalf("获取股票类型失败: %v", err)
+		}
+
+		xhttp.OkJson(ctx, overview)
+	}
+
 }

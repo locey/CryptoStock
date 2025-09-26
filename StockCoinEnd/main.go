@@ -40,9 +40,10 @@ func main() {
 	// Initialize router
 	r := router.NewRouter(serverCtx)
 	// 启动每分钟轮询股票信息
-	go service.StartStockDataPoller(serverCtx, 1*time.Minute)
-	// 自动初始化一次股票数据，并且与代币绑定上
-	v1.Init(serverCtx)
+	go service.StartStockDataPoller(serverCtx, 2*time.Minute)
+
+	// 定时获取股票信息，市值需要更新（其它基础信息不需要更新）
+	go v1.Init(serverCtx, 1*time.Minute)
 	app, err := app.NewPlatform(c, r, serverCtx)
 	if err != nil {
 		panic(err)
