@@ -18,10 +18,9 @@ const contracts = [
   'DefiAggregator'
 ];
 
-// DeFi 适配器合约
+// DeFi 适配器合约 (已更新 - 移除 BaseDefiModule)
 const adapterContracts = [
-  'BaseDefiModule',  // 基础适配器类
-  'AaveAdapter'      // Aave 适配器实现
+  'AaveAdapter'      // Aave 适配器实现 (现在位于 adapters/ 目录)
 ];
 
 const mockContracts = [
@@ -89,16 +88,16 @@ function extractABI() {
     }
   });
   
-  // 处理模块合约
+  // 处理适配器合约 (adapters 目录)
   adapterContracts.forEach(contractName => {
     try {
-      // 构建artifact文件路径 (modules目录)
+      // 构建artifact文件路径 (adapters目录)
       const artifactPath = path.join(
         __dirname, 
         '..', 
         'artifacts', 
         'contracts',
-        'modules', 
+        'adapters', 
         `${contractName}.sol`, 
         `${contractName}.json`
       );
