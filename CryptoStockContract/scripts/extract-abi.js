@@ -18,6 +18,12 @@ const contracts = [
   'DefiAggregator'
 ];
 
+// DeFi 适配器合约
+const adapterContracts = [
+  'BaseDefiModule',  // 基础适配器类
+  'AaveAdapter'      // Aave 适配器实现
+];
+
 const mockContracts = [
   'MockERC20',
   'MockPyth',
@@ -70,6 +76,29 @@ function extractABI() {
         'artifacts', 
         'contracts',
         'mock', 
+        `${contractName}.sol`, 
+        `${contractName}.json`
+      );
+      
+      processContract(contractName, artifactPath);
+      successCount++;
+      
+    } catch (error) {
+      console.log(`❌ 提取失败 ${contractName}:`, error.message);
+      failCount++;
+    }
+  });
+  
+  // 处理模块合约
+  adapterContracts.forEach(contractName => {
+    try {
+      // 构建artifact文件路径 (modules目录)
+      const artifactPath = path.join(
+        __dirname, 
+        '..', 
+        'artifacts', 
+        'contracts',
+        'modules', 
         `${contractName}.sol`, 
         `${contractName}.json`
       );

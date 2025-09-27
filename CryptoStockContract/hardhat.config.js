@@ -13,6 +13,7 @@ module.exports = {
         enabled: true,
         runs: 200,
       },
+      // viaIR: true, // 禁用 viaIR 以避免兼容性问题
     },
   },
   // 全局 gas 配置，适用于所有网络

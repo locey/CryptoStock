@@ -1,182 +1,309 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.21;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import "./interfaces/IDefiAdapter.sol";
+import "./interfaces/IOperationTypes.sol";
 
-interface IAavePool {
-    function supply(
-        address asset,
-        uint256 amount,
-        address onBehalfOf,
-        uint16 referralCode
-    ) external;
+/**
+ * @title DefiAggregator
+ * @dev 纯净的 DeFi 聚合器 - 只使用适配器模式，无历史包袱
+ */
+contract DefiAggregator is 
+    Initializable, 
+    OwnableUpgradeable, 
+    UUPSUpgradeable, 
+    PausableUpgradeable,
+    IOperationTypes
+{
+    using SafeERC20 for IERC20;
     
-    function withdraw(
-        address asset,
-        uint256 amount,
-        address to
-    ) external returns (uint256);
+    // 适配器注册表
+    mapping(string => address) private _adapters;
+    string[] private _adapterNames;
     
-    function getAToken(address asset) external view returns (address);
-    function getATokenBalance(address user, address asset) external view returns (uint256);
-}
-
-interface IAToken {
-    function balanceOf(address account) external view returns (uint256);
-}
-
-contract DefiAggregator is Initializable, OwnableUpgradeable, UUPSUpgradeable {
-    // Aave Pool 地址 (可配置)
-    address public aavePool;
-    
-    // USDT 地址 (可配置)
-    address public usdtToken;
-    
-    // 手续费率 (基点，50 = 0.5%)
+    // 手续费率 (基点)
     uint256 public feeRateBps;
     
-    // 累计手续费收入
-    uint256 public totalFeesCollected;
-    
     // 事件
-    event Deposited(address indexed user, uint256 amount, uint256 fee);
-    event Withdrawn(address indexed user, uint256 amount, uint256 totalReceived, uint256 fee);
-    event FeeCollected(address indexed user, uint256 fee, string operation);
+    event AdapterRegistered(string indexed adapterName, address indexed adapterAddress);
+    event AdapterRemoved(string indexed adapterName, address indexed adapterAddress);
+    event OperationExecuted(address indexed user, string indexed adapterName, OperationType indexed operationType);
     event FeeRateChanged(uint256 oldRate, uint256 newRate);
     
-    // 禁用构造函数，使用初始化函数
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
+    modifier onlyValidAdapter(string calldata adapterName) {
+        require(_adapters[adapterName] != address(0), "Adapter not found");
+        _;
     }
     
-    // 初始化函数 - 替代构造函数
-    function initialize(
-        address _aavePool,
-        address _usdtToken,
-        address _owner
-    ) public initializer {
-        __Ownable_init(_owner);
+    /**
+     * @dev 初始化聚合器
+     */
+    function initialize(uint256 _feeRateBps) public initializer {
+        __Ownable_init(msg.sender);
         __UUPSUpgradeable_init();
+        __Pausable_init();
         
-        require(_aavePool != address(0), "Invalid Aave Pool address");
-        require(_usdtToken != address(0), "Invalid USDT address");
-        
-        aavePool = _aavePool;
-        usdtToken = _usdtToken;
-        feeRateBps = 50; // 默认0.5%手续费
-        totalFeesCollected = 0;
-        
-        // 自动授权 Aave Pool 转移 USDT (避免每次存款都要授权)
-        IERC20(usdtToken).approve(aavePool, type(uint256).max);
+        require(_feeRateBps <= 1000, "Fee rate too high"); // 最大 10%
+        feeRateBps = _feeRateBps;
     }
     
-    // 存款函数 - 用户将USDT存入Aave，收取0.5%手续费
-    function deposit(uint256 amount) external {
-        require(amount > 0, "Amount must be greater than 0");
+    /**
+     * @dev 注册适配器
+     */
+    function registerAdapter(string calldata adapterName, address adapterAddress) external onlyOwner {
+        require(adapterAddress != address(0), "Invalid adapter address");
+        require(_adapters[adapterName] == address(0), "Adapter already exists");
         
-        // 计算手续费
-        uint256 fee = amount * feeRateBps / 10000;
-        uint256 netAmount = amount - fee;
+        _adapters[adapterName] = adapterAddress;
+        _adapterNames.push(adapterName);
         
-        // 从用户转移USDT到本合约
-        require(IERC20(usdtToken).transferFrom(msg.sender, address(this), amount), "Transfer failed");
-        
-        // 收取手续费（保留在合约中）
-        totalFeesCollected += fee;
-        
-        // 将净金额存入Aave，aToken会直接铸造给用户
-        IAavePool(aavePool).supply(usdtToken, netAmount, msg.sender, 0);
-        
-        emit Deposited(msg.sender, netAmount, fee);
-        emit FeeCollected(msg.sender, fee, "deposit");
+        emit AdapterRegistered(adapterName, adapterAddress);
     }
     
-    // 取款函数 - 用户从Aave取回USDT，收取0.5%手续费
-    function withdraw(uint256 amount) external {
-        require(amount > 0, "Amount must be greater than 0");
+    /**
+     * @dev 移除适配器
+     */
+    function removeAdapter(string calldata adapterName) external onlyOwner {
+        address adapterAddress = _adapters[adapterName];
+        require(adapterAddress != address(0), "Adapter not found");
         
-        // 获取aToken地址
-        address aTokenAddress = IAavePool(aavePool).getAToken(usdtToken);
-        require(aTokenAddress != address(0), "aToken not found");
+        delete _adapters[adapterName];
         
-        // 检查用户的aToken余额是否足够
-        uint256 aTokenBalance = IAToken(aTokenAddress).balanceOf(msg.sender);
-        require(aTokenBalance >= amount, "Insufficient balance");
+        // 从数组中移除
+        for (uint i = 0; i < _adapterNames.length; i++) {
+            if (keccak256(bytes(_adapterNames[i])) == keccak256(bytes(adapterName))) {
+                _adapterNames[i] = _adapterNames[_adapterNames.length - 1];
+                _adapterNames.pop();
+                break;
+            }
+        }
         
-        // 用户将aToken转给本合约（这样本合约就能调用Pool的withdraw）
-        require(IERC20(aTokenAddress).transferFrom(msg.sender, address(this), amount), "aToken transfer failed");
-        
-        // 本合约调用Pool的withdraw，USDT会先到达本合约
-        uint256 totalReceived = IAavePool(aavePool).withdraw(usdtToken, amount, address(this));
-        
-        // 计算手续费（从实际收到的金额中扣除）
-        uint256 fee = totalReceived * feeRateBps / 10000;
-        uint256 netAmount = totalReceived - fee;
-        
-        // 收取手续费
-        totalFeesCollected += fee;
-        
-        // 将净金额转给用户
-        require(IERC20(usdtToken).transfer(msg.sender, netAmount), "Transfer to user failed");
-        
-        emit Withdrawn(msg.sender, amount, netAmount, fee);
-        emit FeeCollected(msg.sender, fee, "withdraw");
+        emit AdapterRemoved(adapterName, adapterAddress);
     }
     
-    // 获取用户在Aave中的存款余额（通过aToken余额）
-    function getDepositBalance(address user) external view returns (uint256) {
-        address aTokenAddress = IAavePool(aavePool).getAToken(usdtToken);
-        if (aTokenAddress == address(0)) return 0;
-        return IAToken(aTokenAddress).balanceOf(user);
+    /**
+     * @dev 执行 DeFi 操作
+     */
+    function executeOperation(
+        string calldata adapterName,
+        OperationType operationType,
+        OperationParams calldata params
+    ) external whenNotPaused onlyValidAdapter(adapterName) returns (OperationResult memory result) {
+        require(params.tokens.length > 0, "No tokens provided");
+        
+        address adapterAddress = _adapters[adapterName];
+        
+        // 验证适配器支持该操作
+        require(IDefiAdapter(adapterAddress).supportsOperation(operationType), "Operation not supported");
+        
+        // 直接调用适配器执行操作
+        // 受益者地址已经在 params.recipient 中指定
+        result = IDefiAdapter(adapterAddress).executeOperation(operationType, params, feeRateBps);
+        
+        require(result.success, "Operation failed");
+        
+        emit OperationExecuted(msg.sender, adapterName, operationType);
+        
+        return result;
     }
     
-    // 紧急情况下所有者可以提取任何误转入的ERC20代币
-    function rescueTokens(address tokenAddress, uint256 amount) external onlyOwner {
-        IERC20(tokenAddress).transfer(owner(), amount);
+    /**
+     * @dev 预估操作结果
+     */
+    function estimateOperation(
+        string calldata adapterName,
+        OperationType operationType,
+        OperationParams calldata params
+    ) external view onlyValidAdapter(adapterName) returns (OperationResult memory) {
+        address adapterAddress = _adapters[adapterName];
+        return IDefiAdapter(adapterAddress).estimateOperation(operationType, params);
     }
     
-    // 设置新的Aave Pool地址 - 只有owner可以调用
-    function setAavePool(address _aavePool) external onlyOwner {
-        require(_aavePool != address(0), "Invalid Aave Pool address");
-        aavePool = _aavePool;
+    /**
+     * @dev 获取适配器地址
+     */
+    function getAdapter(string calldata adapterName) external view returns (address) {
+        return _adapters[adapterName];
     }
     
-    // 设置新的USDT地址 - 只有owner可以调用
-    function setUsdtToken(address _usdtToken) external onlyOwner {
-        require(_usdtToken != address(0), "Invalid USDT address");
-        usdtToken = _usdtToken;
+    /**
+     * @dev 获取所有适配器名称
+     */
+    function getAllAdapters() external view returns (string[] memory) {
+        return _adapterNames;
     }
     
-    // 设置手续费率 - 只有owner可以调用
+    /**
+     * @dev 检查适配器是否存在
+     */
+    function hasAdapter(string calldata adapterName) external view returns (bool) {
+        return _adapters[adapterName] != address(0);
+    }
+    
+    /**
+     * @dev 设置手续费率
+     */
     function setFeeRate(uint256 _feeRateBps) external onlyOwner {
-        require(_feeRateBps <= 1000, "Fee rate too high"); // 最大10%
+        require(_feeRateBps <= 1000, "Fee rate too high");
         uint256 oldRate = feeRateBps;
         feeRateBps = _feeRateBps;
         emit FeeRateChanged(oldRate, _feeRateBps);
     }
     
-    // 提取累计手续费 - 只有owner可以调用
-    function withdrawFees() external onlyOwner {
-        require(totalFeesCollected > 0, "No fees to withdraw");
-        uint256 fees = totalFeesCollected;
-        totalFeesCollected = 0;
-        require(IERC20(usdtToken).transfer(owner(), fees), "Fee withdrawal failed");
+    /**
+     * @dev 紧急暂停
+     */
+    function emergencyPause() external onlyOwner {
+        _pause();
     }
     
-    // 查看当前手续费率
-    function getFeeRate() external view returns (uint256) {
-        return feeRateBps;
+    /**
+     * @dev 取消暂停
+     */
+    function emergencyUnpause() external onlyOwner {
+        _unpause();
     }
     
-    // 计算手续费（用于前端预览）
-    function calculateFee(uint256 amount) external view returns (uint256) {
-        return amount * feeRateBps / 10000;
+    /**
+     * @dev 获取用户的总收益信息（聚合所有适配器）
+     * @param user 用户地址
+     * @return totalPrincipal 总本金
+     * @return totalCurrentValue 总当前价值
+     * @return totalProfit 总收益/损失金额
+     * @return isProfit 总体是否盈利
+     */
+    function getUserTotalYield(address user) external view returns (
+        uint256 totalPrincipal,
+        uint256 totalCurrentValue,
+        uint256 totalProfit,
+        bool isProfit
+    ) {
+        uint256 totalProfitAmount = 0;
+        uint256 totalLossAmount = 0;
+        
+        // 遍历所有注册的适配器
+        for (uint i = 0; i < _adapterNames.length; i++) {
+            address adapterAddress = _adapters[_adapterNames[i]];
+            
+            try IDefiAdapter(adapterAddress).getUserYield(user) returns (
+                uint256 principal,
+                uint256 currentValue,
+                uint256 profit,
+                bool adapterIsProfit
+            ) {
+                totalPrincipal += principal;
+                totalCurrentValue += currentValue;
+                
+                if (adapterIsProfit) {
+                    totalProfitAmount += profit;
+                } else {
+                    totalLossAmount += profit;
+                }
+            } catch {
+                // 忽略调用失败的适配器，继续处理其他适配器
+                continue;
+            }
+        }
+        
+        // 计算总体盈亏
+        if (totalProfitAmount >= totalLossAmount) {
+            totalProfit = totalProfitAmount - totalLossAmount;
+            isProfit = true;
+        } else {
+            totalProfit = totalLossAmount - totalProfitAmount;
+            isProfit = false;
+        }
     }
     
-    // UUPS升级授权 - 只有owner可以升级合约
+    /**
+     * @dev 获取用户在指定适配器中的收益信息
+     * @param user 用户地址
+     * @param adapterName 适配器名称
+     */
+    function getUserYieldByAdapter(
+        address user,
+        string calldata adapterName
+    ) external view onlyValidAdapter(adapterName) returns (
+        uint256 principal,
+        uint256 currentValue,
+        uint256 profit,
+        bool isProfit
+    ) {
+        address adapterAddress = _adapters[adapterName];
+        return IDefiAdapter(adapterAddress).getUserYield(user);
+    }
+    
+    /**
+     * @dev 获取用户的详细收益信息（包含所有适配器的明细）
+     * @param user 用户地址
+     * @return adapterNames 适配器名称数组
+     * @return principals 各适配器本金数组
+     * @return currentValues 各适配器当前价值数组
+     * @return profits 各适配器收益/损失数组
+     * @return isProfits 各适配器是否盈利数组
+     */
+    function getUserDetailedYield(address user) external view returns (
+        string[] memory adapterNames,
+        uint256[] memory principals,
+        uint256[] memory currentValues,
+        uint256[] memory profits,
+        bool[] memory isProfits
+    ) {
+        uint256 activeAdapters = 0;
+        
+        // 第一次遍历：统计有效适配器数量
+        for (uint i = 0; i < _adapterNames.length; i++) {
+            address adapterAddress = _adapters[_adapterNames[i]];
+            try IDefiAdapter(adapterAddress).getUserYield(user) returns (
+                uint256 principal, uint256, uint256, bool
+            ) {
+                if (principal > 0) {
+                    activeAdapters++;
+                }
+            } catch {
+                continue;
+            }
+        }
+        
+        // 初始化返回数组
+        adapterNames = new string[](activeAdapters);
+        principals = new uint256[](activeAdapters);
+        currentValues = new uint256[](activeAdapters);
+        profits = new uint256[](activeAdapters);
+        isProfits = new bool[](activeAdapters);
+        
+        // 第二次遍历：填充数据
+        uint256 index = 0;
+        for (uint i = 0; i < _adapterNames.length && index < activeAdapters; i++) {
+            address adapterAddress = _adapters[_adapterNames[i]];
+            try IDefiAdapter(adapterAddress).getUserYield(user) returns (
+                uint256 principal,
+                uint256 currentValue,
+                uint256 profit,
+                bool isProfit
+            ) {
+                if (principal > 0) {
+                    adapterNames[index] = _adapterNames[i];
+                    principals[index] = principal;
+                    currentValues[index] = currentValue;
+                    profits[index] = profit;
+                    isProfits[index] = isProfit;
+                    index++;
+                }
+            } catch {
+                continue;
+            }
+        }
+    }
+    
+    /**
+     * @dev UUPS升级授权
+     */
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 }

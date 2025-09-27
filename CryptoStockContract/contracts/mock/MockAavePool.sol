@@ -61,22 +61,23 @@ contract MockAavePool {
     function withdraw(address asset, uint256 amount, address to) public returns (uint256) {
         require(aTokens[asset] != address(0), "Asset not supported");
         
-        // 1. 检查调用者的aToken余额是否足够
-        uint256 aTokenBalance = IAToken(aTokens[asset]).balanceOf(msg.sender);
+        // 在我们的简化模拟中，我们允许适配器代表用户取款
+        // 实际应该检查 `to` 地址的 aToken 余额，因为资金是用户的
+        uint256 aTokenBalance = IAToken(aTokens[asset]).balanceOf(to);
         require(aTokenBalance >= amount, "Insufficient aToken balance");
 
         // 2. 计算虚拟利息（实际Aave中利息是通过aToken余额增长体现的）
         uint256 interest = amount * interestRateBps / 10000;
         uint256 totalWithdraw = amount + interest;
 
-        // 3. 销毁用户的aToken
-        IAToken(aTokens[asset]).burn(msg.sender, amount);
+        // 3. 销毁用户的aToken（从 to 地址销毁，因为aToken属于用户）
+        IAToken(aTokens[asset]).burn(to, amount);
 
         // 4. 转移underlying asset + 利息给接收者
         // 注意：这里需要确保Pool有足够余额支付利息
         require(IERC20(asset).transfer(to, totalWithdraw), "Withdraw transfer failed");
         
-        emit Withdrawn(asset, msg.sender, amount, interest);
+        emit Withdrawn(asset, to, amount, interest);
         return totalWithdraw;
     }
 
