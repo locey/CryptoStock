@@ -269,6 +269,24 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "getTokensMapping",
+    "outputs": [
+      {
+        "internalType": "string[]",
+        "name": "symbols",
+        "type": "string[]"
+      },
+      {
+        "internalType": "address[]",
+        "name": "addresses",
+        "type": "address[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",

@@ -1,10 +1,5 @@
 [
   {
-    "inputs": [],
-    "stateMutability": "nonpayable",
-    "type": "constructor"
-  },
-  {
     "inputs": [
       {
         "internalType": "address",
@@ -29,6 +24,16 @@
   {
     "inputs": [],
     "name": "ERC1967NonPayable",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "EnforcedPause",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ExpectedPause",
     "type": "error"
   },
   {
@@ -89,24 +94,18 @@
     "inputs": [
       {
         "indexed": true,
+        "internalType": "string",
+        "name": "adapterName",
+        "type": "string"
+      },
+      {
+        "indexed": true,
         "internalType": "address",
-        "name": "user",
+        "name": "adapterAddress",
         "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "fee",
-        "type": "uint256"
       }
     ],
-    "name": "Deposited",
+    "name": "AdapterRegistered",
     "type": "event"
   },
   {
@@ -114,24 +113,18 @@
     "inputs": [
       {
         "indexed": true,
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "fee",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
         "internalType": "string",
-        "name": "operation",
+        "name": "adapterName",
         "type": "string"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "adapterAddress",
+        "type": "address"
       }
     ],
-    "name": "FeeCollected",
+    "name": "AdapterRemoved",
     "type": "event"
   },
   {
@@ -151,37 +144,6 @@
       }
     ],
     "name": "FeeRateChanged",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount0",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount1",
-        "type": "uint256"
-      }
-    ],
-    "name": "FeesCollected",
     "type": "event"
   },
   {
@@ -208,67 +170,18 @@
       },
       {
         "indexed": true,
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount0",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount1",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint128",
-        "name": "liquidity",
-        "type": "uint128"
-      }
-    ],
-    "name": "LiquidityAdded",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
+        "internalType": "string",
+        "name": "adapterName",
+        "type": "string"
       },
       {
         "indexed": true,
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount0",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount1",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint128",
-        "name": "liquidity",
-        "type": "uint128"
+        "internalType": "enum IOperationTypes.OperationType",
+        "name": "operationType",
+        "type": "uint8"
       }
     ],
-    "name": "LiquidityRemoved",
+    "name": "OperationExecuted",
     "type": "event"
   },
   {
@@ -294,13 +207,26 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": true,
+        "indexed": false,
         "internalType": "address",
-        "name": "implementation",
+        "name": "account",
         "type": "address"
       }
     ],
-    "name": "Upgraded",
+    "name": "Paused",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "Unpaused",
     "type": "event"
   },
   {
@@ -309,29 +235,11 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "user",
+        "name": "implementation",
         "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "totalReceived",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "fee",
-        "type": "uint256"
       }
     ],
-    "name": "Withdrawn",
+    "name": "Upgraded",
     "type": "event"
   },
   {
@@ -349,125 +257,91 @@
   },
   {
     "inputs": [],
-    "name": "aavePool",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
+    "name": "emergencyPause",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "emergencyUnpause",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
     "inputs": [
       {
+        "internalType": "string",
+        "name": "adapterName",
+        "type": "string"
+      },
+      {
+        "internalType": "enum IOperationTypes.OperationType",
+        "name": "operationType",
+        "type": "uint8"
+      },
+      {
         "components": [
           {
-            "internalType": "address",
-            "name": "token0",
-            "type": "address"
+            "internalType": "address[]",
+            "name": "tokens",
+            "type": "address[]"
+          },
+          {
+            "internalType": "uint256[]",
+            "name": "amounts",
+            "type": "uint256[]"
           },
           {
             "internalType": "address",
-            "name": "token1",
+            "name": "recipient",
             "type": "address"
           },
           {
-            "internalType": "uint24",
-            "name": "fee",
-            "type": "uint24"
-          },
-          {
-            "internalType": "int24",
-            "name": "tickLower",
-            "type": "int24"
-          },
-          {
-            "internalType": "int24",
-            "name": "tickUpper",
-            "type": "int24"
-          },
-          {
             "internalType": "uint256",
-            "name": "amount0Desired",
+            "name": "deadline",
             "type": "uint256"
           },
           {
-            "internalType": "uint256",
-            "name": "amount1Desired",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "amount0Min",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "amount1Min",
-            "type": "uint256"
+            "internalType": "bytes",
+            "name": "extraData",
+            "type": "bytes"
           }
         ],
-        "internalType": "struct DefiAggregator.AddLiquidityParams",
+        "internalType": "struct IOperationTypes.OperationParams",
         "name": "params",
         "type": "tuple"
       }
     ],
-    "name": "addLiquidity",
+    "name": "estimateOperation",
     "outputs": [
       {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint128",
-        "name": "liquidity",
-        "type": "uint128"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount0",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount1",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "burnPosition",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "calculateFee",
-    "outputs": [
-      {
-        "internalType": "uint256",
+        "components": [
+          {
+            "internalType": "bool",
+            "name": "success",
+            "type": "bool"
+          },
+          {
+            "internalType": "uint256[]",
+            "name": "outputAmounts",
+            "type": "uint256[]"
+          },
+          {
+            "internalType": "bytes",
+            "name": "returnData",
+            "type": "bytes"
+          },
+          {
+            "internalType": "string",
+            "name": "message",
+            "type": "string"
+          }
+        ],
+        "internalType": "struct IOperationTypes.OperationResult",
         "name": "",
-        "type": "uint256"
+        "type": "tuple"
       }
     ],
     "stateMutability": "view",
@@ -476,76 +350,78 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
+        "internalType": "string",
+        "name": "adapterName",
+        "type": "string"
+      },
+      {
+        "internalType": "enum IOperationTypes.OperationType",
+        "name": "operationType",
+        "type": "uint8"
+      },
+      {
+        "components": [
+          {
+            "internalType": "address[]",
+            "name": "tokens",
+            "type": "address[]"
+          },
+          {
+            "internalType": "uint256[]",
+            "name": "amounts",
+            "type": "uint256[]"
+          },
+          {
+            "internalType": "address",
+            "name": "recipient",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "deadline",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes",
+            "name": "extraData",
+            "type": "bytes"
+          }
+        ],
+        "internalType": "struct IOperationTypes.OperationParams",
+        "name": "params",
+        "type": "tuple"
       }
     ],
-    "name": "collectFees",
+    "name": "executeOperation",
     "outputs": [
       {
-        "internalType": "uint256",
-        "name": "amount0",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount1",
-        "type": "uint256"
+        "components": [
+          {
+            "internalType": "bool",
+            "name": "success",
+            "type": "bool"
+          },
+          {
+            "internalType": "uint256[]",
+            "name": "outputAmounts",
+            "type": "uint256[]"
+          },
+          {
+            "internalType": "bytes",
+            "name": "returnData",
+            "type": "bytes"
+          },
+          {
+            "internalType": "string",
+            "name": "message",
+            "type": "string"
+          }
+        ],
+        "internalType": "struct IOperationTypes.OperationResult",
+        "name": "result",
+        "type": "tuple"
       }
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint128",
-        "name": "liquidity",
-        "type": "uint128"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount0Min",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount1Min",
-        "type": "uint256"
-      }
-    ],
-    "name": "decreaseLiquidity",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "amount0",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount1",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "deposit",
-    "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
   },
@@ -565,17 +441,17 @@
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
+        "internalType": "string",
+        "name": "adapterName",
+        "type": "string"
       }
     ],
-    "name": "getDepositBalance",
+    "name": "getAdapter",
     "outputs": [
       {
-        "internalType": "uint256",
+        "internalType": "address",
         "name": "",
-        "type": "uint256"
+        "type": "address"
       }
     ],
     "stateMutability": "view",
@@ -583,12 +459,143 @@
   },
   {
     "inputs": [],
-    "name": "getFeeRate",
+    "name": "getAllAdapters",
     "outputs": [
       {
-        "internalType": "uint256",
+        "internalType": "string[]",
         "name": "",
+        "type": "string[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      }
+    ],
+    "name": "getUserDetailedYield",
+    "outputs": [
+      {
+        "internalType": "string[]",
+        "name": "adapterNames",
+        "type": "string[]"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "principals",
+        "type": "uint256[]"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "currentValues",
+        "type": "uint256[]"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "profits",
+        "type": "uint256[]"
+      },
+      {
+        "internalType": "bool[]",
+        "name": "isProfits",
+        "type": "bool[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      }
+    ],
+    "name": "getUserTotalYield",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "totalPrincipal",
         "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "totalCurrentValue",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "totalProfit",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "isProfit",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "adapterName",
+        "type": "string"
+      }
+    ],
+    "name": "getUserYieldByAdapter",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "principal",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "currentValue",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "profit",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "isProfit",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "adapterName",
+        "type": "string"
+      }
+    ],
+    "name": "hasAdapter",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
       }
     ],
     "stateMutability": "view",
@@ -598,133 +605,8 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "tokenId",
+        "name": "_feeRateBps",
         "type": "uint256"
-      }
-    ],
-    "name": "getPositionInfo",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "token0",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "token1",
-        "type": "address"
-      },
-      {
-        "internalType": "uint24",
-        "name": "fee",
-        "type": "uint24"
-      },
-      {
-        "internalType": "int24",
-        "name": "tickLower",
-        "type": "int24"
-      },
-      {
-        "internalType": "int24",
-        "name": "tickUpper",
-        "type": "int24"
-      },
-      {
-        "internalType": "uint128",
-        "name": "liquidity",
-        "type": "uint128"
-      },
-      {
-        "internalType": "uint128",
-        "name": "tokensOwed0",
-        "type": "uint128"
-      },
-      {
-        "internalType": "uint128",
-        "name": "tokensOwed1",
-        "type": "uint128"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "components": [
-          {
-            "internalType": "uint256",
-            "name": "tokenId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "amount0Desired",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "amount1Desired",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "amount0Min",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "amount1Min",
-            "type": "uint256"
-          }
-        ],
-        "internalType": "struct DefiAggregator.IncreaseLiquidityParams",
-        "name": "params",
-        "type": "tuple"
-      }
-    ],
-    "name": "increaseLiquidity",
-    "outputs": [
-      {
-        "internalType": "uint128",
-        "name": "liquidity",
-        "type": "uint128"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount0",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount1",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_aavePool",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "_usdtToken",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "_uniswapPositionManager",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "_owner",
-        "type": "address"
       }
     ],
     "name": "initialize",
@@ -747,6 +629,19 @@
   },
   {
     "inputs": [],
+    "name": "paused",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "proxiableUUID",
     "outputs": [
       {
@@ -759,26 +654,19 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "renounceOwnership",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "tokenAddress",
-        "type": "address"
+        "internalType": "string",
+        "name": "adapterName",
+        "type": "string"
       },
       {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
+        "internalType": "address",
+        "name": "adapterAddress",
+        "type": "address"
       }
     ],
-    "name": "rescueTokens",
+    "name": "registerAdapter",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -786,12 +674,19 @@
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "_aavePool",
-        "type": "address"
+        "internalType": "string",
+        "name": "adapterName",
+        "type": "string"
       }
     ],
-    "name": "setAavePool",
+    "name": "removeAdapter",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "renounceOwnership",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -813,32 +708,6 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_usdtToken",
-        "type": "address"
-      }
-    ],
-    "name": "setUsdtToken",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "totalFeesCollected",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
         "name": "newOwner",
         "type": "address"
       }
@@ -846,19 +715,6 @@
     "name": "transferOwnership",
     "outputs": [],
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "uniswapPositionManager",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -877,39 +733,6 @@
     "name": "upgradeToAndCall",
     "outputs": [],
     "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "usdtToken",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "withdraw",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "withdrawFees",
-    "outputs": [],
-    "stateMutability": "nonpayable",
     "type": "function"
   }
 ]

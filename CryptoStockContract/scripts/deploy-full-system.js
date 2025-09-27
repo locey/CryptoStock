@@ -18,6 +18,9 @@ async function main() {
   console.log("🚀 部署币股池系统合约...");
   console.log("📝 部署者地址:", await deployer.getAddress());
 
+  // 判断是否为本地网络
+  const isLocalNetwork = network.name === "hardhat" || network.name === "localhost";
+  
   // STEP 1: 部署 USDT
   console.log("\n📄 [STEP 1] 部署模拟 USDT 代币...");
   const MockERC20 = await ethers.getContractFactory("contracts/mock/MockERC20.sol:MockERC20");

@@ -79,6 +79,21 @@ contract TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         return allTokens;
     }
     
+    // 获取代币符号和地址映射 (最简实现)
+    function getTokensMapping() external view returns (string[] memory symbols, address[] memory addresses) {
+        uint256 length = allTokens.length;
+        symbols = new string[](length);
+        addresses = new address[](length);
+        
+        for (uint256 i = 0; i < length; i++) {
+            addresses[i] = allTokens[i];
+            // 从代币合约获取符号
+            symbols[i] = StockToken(allTokens[i]).symbol();
+        }
+        
+        return (symbols, addresses);
+    }
+    
     // 更新预言机地址
     function setOracleAggregator(address newOracle) external onlyOwner {
         require(newOracle != address(0), "Invalid oracle address");
