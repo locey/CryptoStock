@@ -1,5 +1,8 @@
 @import url("https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=Work+Sans:ital,wght@0,100..900;1,100..900&display=swap");
 
+/* ycdirectory-ui styles - import before Tailwind */
+@import "ycdirectory-ui/dist/styles.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -105,7 +108,7 @@
 
   /* Chinese typography utilities */
   .font-chinese {
-    font-family: 'Noto Sans SC', sans-serif;
+    font-family: "Noto Sans SC", sans-serif;
   }
 
   .text-chinese-lg {
@@ -127,7 +130,7 @@
   }
 
   .glow-effect::before {
-    content: '';
+    content: "";
     position: absolute;
     top: -50%;
     left: -50%;
@@ -200,7 +203,8 @@
   }
 
   @keyframes float {
-    0%, 100% {
+    0%,
+    100% {
       transform: translateY(0px);
     }
     50% {
@@ -209,8 +213,7 @@
   }
 
   .neon-text {
-    text-shadow:
-      0 0 5px rgba(59, 130, 246, 0.5),
+    text-shadow: 0 0 5px rgba(59, 130, 246, 0.5),
       0 0 10px rgba(59, 130, 246, 0.3);
   }
 
@@ -344,8 +347,6 @@
 .w-md-editor-toolbar {
   padding: 10px !important;
 }
-
-
 
 @layer base {
   * {
