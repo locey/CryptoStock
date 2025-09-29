@@ -102,8 +102,10 @@ export function FloatingParticles() {
 
     // Handle resize
     const handleResize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      if (canvas) {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
     };
 
     window.addEventListener('resize', handleResize);
