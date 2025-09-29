@@ -36,7 +36,7 @@ export default function Home() {
             <div className="flex-between mb-4">
               <div>
                 <h3 className="text-24-black">Apple Inc.</h3>
-                <p className="text-16-medium text-gray-600">AAPL</p>
+                <p className="text-16-medium text-muted-foreground">AAPL</p>
               </div>
               <div className="text-right">
                 <p className="crypto-price">$175.43</p>
@@ -54,7 +54,7 @@ export default function Home() {
             <div className="flex-between mb-4">
               <div>
                 <h3 className="text-24-black">Tesla Inc.</h3>
-                <p className="text-16-medium text-gray-600">TSLA</p>
+                <p className="text-16-medium text-muted-foreground">TSLA</p>
               </div>
               <div className="text-right">
                 <p className="crypto-price">$248.50</p>
@@ -72,7 +72,7 @@ export default function Home() {
             <div className="flex-between mb-4">
               <div>
                 <h3 className="text-24-black">Alphabet Inc.</h3>
-                <p className="text-16-medium text-gray-600">GOOGL</p>
+                <p className="text-16-medium text-muted-foreground">GOOGL</p>
               </div>
               <div className="text-right">
                 <p className="crypto-price">$138.21</p>
@@ -90,7 +90,7 @@ export default function Home() {
             <div className="flex-between mb-4">
               <div>
                 <h3 className="text-24-black">Microsoft Corp.</h3>
-                <p className="text-16-medium text-gray-600">MSFT</p>
+                <p className="text-16-medium text-muted-foreground">MSFT</p>
               </div>
               <div className="text-right">
                 <p className="crypto-price">$378.91</p>
@@ -108,7 +108,7 @@ export default function Home() {
             <div className="flex-between mb-4">
               <div>
                 <h3 className="text-24-black">Amazon.com Inc.</h3>
-                <p className="text-16-medium text-gray-600">AMZN</p>
+                <p className="text-16-medium text-muted-foreground">AMZN</p>
               </div>
               <div className="text-right">
                 <p className="crypto-price">$127.74</p>
@@ -126,7 +126,7 @@ export default function Home() {
             <div className="flex-between mb-4">
               <div>
                 <h3 className="text-24-black">NVIDIA Corp.</h3>
-                <p className="text-16-medium text-gray-600">NVDA</p>
+                <p className="text-16-medium text-muted-foreground">NVDA</p>
               </div>
               <div className="text-right">
                 <p className="crypto-price">$459.89</p>
@@ -148,21 +148,21 @@ export default function Home() {
         <div className="card_grid">
           <div className="crypto-card">
             <h3 className="text-24-black mb-3">Real-Time Prices</h3>
-            <p className="text-16-medium text-gray-600">
+            <p className="text-16-medium text-muted-foreground">
               Powered by Pyth Network oracle for accurate, real-time stock price feeds
             </p>
           </div>
 
           <div className="crypto-card">
             <h3 className="text-24-black mb-3">Zero KYC Required</h3>
-            <p className="text-16-medium text-gray-600">
+            <p className="text-16-medium text-muted-foreground">
               Trade anonymously without identity verification procedures
             </p>
           </div>
 
           <div className="crypto-card">
             <h3 className="text-24-black mb-3">Full Ownership</h3>
-            <p className="text-16-medium text-gray-600">
+            <p className="text-16-medium text-muted-foreground">
               Your tokens are truly yours - held in your personal wallet
             </p>
           </div>
