@@ -1,170 +1,160 @@
+import { Hero } from "@/components/Hero";
+import { FeatureCard } from "@/components/FeatureCard";
+import { StockCard } from "@/components/StockCard";
+import { StatsSection } from "@/components/StatsSection";
+import { FloatingParticles } from "@/components/FloatingParticles";
+import { DigitalRain } from "@/components/DigitalRain";
+
 export default function Home() {
   return (
-    <main className="min-h-screen bg-background">
-      {/* Hero Section */}
-      <section className="pink_container">
-        <div className="tag">Blockchain Trading</div>
-        <h1 className="heading">
-          Trade Real Stocks as Crypto Tokens
-        </h1>
-        <p className="sub-heading">
-          Experience the future of stock trading with decentralized finance technology.
-          Real-time prices, zero KYC, and full ownership of your assets.
-        </p>
+    <main className="min-h-screen bg-black">
+      <DigitalRain />
+      <FloatingParticles />
+      <Hero />
 
-        <div className="search-form">
-          <input
-            type="text"
-            placeholder="Search stocks (AAPL, TSLA, GOOGL...)"
-            className="search-input"
-          />
-          <button className="search-btn">
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </button>
-        </div>
-      </section>
-
-      {/* Featured Stocks Section */}
-      <section className="section_container">
-        <h2 className="text-30-bold text-center mb-10">Popular Stock Tokens</h2>
-
-        <div className="stock-grid">
-          {/* Apple Stock Card */}
-          <div className="crypto-card">
-            <div className="flex-between mb-4">
-              <div>
-                <h3 className="text-24-black">Apple Inc.</h3>
-                <p className="text-16-medium text-muted-foreground">AAPL</p>
-              </div>
-              <div className="text-right">
-                <p className="crypto-price">$175.43</p>
-                <p className="crypto-change crypto-change-positive">+2.34%</p>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button className="trade-button flex-1">Buy</button>
-              <button className="trade-button flex-1 bg-secondary text-black">Sell</button>
-            </div>
-          </div>
-
-          {/* Tesla Stock Card */}
-          <div className="crypto-card">
-            <div className="flex-between mb-4">
-              <div>
-                <h3 className="text-24-black">Tesla Inc.</h3>
-                <p className="text-16-medium text-muted-foreground">TSLA</p>
-              </div>
-              <div className="text-right">
-                <p className="crypto-price">$248.50</p>
-                <p className="crypto-change crypto-change-negative">-1.23%</p>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button className="trade-button flex-1">Buy</button>
-              <button className="trade-button flex-1 bg-secondary text-black">Sell</button>
-            </div>
-          </div>
-
-          {/* Google Stock Card */}
-          <div className="crypto-card">
-            <div className="flex-between mb-4">
-              <div>
-                <h3 className="text-24-black">Alphabet Inc.</h3>
-                <p className="text-16-medium text-muted-foreground">GOOGL</p>
-              </div>
-              <div className="text-right">
-                <p className="crypto-price">$138.21</p>
-                <p className="crypto-change crypto-change-positive">+0.87%</p>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button className="trade-button flex-1">Buy</button>
-              <button className="trade-button flex-1 bg-secondary text-black">Sell</button>
-            </div>
-          </div>
-
-          {/* Microsoft Stock Card */}
-          <div className="crypto-card">
-            <div className="flex-between mb-4">
-              <div>
-                <h3 className="text-24-black">Microsoft Corp.</h3>
-                <p className="text-16-medium text-muted-foreground">MSFT</p>
-              </div>
-              <div className="text-right">
-                <p className="crypto-price">$378.91</p>
-                <p className="crypto-change crypto-change-positive">+1.45%</p>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button className="trade-button flex-1">Buy</button>
-              <button className="trade-button flex-1 bg-secondary text-black">Sell</button>
-            </div>
-          </div>
-
-          {/* Amazon Stock Card */}
-          <div className="crypto-card">
-            <div className="flex-between mb-4">
-              <div>
-                <h3 className="text-24-black">Amazon.com Inc.</h3>
-                <p className="text-16-medium text-muted-foreground">AMZN</p>
-              </div>
-              <div className="text-right">
-                <p className="crypto-price">$127.74</p>
-                <p className="crypto-change crypto-change-negative">-0.92%</p>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button className="trade-button flex-1">Buy</button>
-              <button className="trade-button flex-1 bg-secondary text-black">Sell</button>
-            </div>
-          </div>
-
-          {/* NVIDIA Stock Card */}
-          <div className="crypto-card">
-            <div className="flex-between mb-4">
-              <div>
-                <h3 className="text-24-black">NVIDIA Corp.</h3>
-                <p className="text-16-medium text-muted-foreground">NVDA</p>
-              </div>
-              <div className="text-right">
-                <p className="crypto-price">$459.89</p>
-                <p className="crypto-change crypto-change-positive">+3.21%</p>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button className="trade-button flex-1">Buy</button>
-              <button className="trade-button flex-1 bg-secondary text-black">Sell</button>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Stats Section */}
+      <StatsSection />
 
       {/* Features Section */}
-      <section className="section_container bg-primary/5">
-        <h2 className="text-30-bold text-center mb-10">Why CryptoStock?</h2>
-
-        <div className="card_grid">
-          <div className="crypto-card">
-            <h3 className="text-24-black mb-3">Real-Time Prices</h3>
-            <p className="text-16-medium text-muted-foreground">
-              Powered by Pyth Network oracle for accurate, real-time stock price feeds
+      <section className="py-20 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-white mb-4 font-chinese">
+              为什么选择币股交易？
+            </h2>
+            <p className="text-xl text-gray-400 max-w-3xl mx-auto font-chinese">
+              体验下一代去中心化交易，使用我们的尖端平台
             </p>
           </div>
 
-          <div className="crypto-card">
-            <h3 className="text-24-black mb-3">Zero KYC Required</h3>
-            <p className="text-16-medium text-muted-foreground">
-              Trade anonymously without identity verification procedures
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <FeatureCard
+              iconName="bar-chart"
+              title="实时价格"
+              description="由 Pyth Network 预言机驱动，提供准确、实时的股票价格信息，延迟极低"
+              gradient="from-blue-500 to-cyan-600"
+            />
+            <FeatureCard
+              iconName="shield"
+              title="无需 KYC"
+              description="匿名交易，无需身份验证程序。您的隐私是我们的首要任务"
+              gradient="from-purple-500 to-pink-600"
+            />
+            <FeatureCard
+              iconName="zap"
+              title="闪电般快速"
+              description="通过优化的智能合约和 Layer 2 解决方案在几秒钟内执行交易"
+              gradient="from-green-500 to-emerald-600"
+            />
+            <FeatureCard
+              iconName="globe"
+              title="全球访问"
+              description="在世界任何地方进行交易。没有地域限制或约束"
+              gradient="from-orange-500 to-red-600"
+            />
+            <FeatureCard
+              iconName="trending-up"
+              title="高级交易"
+              description="为经验丰富的交易者提供专业交易工具、图表和分析"
+              gradient="from-indigo-500 to-purple-600"
+            />
+            <FeatureCard
+              iconName="users"
+              title="社区驱动"
+              description="加入 DeFi 领域充满活力的交易者和投资者社区"
+              gradient="from-pink-500 to-rose-600"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Trending Stocks Section */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gray-900/20">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-white mb-4 font-chinese">
+              热门股票代币
+            </h2>
+            <p className="text-xl text-gray-400 max-w-3xl mx-auto font-chinese">
+              发现最受欢迎的可交易股票代币
             </p>
           </div>
 
-          <div className="crypto-card">
-            <h3 className="text-24-black mb-3">Full Ownership</h3>
-            <p className="text-16-medium text-muted-foreground">
-              Your tokens are truly yours - held in your personal wallet
-            </p>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <StockCard
+              symbol="AAPL"
+              name="苹果公司"
+              price="$175.43"
+              change="+2.34%"
+              isPositive={true}
+              volume="$45.2M"
+            />
+            <StockCard
+              symbol="TSLA"
+              name="特斯拉公司"
+              price="$248.50"
+              change="-1.23%"
+              isPositive={false}
+              volume="$38.7M"
+            />
+            <StockCard
+              symbol="GOOGL"
+              name="谷歌母公司"
+              price="$138.21"
+              change="+0.87%"
+              isPositive={true}
+              volume="$32.1M"
+            />
+            <StockCard
+              symbol="MSFT"
+              name="微软公司"
+              price="$378.91"
+              change="+1.45%"
+              isPositive={true}
+              volume="$52.8M"
+            />
+            <StockCard
+              symbol="AMZN"
+              name="亚马逊公司"
+              price="$127.74"
+              change="-0.92%"
+              isPositive={false}
+              volume="$28.4M"
+            />
+            <StockCard
+              symbol="NVDA"
+              name="英伟达公司"
+              price="$459.89"
+              change="+3.21%"
+              isPositive={true}
+              volume="$67.3M"
+            />
+          </div>
+
+          <div className="text-center mt-12">
+            <button className="bg-gray-900/50 backdrop-blur-sm border border-gray-800 text-gray-300 hover:bg-gray-800 hover:text-white font-medium px-8 py-3 rounded-lg transition-all duration-300 font-chinese">
+              查看所有市场
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-4xl font-bold text-white mb-6 font-chinese">
+            准备开始交易了吗？
+          </h2>
+          <p className="text-xl text-gray-400 mb-8 font-chinese">
+            加入数千名已经使用币股交易进行去中心化股票交易的交易者
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold px-8 py-4 rounded-lg transition-all duration-300 font-chinese">
+              连接钱包
+            </button>
+            <button className="bg-gray-900/50 backdrop-blur-sm border border-gray-800 text-gray-300 hover:bg-gray-800 hover:text-white font-semibold px-8 py-4 rounded-lg transition-all duration-300 font-chinese">
+              了解更多
+            </button>
           </div>
         </div>
       </section>

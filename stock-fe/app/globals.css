@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Work+Sans:ital,wght@0,100..900;1,100..900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=Work+Sans:ital,wght@0,100..900;1,100..900&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -6,44 +6,44 @@
 
 @layer base {
   :root {
-    /* Web3 风格的暗色主题作为默认主题 */
-    --background: 230 25% 10%; /* 深蓝黑色背景 */
-    --foreground: 210 20% 98%; /* 接近白色的文本 */
+    /* DeFi 风格的暗色主题作为默认主题 */
+    --background: 0 0% 0%; /* 纯黑色背景 */
+    --foreground: 0 0% 100%; /* 纯白色文本 */
 
-    --card: 230 30% 15%; /* 略微亮一点的卡片背景 */
-    --card-foreground: 210 20% 98%;
+    --card: 0 0% 8%; /* 深灰色卡片背景 */
+    --card-foreground: 0 0% 100%;
 
-    --popover: 230 25% 12%;
-    --popover-foreground: 210 20% 98%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 100%;
 
-    /* 保持品牌色，但在暗色主题中可能需要调整亮度 */
-    --primary: 340 82% 52%; /* 保持原品牌色 #EE2B69 */
+    /* 使用蓝色到紫色渐变作为主色调 */
+    --primary: 217 91% 60%; /* 蓝色 */
     --primary-foreground: 0 0% 100%; /* 纯白色文本 */
 
-    --secondary: 54 94% 62%; /* 保持原品牌色 #FBE843 */
-    --secondary-foreground: 230 25% 10%; /* 深色文本 */
+    --secondary: 280 84% 60%; /* 紫色 */
+    --secondary-foreground: 0 0% 100%; /* 纯白色文本 */
 
-    --muted: 230 25% 20%;
-    --muted-foreground: 210 20% 70%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 60%;
 
-    --accent: 230 30% 20%;
-    --accent-foreground: 210 20% 98%;
+    --accent: 0 0% 12%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
-    --destructive-foreground: 210 20% 98%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 230 25% 25%;
-    --input: 230 25% 25%;
-    --ring: 340 82% 52%; /* 使用品牌色作为聚焦环 */
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    --ring: 217 91% 60%; /* 使用蓝色作为聚焦环 */
 
-    /* Web3 风格的图表颜色 */
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    /* DeFi 风格的图表颜色 */
+    --chart-1: 217 91% 60%;
+    --chart-2: 280 84% 60%;
+    --chart-3: 142 71% 45%;
+    --chart-4: 342 84% 60%;
+    --chart-5: 26 83% 60%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
   }
 
   .light {
@@ -84,6 +84,134 @@
 @layer utilities {
   .flex-between {
     @apply flex justify-between items-center;
+  }
+
+  /* DeFi specific utilities */
+  .glass-effect {
+    @apply bg-black/50 backdrop-blur-sm border border-gray-800;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent;
+  }
+
+  .card-glow {
+    @apply hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300;
+  }
+
+  .button-gradient {
+    @apply bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 transition-all duration-300;
+  }
+
+  /* Chinese typography utilities */
+  .font-chinese {
+    font-family: 'Noto Sans SC', sans-serif;
+  }
+
+  .text-chinese-lg {
+    @apply font-chinese text-[28px] md:text-[32px] font-bold leading-tight;
+  }
+
+  .text-chinese-base {
+    @apply font-chinese text-[16px] md:text-[18px] leading-relaxed;
+  }
+
+  .text-chinese-sm {
+    @apply font-chinese text-[14px] md:text-[16px] leading-relaxed;
+  }
+
+  /* Web3 Animation utilities */
+  .glow-effect {
+    @apply relative overflow-hidden;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+  }
+
+  .glow-effect::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+      45deg,
+      transparent,
+      rgba(255, 255, 255, 0.1),
+      transparent
+    );
+    transform: rotate(45deg);
+    transition: all 0.5s;
+  }
+
+  .glow-effect:hover::before {
+    animation: shine 0.5s ease-in-out;
+  }
+
+  @keyframes shine {
+    0% {
+      transform: translateX(-100%) translateY(-100%) rotate(45deg);
+    }
+    100% {
+      transform: translateX(100%) translateY(100%) rotate(45deg);
+    }
+  }
+
+  .card-hover-3d {
+    @apply transform transition-all duration-500 hover:scale-105;
+    transform-style: preserve-3d;
+  }
+
+  .card-hover-3d:hover {
+    transform: rotateY(5deg) rotateX(5deg) scale(1.05);
+  }
+
+  .gradient-shift {
+    background-size: 200% 200%;
+    animation: gradientShift 3s ease infinite;
+  }
+
+  @keyframes gradientShift {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+
+  .pulse-glow {
+    animation: pulseGlow 2s ease-in-out infinite alternate;
+  }
+
+  @keyframes pulseGlow {
+    from {
+      box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+    }
+    to {
+      box-shadow: 0 0 40px rgba(147, 51, 234, 0.8);
+    }
+  }
+
+  .float-animation {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-20px);
+    }
+  }
+
+  .neon-text {
+    text-shadow:
+      0 0 5px rgba(59, 130, 246, 0.5),
+      0 0 10px rgba(59, 130, 246, 0.3);
   }
 
   .text-30-extrabold {
