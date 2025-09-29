@@ -17,9 +17,9 @@ export function Hero() {
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <div className="space-y-8">
           {/* Main heading */}
-          <h1 className="text-5xl md:text-7xl font-bold text-white leading-tight font-chinese neon-text">
+          <h1 className="text-5xl md:text-7xl font-black text-white leading-tight font-chinese tracking-tight">
             投资未来，享受
-            <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent block mt-4 gradient-shift">
+            <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent block mt-4 gradient-shift font-black tracking-tight">
               DeFi与传统股市的双重收益！
             </span>
           </h1>

@@ -115,7 +115,7 @@ export function FloatingParticles() {
     <canvas
       ref={canvasRef}
       className="fixed inset-0 pointer-events-none z-10"
-      style={{ mixBlendMode: 'screen' }}
+      style={{ mixBlendMode: 'screen', opacity: '0.6' }}
     />
   );
 }

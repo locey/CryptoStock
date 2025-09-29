@@ -28,7 +28,7 @@ export function StockCard({ symbol, name, price, change, isPositive, volume }: S
           <p className="text-gray-400 text-sm transform transition-all duration-500 group-hover:text-gray-300">{symbol}</p>
         </div>
         <div className="text-right">
-          <div className={`text-xl font-bold mb-1 transform transition-all duration-500 group-hover:scale-110 ${isPositive ? 'text-green-400 neon-text' : 'text-red-400'}`}>
+          <div className={`text-xl font-bold mb-1 transform transition-all duration-500 group-hover:scale-110 ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
             {price}
           </div>
           <div className={`text-sm font-semibold transform transition-all duration-500 group-hover:scale-110 ${isPositive ? 'text-green-400' : 'text-red-400'}`}>

@@ -54,7 +54,7 @@ export function DigitalRain() {
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 pointer-events-none z-0 opacity-10"
+      className="fixed inset-0 pointer-events-none z-0 opacity-5"
     />
   );
 }
