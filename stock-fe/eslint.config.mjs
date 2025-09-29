@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import js from "@eslint/js";
 import nextPlugin from "@next/eslint-plugin-next";
-import tseslint from "typescript-eslint";
+import tseslint from "@typescript-eslint/eslint-plugin";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -12,7 +12,7 @@ export default [
   {
     files: ["**/*.{js,jsx,ts,tsx}"],
     languageOptions: {
-      parser: tseslint.parser,
+      parser: "@typescript-eslint/parser",
       parserOptions: {
         project: true,
         tsconfigRootDir: __dirname,

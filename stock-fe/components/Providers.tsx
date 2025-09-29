@@ -26,9 +26,51 @@ export function Providers({ children }: { children: ReactNode }) {
           config={{
             appName: "CryptoStock",
             chains: [
-              { id: 1, name: "Ethereum", rpcUrl: "https://eth.public-rpc.com" },
-              { id: 137, name: "Polygon", rpcUrl: "https://polygon-rpc.com" },
-              { id: 42161, name: "Arbitrum", rpcUrl: "https://arb1.arbitrum.io/rpc" }
+              {
+                id: 1,
+                name: "Ethereum",
+                network: "homestead",
+                nativeCurrency: {
+                  name: "Ether",
+                  symbol: "ETH",
+                  decimals: 18
+                },
+                rpcUrls: {
+                  default: {
+                    http: ["https://eth.public-rpc.com"]
+                  }
+                }
+              },
+              {
+                id: 137,
+                name: "Polygon",
+                network: "matic",
+                nativeCurrency: {
+                  name: "MATIC",
+                  symbol: "MATIC",
+                  decimals: 18
+                },
+                rpcUrls: {
+                  default: {
+                    http: ["https://polygon-rpc.com"]
+                  }
+                }
+              },
+              {
+                id: 42161,
+                name: "Arbitrum",
+                network: "arbitrum-one",
+                nativeCurrency: {
+                  name: "Ether",
+                  symbol: "ETH",
+                  decimals: 18
+                },
+                rpcUrls: {
+                  default: {
+                    http: ["https://arb1.arbitrum.io/rpc"]
+                  }
+                }
+              }
             ],
             storage: typeof window !== 'undefined' ? window.localStorage : undefined,
           }}
