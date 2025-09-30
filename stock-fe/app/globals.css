@@ -325,6 +325,10 @@
   .search-btn {
     @apply size-[50px] rounded-full bg-primary flex justify-center items-center hover:opacity-90 transition-all duration-300;
   }
+
+  .mt-73px {
+    margin-top: 73px;
+  }
 }
 
 .pattern {

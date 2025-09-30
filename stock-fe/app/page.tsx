@@ -4,6 +4,7 @@ import { StockCard } from "@/components/StockCard";
 import { StatsSection } from "@/components/StatsSection";
 import { FloatingParticles } from "@/components/FloatingParticles";
 import { DigitalRain } from "@/components/DigitalRain";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -132,9 +133,9 @@ export default function Home() {
           </div>
 
           <div className="text-center mt-12">
-            <button className="bg-gray-900/50 backdrop-blur-sm border border-gray-800 text-gray-300 hover:bg-gray-800 hover:text-white font-medium px-8 py-3 rounded-lg transition-all duration-300 font-chinese">
-              查看所有市场
-            </button>
+            <Link href="/pool" className="inline-block bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium px-8 py-3 rounded-lg transition-all duration-300 font-chinese">
+              查看币股池
+            </Link>
           </div>
         </div>
       </section>
