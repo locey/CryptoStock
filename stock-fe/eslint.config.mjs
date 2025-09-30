@@ -12,7 +12,34 @@ const __dirname = dirname(__filename);
 export default [
   js.configs.recommended,
   {
-    files: ["**/*.{js,jsx,ts,tsx}"],
+    files: ["**/*.{js,jsx}"],
+    languageOptions: {
+      ecmaVersion: "latest",
+      sourceType: "module",
+      globals: {
+        console: "readonly",
+        window: "readonly",
+        alert: "readonly",
+        setTimeout: "readonly",
+        clearTimeout: "readonly",
+        setInterval: "readonly",
+        clearInterval: "readonly",
+        requestAnimationFrame: "readonly",
+        React: "readonly",
+      },
+    },
+    plugins: {
+      "@next/next": nextPlugin,
+    },
+    rules: {
+      ...nextPlugin.configs.recommended.rules,
+      ...nextPlugin.configs["core-web-vitals"].rules,
+      "no-unused-vars": "warn",
+      "no-undef": "off",
+    },
+  },
+  {
+    files: ["**/*.{ts,tsx}"],
     languageOptions: {
       parser: tsparser,
       parserOptions: {
