@@ -1,11 +1,11 @@
-// Test case for user deposit functionality
-// Simple test to verify DefiAggregator + AaveAdapter deposit flow
+// Test case for Aave adapter functionality
+// Test to verify DefiAggregator + AaveAdapter deposit and withdraw flow
 
 const { expect } = require("chai");
 const { ethers, upgrades } = require("hardhat");
 const { loadFixture } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 
-describe("06-deposit.test.js - User Deposit Test", function () {
+describe("06-aave.test.js - Aave Adapter Test", function () {
     
     // 测试固定参数
     const INITIAL_USDC_SUPPLY = ethers.parseUnits("1000000", 6); // 1M USDC (6 decimals)
@@ -85,9 +85,9 @@ describe("06-deposit.test.js - User Deposit Test", function () {
         };
     }
 
-    describe("User Deposit Flow", function () {
+    describe("Aave Adapter Deposit Flow", function () {
         
-        it("Should successfully deposit USDC through DefiAggregator", async function () {
+        it("Should successfully deposit USDC through Aave Adapter", async function () {
             const { user, mockUSDC, mockAToken, defiAggregator, aaveAdapter } = 
                 await loadFixture(deployContractsFixture);
             
@@ -156,7 +156,7 @@ describe("06-deposit.test.js - User Deposit Test", function () {
             console.log(`🪙 获得 aToken: ${ethers.formatUnits(userATokenBalance, 6)} aUSDC`);
         });
 
-        it("Should reject deposit with insufficient allowance", async function () {
+        it("Should reject Aave deposit with insufficient allowance", async function () {
             const { user, mockUSDC, defiAggregator } = 
                 await loadFixture(deployContractsFixture);
             
@@ -181,7 +181,7 @@ describe("06-deposit.test.js - User Deposit Test", function () {
             console.log("✅ 授权不足时正确拒绝存款！");
         });
 
-        it("Should reject deposit of zero amount", async function () {
+        it("Should reject Aave deposit of zero amount", async function () {
             const { user, mockUSDC, defiAggregator, aaveAdapter } = 
                 await loadFixture(deployContractsFixture);
             
@@ -212,9 +212,9 @@ describe("06-deposit.test.js - User Deposit Test", function () {
         });
     });
 
-    describe("User Withdraw Flow", function () {
+    describe("Aave Adapter Withdraw Flow", function () {
         
-        it("Should successfully withdraw USDC after deposit", async function () {
+        it("Should successfully withdraw USDC from Aave after deposit", async function () {
             const { user, mockUSDC, mockAToken, defiAggregator, aaveAdapter } = 
                 await loadFixture(deployContractsFixture);
             
@@ -301,7 +301,7 @@ describe("06-deposit.test.js - User Deposit Test", function () {
             console.log(`📈 收到 USDC: ${ethers.formatUnits(usdcBalanceAfterWithdraw - usdcBalanceBeforeWithdraw, 6)} USDC (含利息)`);
         });
 
-        it("Should reject withdraw with insufficient balance", async function () {
+        it("Should reject Aave withdraw with insufficient balance", async function () {
             const { user, mockUSDC, defiAggregator } = 
                 await loadFixture(deployContractsFixture);
             
@@ -326,7 +326,7 @@ describe("06-deposit.test.js - User Deposit Test", function () {
             console.log("✅ 余额不足时正确拒绝取款！");
         });
 
-        it("Should reject withdraw of zero amount", async function () {
+        it("Should reject Aave withdraw of zero amount", async function () {
             const { user, mockUSDC, defiAggregator, aaveAdapter } = 
                 await loadFixture(deployContractsFixture);
             
@@ -367,7 +367,7 @@ describe("06-deposit.test.js - User Deposit Test", function () {
             console.log("✅ 零金额取款时正确拒绝！");
         });
 
-        it("Should handle full withdrawal", async function () {
+        it("Should handle full Aave withdrawal", async function () {
             const { user, mockUSDC, mockAToken, defiAggregator, aaveAdapter } = 
                 await loadFixture(deployContractsFixture);
             
