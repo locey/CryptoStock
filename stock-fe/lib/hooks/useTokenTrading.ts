@@ -6,11 +6,11 @@ import { useToast } from '@/hooks/use-toast';
 import USDT_TOKEN_ABI from '@/lib/abi/MockERC20.json';
 import STOCK_TOKEN_ABI from '@/lib/abi/StockToken.json';
 import ORACLE_AGGREGATOR_ABI from '@/lib/abi/OracleAggregator.json';
+import BUY_PARAMS from '@/lib/abi/buy.json';
 import { fetchStockPrice } from '@/lib/hermes';
-import { fetchPythUpdateData } from '@/lib/pyth';
 import { usePythStore } from '@/lib/stores/pythStore';
 import { getNetworkConfig } from '@/lib/contracts';
-
+import getPythUpdateData from "@/lib/utils/getPythUpdateData"
 export interface TokenInfo {
   symbol: string;
   name: string;
@@ -59,7 +59,11 @@ export const useTokenTrading = (token: TokenInfo, usdtAddress: Address, oracleAd
   const { walletClient, getWalletClient } = useWalletClient();
   const { isConnected, address } = useWallet();
 
-console.log("🔍 useTokenTrading 初始化:", { isConnected, address });
+  // Get the StockToken implementation contract address
+  const networkConfig = getNetworkConfig(chain?.id || 11155111);
+  const stockTokenImplAddress = networkConfig.contracts.stockTokenImplementation as Address;
+
+console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockTokenImplAddress });
   // 状态管理
   const [tradingState, setTradingState] = useState<TradingState>({
     buyAmount: "100",
@@ -106,7 +110,7 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address });
       console.log("🔍 获取预言机更新数据:", { symbols, oracleAggregatorAddress });
 
       // 1. 获取 Pyth 更新数据
-      const updateData = await fetchPythUpdateData(symbols);
+      const updateData = await getPythUpdateData(symbols);
 
       debugger; // 🔍 调试点: 检查获取到的更新数据
       console.log("🐛 Pyth 更新数据:", {
@@ -137,9 +141,9 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address });
         abi: ORACLE_AGGREGATOR_ABI,
         functionName: "getUpdateFee",
         args: [updateData]
-      });
+      }) as bigint;
 
-      const feeBigInt = BigInt(updateFee.toString());
+      let feeBigInt = BigInt(updateFee);
 
       debugger; // 🔍 调试点: 检查计算出的费用
       console.log("🐛 预言机费用详情:", {
@@ -150,15 +154,24 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address });
         isZero: feeBigInt === 0n
       });
 
+     
+
+      // 添加额外的缓冲费用 (0.001 ETH) 以应对 Gas 费用波动
+      const totalFee = feeBigInt;
+
+
       console.log("💰 预言机更新费用:", {
-        feeWei: feeBigInt.toString(),
-        feeEth: formatEther(feeBigInt),
-        feeUsd: parseFloat(formatEther(feeBigInt)) * 2000 // 假设 ETH 价格为 $2000
+        rawUpdateFee: feeBigInt.toString(),
+        updateFeeEth: formatEther(feeBigInt),
+        totalFee: totalFee.toString(),
+        totalFeeEth: formatEther(totalFee),
+        totalFeeUsd: parseFloat(formatEther(totalFee)) * 2000 // 假设 ETH 价格为 $2000
       });
 
       return {
         updateData,
-        updateFee: feeBigInt
+        updateFee: feeBigInt, // 返回原始预言机费用（不包括缓冲）
+        totalFee: totalFee    // 返回总费用（包括缓冲）
       };
     } catch (error) {
       debugger; // 🔍 调试点: 捕获错误
@@ -180,20 +193,20 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address });
         abi: USDT_TOKEN_ABI,
         functionName: "balanceOf",
         args: [address],
-      });
+      }) as bigint;
 
-      const balanceBigInt = BigInt(balance.toString());
+      const balanceBigInt = BigInt(balance);
       setTradingState(prev => ({ ...prev, usdtBalance: balanceBigInt }));
 
-      // 获取授权额度
+      // 获取授权额度 - 授权给当前选择的代币合约
       const approval = await publicClient.readContract({
         address: usdtAddress,
         abi: USDT_TOKEN_ABI,
         functionName: "allowance",
         args: [address, token.address],
-      });
+      }) as bigint;
 
-      const approvalBigInt = BigInt(approval.toString());
+      const approvalBigInt = BigInt(approval);
       setTradingState(prev => ({ ...prev, allowance: approvalBigInt }));
 
       // 检查是否需要授权
@@ -203,7 +216,7 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address });
     } catch (error) {
       console.error("获取用户信息失败:", error);
     }
-  }, [isConnected, address, publicClient, usdtAddress, token.address, tradingState.buyAmount]);
+  }, [isConnected, address, publicClient, usdtAddress, stockTokenImplAddress, tradingState.buyAmount]);
 
   // 获取价格数据
   const fetchPriceData = useCallback(async () => {
@@ -295,7 +308,7 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address });
 
   // 计算最小代币数量（使用合约预估函数）
   const calculateMinTokenAmount = useCallback(async () => {
-    if (!publicClient || !token.address) return 0n;
+    if (!publicClient || !stockTokenImplAddress) return 0n;
 
     const buyAmount = parseFloat(tradingState.buyAmount) || 0;
     if (buyAmount <= 0) return 0n;
@@ -315,11 +328,12 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address });
         // 首先尝试调用合约的 getBuyEstimate 函数
         console.log("🔍 尝试调用合约 getBuyEstimate...");
         const result = await publicClient.readContract({
-          address: token.address,
+          address: stockTokenImplAddress,
           abi: STOCK_TOKEN_ABI,
           functionName: "getBuyEstimate",
           args: [buyAmountWei]
-        });
+        }) as [bigint, bigint];
+        debugger
 
         estimatedTokens = result[0];
         estimatedFee = result[1];
@@ -334,16 +348,28 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address });
         console.warn("⚠️ 合约 getBuyEstimate 调用失败，使用价格估算:", contractError);
 
         // 回退到基于价格的估算
-        if (!tradingState.priceData) {
-          throw new Error("无法获取价格数据进行估算");
+        let pricePerShare = 0;
+
+        if (tradingState.priceData && tradingState.priceData.price) {
+          pricePerShare = parseFloat(tradingState.priceData.price);
+          console.log("📊 使用状态中的价格数据:", pricePerShare);
+        } else {
+          // 如果没有价格数据，使用默认价格（假设 $100 per share）
+          pricePerShare = 100;
+          console.warn("⚠️ 没有价格数据，使用默认价格 $100 进行估算");
         }
 
-        const pricePerShare = parseFloat(tradingState.priceData.price || "0");
         if (pricePerShare <= 0) {
-          throw new Error("价格数据无效");
+          // 如果解析出的价格无效，使用默认价格
+          pricePerShare = 100;
+          console.warn("⚠️ 价格数据无效，使用默认价格 $100 进行估算");
         }
 
         const buyAmount = parseFloat(tradingState.buyAmount) || 0;
+        if (buyAmount <= 0) {
+          throw new Error("购买金额必须大于 0");
+        }
+
         const shares = buyAmount / pricePerShare;
         estimatedTokens = parseUnits(shares.toFixed(6), 18);
         estimatedFee = 0n;
@@ -353,11 +379,12 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address });
           buyAmount,
           estimatedShares: shares,
           estimatedTokens: estimatedTokens.toString(),
-          estimatedTokensFormatted: formatEther(estimatedTokens)
+          estimatedTokensFormatted: formatEther(estimatedTokens),
+          note: tradingState.priceData ? "使用获取的价格数据" : "使用默认价格数据"
         });
       }
 
-      // 应用滑点保护 (默认1% 滑点)
+      // 应用滑点保护 
       const minTokenAmount = estimatedTokens * BigInt(Math.floor((100 - tradingState.slippage) * 100) / 100) / 100n;
 
       console.log("🛡️ 应用滑点保护:", {
@@ -367,12 +394,25 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address });
         calculation: `${estimatedTokens} * ${100 - tradingState.slippage} / 100`
       });
 
-      return minTokenAmount;
+      return { estimatedTokens, minTokenAmount };
     } catch (error) {
-      console.error("❌ 调用合约 getBuyEstimate 失败:", error);
-      return 0n;
+      console.error("❌ 计算最小代币数量完全失败:", error);
+
+      // 给出详细的错误信息
+      let errorMessage = "无法计算预期获得的代币数量";
+      if (error instanceof Error) {
+        if (error.message.includes("无法获取价格数据进行估算")) {
+          errorMessage = "价格数据获取失败，请重试或联系客服";
+        } else if (error.message.includes("购买金额必须大于 0")) {
+          errorMessage = "请输入有效的购买金额";
+        } else {
+          errorMessage = `计算失败: ${error.message}`;
+        }
+      }
+
+      throw new Error(errorMessage);
     }
-  }, [publicClient, token.address, tradingState.buyAmount, tradingState.slippage]);
+  }, [publicClient, stockTokenImplAddress, tradingState.buyAmount, tradingState.slippage, tradingState.priceData]);
 
   // 授权USDT
   const approveUSDT = useCallback(async (): Promise<TradingResult> => {
@@ -425,7 +465,7 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address });
         error: error.message || "授权失败"
       };
     }
-  }, [isConnected, address, getWalletClient, usdtAddress, token.address, chain, publicClient, fetchUserInfo, updateState]);
+  }, [isConnected, address, getWalletClient, usdtAddress, stockTokenImplAddress, chain, publicClient, fetchUserInfo, updateState]);
 
   // 执行买入
   const buyTokens = useCallback(async (): Promise<TradingResult> => {
@@ -459,7 +499,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address });
       buyAmount: tradingState.buyAmount,
       buyAmountWei: buyAmountWei.toString(),
       usdtBalance: tradingState.usdtBalance.toString(),
-      usdtBalanceFormatted: formatUnits(tradingState.usdtBalance, 6),
       hasEnoughBalance: tradingState.usdtBalance >= buyAmountWei
     });
 
@@ -475,156 +514,183 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address });
     try {
       console.log("🔄 开始购买流程，获取最新价格数据...");
 
-      // 1. 使用 oracleAggregator 获取更新数据和费用
+      // 1. 首先确保有价格数据
+      console.log(`🔍 确保 ${token.symbol} 的价格数据已获取...`);
+      if (!tradingState.priceData) {
+        console.log("⚠️ 价格数据为空，重新获取...");
+        await fetchPriceData();
+      }
+
+      // 再次检查价格数据
+      if (!tradingState.priceData) {
+        throw new Error("无法获取价格数据，请重试");
+      }
+
+      console.log("✅ 价格数据已确认:", tradingState.priceData);
+
+      // 2. 使用 oracleAggregator 获取更新数据和费用
       console.log(`🔍 使用 oracleAggregator 获取 ${token.symbol} 的最新价格更新数据...`);
       debugger; // 🔍 调试点: 准备获取预言机数据
 
-      const { updateData, updateFee } = await fetchUpdateDataAndFee([token.symbol]);
+      const { updateData, updateFee, totalFee } = await fetchUpdateDataAndFee([token.symbol]);
 
       debugger; // 🔍 调试点: 获取到预言机数据后
       console.log("🐛 预言机数据获取完成:", {
         updateDataLength: updateData.length,
         updateFee: updateFee.toString(),
-        updateFeeEth: formatEther(updateFee)
+        updateFeeEth: formatEther(updateFee),
+        totalFee: totalFee.toString(),
+        totalFeeEth: formatEther(totalFee)
       });
 
       // 2. 更新状态中的数据
       setTradingState(prev => ({
         ...prev,
         updateData: updateData,
-        updateFee: updateFee
+        updateFee: totalFee // 使用总费用（包括缓冲）
       }));
 
+      // 直接使用获取到的数据，不依赖状态更新
+      const currentUpdateData = updateData;
+      const currentUpdateFee = totalFee;
+
+      debugger; // 🔍 调试点: 验证数据
+      console.log("🐛 数据验证:", {
+        updateDataFromFunction: !!updateData,
+        updateDataLength: updateData?.length || 0,
+        updateDataType: typeof updateData,
+        updateDataArray: Array.isArray(updateData),
+        currentUpdateFee: currentUpdateFee.toString(),
+        currentUpdateFeeEth: formatEther(currentUpdateFee)
+      });
+
       console.log("✅ 获取到最新的价格更新数据:", {
-        dataLength: updateData.length,
-        updateFee: updateFee.toString(),
-        updateFeeEth: formatEther(updateFee),
+        dataLength: currentUpdateData.length,
+        updateFee: currentUpdateFee.toString(),
+        updateFeeEth: formatEther(currentUpdateFee),
         timestamp: new Date().toISOString()
       });
 
-      // 异步计算最小代币数量
-      debugger; // 🔍 调试点: 准备计算最小代币数量
-      const minTokenAmount = await calculateMinTokenAmount();
+      // 使用写死的购买金额和最小代币数量，但使用动态获取的更新数据
+      console.log("🧪 混合模式：使用测试购买参数 + 动态价格数据...");
 
-      debugger; // 🔍 调试点: 检查最小代币数量计算结果
-      console.log("🐛 最小代币数量计算:", {
-        minTokenAmount: minTokenAmount.toString(),
-        minTokenAmountFormatted: formatEther(minTokenAmount),
-        isZero: minTokenAmount === 0n,
-        tradingState: {
-          buyAmount: tradingState.buyAmount,
-          slippage: tradingState.slippage,
-          priceData: tradingState.priceData
-        }
+      const testBuyAmountWei = BigInt(BUY_PARAMS.usdtAmount); // 100 USDT (6 decimals)
+      const testMinTokenAmount = BigInt(BUY_PARAMS.minTokenAmount);
+
+      console.log("🧪 混合参数详情:", {
+        buyAmount: testBuyAmountWei.toString(),
+        buyAmountFormatted: formatUnits(testBuyAmountWei, 6),
+        minTokenAmount: testMinTokenAmount.toString(),
+        minTokenAmountFormatted: formatEther(testMinTokenAmount),
+        updateDataLength: currentUpdateData?.length || 0,
+        updateFee: currentUpdateFee.toString(),
+        updateFeeEth: formatEther(currentUpdateFee)
       });
 
-      if (minTokenAmount === 0n) {
-        throw new Error("无法计算最小代币数量");
+      // 检查用户余额是否足够
+      if (tradingState.usdtBalance < testBuyAmountWei) {
+        throw new Error(`USDT余额不足! 需要: ${formatUnits(testBuyAmountWei, 6)}, 可用: ${formatUnits(tradingState.usdtBalance, 6)}`);
       }
 
-      console.log("💰 准备买入交易:", {
-        buyAmountWei: buyAmountWei.toString(),
-        buyAmount: tradingState.buyAmount,
-        minTokenAmount: minTokenAmount.toString(),
-        minTokenAmountFormatted: formatEther(minTokenAmount),
-        updateDataLength: tradingState.updateData?.length || 0,
-        updateFee: tradingState.updateFee?.toString()
+      console.log("💰 准备执行买入交易:", {
+        buyAmountWei: testBuyAmountWei.toString(),
+        minTokenAmount: testMinTokenAmount.toString(),
+        updateDataLength: currentUpdateData?.length || 0,
+        updateFee: currentUpdateFee.toString()
       });
 
       const client = getWalletClient();
 
-      // 预先检查合约状态
-      console.log("🔍 执行前检查合约状态...");
-
-      // 检查合约代币余额
+      // 检查用户 ETH 余额是否足够支付预言机费用
       try {
-        debugger; // 🔍 调试点: 检查合约代币余额
-        // 使用 balanceOf 函数查询合约自身地址的代币余额
-        const contractBalance = await publicClient.readContract({
-          address: token.address,
-          abi: STOCK_TOKEN_ABI,
-          functionName: "balanceOf",
-          args: [token.address], // 查询合约地址自身的代币余额
+        debugger; // 🔍 调试点: 检查用户 ETH 余额
+        const ethBalance = await publicClient.getBalance({ address });
+
+        console.log("🐛 用户 ETH 余额检查:", {
+          ethBalance: ethBalance.toString(),
+          ethBalanceFormatted: formatEther(ethBalance),
+          requiredFee: currentUpdateFee.toString(),
+          requiredFeeFormatted: formatEther(currentUpdateFee),
+          hasEnoughEth: ethBalance >= currentUpdateFee,
+          shortfall: ethBalance < currentUpdateFee ?
+            formatEther(currentUpdateFee - ethBalance) : "0"
         });
 
-        console.log("🐛 合约代币余额检查:", {
-          contractBalance: contractBalance.toString(),
-          contractBalanceFormatted: formatEther(contractBalance),
-          minTokenAmount: minTokenAmount.toString(),
-          minTokenAmountFormatted: formatEther(minTokenAmount),
-          hasEnoughBalance: contractBalance >= minTokenAmount
-        });
-
-        if (contractBalance < minTokenAmount) {
-          throw new Error(`合约代币余额不足! 需要: ${formatEther(minTokenAmount)}, 可用: ${formatEther(contractBalance)}`);
+        if (ethBalance < currentUpdateFee) {
+          throw new Error(`ETH余额不足! 需要: ${formatEther(currentUpdateFee)} ETH, 可用: ${formatEther(ethBalance)} ETH, 缺少: ${formatEther(currentUpdateFee - ethBalance)} ETH`);
         }
       } catch (balanceError) {
-        console.warn("⚠️ 无法检查合约余额:", balanceError);
+        console.warn("⚠️ 无法检查 ETH 余额:", balanceError);
+        // 继续执行，但会在合约调用时失败
       }
 
-      // 检查 USDT 授权
+      // 检查 USDT 授权 (仍然需要检查)
       debugger; // 🔍 调试点: 检查 USDT 授权
       console.log("🐛 USDT 授权检查:", {
         allowance: tradingState.allowance.toString(),
         allowanceFormatted: formatUnits(tradingState.allowance, 6),
-        buyAmountWei: buyAmountWei.toString(),
-        buyAmountFormatted: formatUnits(buyAmountWei, 6),
-        hasEnoughAllowance: tradingState.allowance >= buyAmountWei
+        testBuyAmountWei: testBuyAmountWei.toString(),
+        testBuyAmountFormatted: formatUnits(testBuyAmountWei, 6),
+        hasEnoughAllowance: tradingState.allowance >= testBuyAmountWei
       });
 
-      if (tradingState.allowance < buyAmountWei) {
-        throw new Error(`USDT授权不足! 需要: ${formatUnits(buyAmountWei, 6)}, 可用: ${formatUnits(tradingState.allowance, 6)}`);
+      if (tradingState.allowance < testBuyAmountWei) {
+        throw new Error(`USDT授权不足! 需要: ${formatUnits(testBuyAmountWei, 6)}, 可用: ${formatUnits(tradingState.allowance, 6)}`);
       }
 
-      console.log("📝 准备执行合约调用...",[
-          buyAmountWei,                    // 参数1: USDT金额
-          minTokenAmount,                  // 参数2: 最小代币数量
-          tradingState.updateData || []    // 参数3: 价格更新数据
+      console.log("📝 准备执行合约调用:", [
+          testBuyAmountWei,               // 参数1: USDT金额 (测试值)
+          testMinTokenAmount,             // 参数2: 最小代币数量 (测试值)
+          currentUpdateData || []         // 参数3: 价格更新数据 (动态获取)
       ]);
 
       debugger; // 🔍 调试点: 准备执行合约调用
-      console.log("🐛 合约调用参数:", {
+      console.log("🐛 合约调用参数 (混合模式):", {
         tokenAddress: token.address,
         functionName: "buy",
         args: [
           {
             name: "USDT金额",
-            value: buyAmountWei.toString(),
-            formatted: formatUnits(buyAmountWei, 6)
+            value: testBuyAmountWei.toString(),
+            formatted: formatUnits(testBuyAmountWei, 6),
+            source: "测试参数"
           },
           {
             name: "最小代币数量",
-            value: minTokenAmount.toString(),
-            formatted: formatEther(minTokenAmount)
+            value: testMinTokenAmount.toString(),
+            formatted: formatEther(testMinTokenAmount),
+            source: "测试参数"
           },
           {
             name: "价格更新数据",
-            value: tradingState.updateData || [],
-            length: (tradingState.updateData || []).length
+            value: currentUpdateData,
+            length: currentUpdateData?.length || 0,
+            source: "动态获取"
           }
         ],
         msgValue: {
-          value: tradingState.updateFee.toString(),
-          formatted: formatEther(tradingState.updateFee),
-          description: "预言机更新费用"
+          value: currentUpdateFee.toString(),
+          formatted: formatEther(currentUpdateFee),
+          description: "预言机更新费用 (动态计算)"
         },
         account: address,
         chain: chain?.name
       });
+      debugger
 
       const hash = await client.writeContract({
         address: token.address,
         abi: STOCK_TOKEN_ABI,
         functionName: "buy",
         args: [
-          buyAmountWei,                    // 参数1: USDT金额
-          minTokenAmount,                  // 参数2: 最小代币数量
-          tradingState.updateData || []    // 参数3: 价格更新数据
+          testBuyAmountWei,           // 参数1: USDT金额 (测试值)
+          testMinTokenAmount,         // 参数2: 最小代币数量 (测试值)
+          currentUpdateData || []     // 参数3: 价格更新数据 (动态获取)
         ],
         account: address,
         chain,
-        value: tradingState.updateFee, // 使用 oracleAggregator 计算的实际更新费用
-        gas: 1000000n, // 增加gas限制到 1M
+        value: currentUpdateFee, // 使用动态计算的预言机费用
+        // gas: 3000000n, // 增加gas限制到 3M
       });
 
       debugger; // 🔍 调试点: 合约调用完成，获得交易哈希
@@ -651,12 +717,23 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address });
         throw new Error('交易失败');
       }
     } catch (error: any) {
+      debugger; // 🔍 调试点: 捕获购买错误
       updateState({ transactionStatus: 'error' });
       console.error("❌ 买入交易失败:", error);
 
       // 详细的错误分析和用户友好提示
       let errorMessage = "买入失败";
       let userAction = "";
+
+      console.log("🐛 错误详情:", {
+        name: error.name,
+        message: error.message,
+        code: error.code,
+        reason: error.reason,
+        data: error.data,
+        transactionHash: error.transaction?.hash,
+        stack: error.stack ? error.stack.split('\n').slice(0, 3) : 'No stack trace'
+      });
 
       if (error.message) {
         errorMessage = error.message;
@@ -665,6 +742,9 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address });
         if (error.message.includes("insufficient funds")) {
           errorMessage = "账户ETH余额不足";
           userAction = "请为钱包充值足够的ETH来支付Gas费用";
+        } else if (error.message.includes("Insufficient fee")) {
+          errorMessage = "预言机费用不足";
+          userAction = "ETH余额不足以支付预言机更新费用。请充值ETH或联系管理员调整费用设置。";
         } else if (error.message.includes("execution reverted")) {
           errorMessage = "合约执行失败";
           userAction = "请检查：1) 合约代币余额 2) 价格数据是否最新 3) 滑点设置是否合理 4) USDT授权是否足够";
@@ -708,7 +788,7 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address });
         error: errorMessage
       };
     }
-  }, [isConnected, address, getWalletClient, token.address, tradingState, calculateMinTokenAmount, chain, publicClient, fetchUpdateDataAndFee]);
+  }, [isConnected, address, getWalletClient, stockTokenImplAddress, tradingState, calculateMinTokenAmount, chain, publicClient, fetchUpdateDataAndFee, fetchPriceData]);
 
   // 初始化数据
   const initializeData = useCallback(async () => {

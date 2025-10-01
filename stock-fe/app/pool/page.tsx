@@ -223,7 +223,13 @@ export default function TokenPool() {
       return convertedToken;
     });
 
-    console.log("🎯 最终转换完成的代币数据:", convertedTokens);
+    console.log("🎯 最终转换完成的代币数据:", convertedTokens.map(token => ({
+      symbol: token.symbol,
+      price: token.price,
+      priceFormatted: formatPrice(token.price),
+      userBalance: token.userBalance,
+      marketCap: token.marketCap
+    })));
     return convertedTokens;
   }, [storeAllTokens]);
 

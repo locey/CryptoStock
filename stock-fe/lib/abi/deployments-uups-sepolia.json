@@ -5,6 +5,7 @@
   "contracts": {
     "OracleAggregator": {
       "proxy": "0x34448d44CcFc49C542c237C46258D64a5C198572",
+
       "implementation": "0xAD5f281CDb7bc55Da007C88E1C828bF17Db3C573"
     },
     "TokenFactory": {

@@ -97,6 +97,7 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       );
     }
+
     
     // 打印 parsed 数据进行调试
     if (response.data.parsed) {
@@ -135,7 +136,7 @@ export async function GET(request: NextRequest) {
       }
     });
     
-    console.log(`✅ 成功获取 ${bytesData.length} 条更新数据`);
+    console.log(`✅ 成功获取 ${bytesData.length} 条更新数据`,bytesData);
     
     // 返回更新数据
     return NextResponse.json({

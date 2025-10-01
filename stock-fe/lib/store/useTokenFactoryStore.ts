@@ -7,7 +7,8 @@ import {
   Abi,
   decodeEventLog as viemDecodeEventLog,
   Chain,
-  Hex
+  Hex,
+  formatUnits
 } from 'viem';
 import TokenFactoryABI from '@/lib/abi/TokenFactory.json';
 import StockTokenABI from '@/lib/abi/StockToken.json';
@@ -263,7 +264,11 @@ export const useTokenFactoryStore = create<TokenFactoryState>((set, get) => ({
               abi: StockTokenABI,
               functionName: 'getStockPrice',
             }) as bigint;
-            console.log(`💰 ${symbol} 合约价格获取成功:`, price.toString());
+            console.log(`💰 ${symbol} 合约价格获取成功:`, {
+              price: price.toString(),
+              priceFormatted: formatUnits(price, 18),
+              source: 'contract'
+            });
             priceSource = 'contract';
           } catch (priceError: any) {
             // 合约价格获取失败是正常的，将使用备用方案
@@ -273,17 +278,27 @@ export const useTokenFactoryStore = create<TokenFactoryState>((set, get) => ({
               const hermesData = await fetchStockPriceWithCache(symbol);
               if (hermesData) {
                 price = hermesPriceToBigInt(hermesData);
-                console.log(`🔄 ${symbol} Hermes 价格获取成功:`, hermesData.formatted.price);
+                console.log(`🔄 ${symbol} Hermes 价格获取成功:`, {
+                  rawPrice: hermesData.formatted.price,
+                  priceWei: price.toString(),
+                  priceFormatted: formatUnits(price, 18),
+                  source: 'hermes'
+                });
                 priceSource = 'hermes';
               } else {
                 throw new Error('Hermes API 未返回价格数据');
               }
             } catch (hermesError: any) {
-              console.warn(`⚠️ ${symbol} 所有价格源获取失败，使用默认价格`);
+              console.warn(`⚠️ ${symbol} 所有价格源获取失败，使用默认价格:`, hermesError.message);
 
               // 3. 设置默认价格并继续
               price = BigInt(0);
               priceSource = 'fallback';
+              console.log(`🔄 ${symbol} 使用默认价格:`, {
+                price: price.toString(),
+                priceFormatted: formatUnits(price, 18),
+                source: 'fallback'
+              });
             }
           }
 
