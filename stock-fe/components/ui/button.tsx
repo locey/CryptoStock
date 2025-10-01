@@ -19,12 +19,19 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        // CryptoStock 自定义变体
+        buy: "flex-1 px-3 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-sm font-semibold rounded-xl transition-all duration-500 hover:scale-105 glow-effect font-chinese",
+        sell: "flex-1 px-3 py-2 border border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white text-sm font-semibold rounded-xl transition-all duration-500 hover:scale-105 font-chinese",
+        sort: "bg-gray-900 border border-gray-800 rounded-lg px-4 py-3 text-white hover:bg-gray-800 transition-colors",
       },
       size: {
         default: "h-9 px-4 py-2",
         sm: "h-8 rounded-md px-3 text-xs",
         lg: "h-10 rounded-md px-8",
         icon: "h-9 w-9",
+        // CryptoStock 自定义尺寸
+        trading: "px-3 py-2 text-sm",
+        sort: "px-4 py-3",
       },
     },
     defaultVariants: {

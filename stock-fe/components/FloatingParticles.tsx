@@ -12,8 +12,13 @@ export function FloatingParticles() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    // Initialize canvas dimensions
+    const initializeCanvas = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+
+    initializeCanvas();
 
     const particles: Particle[] = [];
     const particleCount = 50;
@@ -102,8 +107,10 @@ export function FloatingParticles() {
 
     // Handle resize
     const handleResize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      if (canvas) {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
     };
 
     window.addEventListener('resize', handleResize);

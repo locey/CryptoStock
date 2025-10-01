@@ -24,28 +24,28 @@ export function Navbar() {
           {/* Navigation Links */}
           <div className="hidden md:flex items-center space-x-8">
             <Link
+              href="/"
+              className="text-gray-300 hover:text-white transition-colors text-sm font-medium font-chinese"
+            >
+              首页
+            </Link>
+            <Link
+              href="/pool"
+              className="text-gray-300 hover:text-white transition-colors text-sm font-medium font-chinese"
+            >
+              币股池
+            </Link>
+            <Link
               href="/trade"
               className="text-gray-300 hover:text-white transition-colors text-sm font-medium font-chinese"
             >
               交易
             </Link>
             <Link
-              href="/markets"
-              className="text-gray-300 hover:text-white transition-colors text-sm font-medium font-chinese"
-            >
-              市场
-            </Link>
-            <Link
               href="/portfolio"
               className="text-gray-300 hover:text-white transition-colors text-sm font-medium font-chinese"
             >
               投资组合
-            </Link>
-            <Link
-              href="/about"
-              className="text-gray-300 hover:text-white transition-colors text-sm font-medium font-chinese"
-            >
-              关于我们
             </Link>
           </div>
 
