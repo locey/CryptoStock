@@ -39,28 +39,29 @@ export const useTokenFactoryWithClients = () => {
     if (!publicClient) {
       throw new Error('PublicClient 未初始化');
     }
-    return store.fetchAllTokens(publicClient, address);
+    // 类型断言以解决类型不匹配问题
+    return store.fetchAllTokens(publicClient as any, address);
   }, [publicClient, store.fetchAllTokens, address]);
 
   const fetchTokensMapping = useCallback(async () => {
     if (!publicClient) {
       throw new Error('PublicClient 未初始化');
     }
-    return store.fetchTokensMapping(publicClient);
+    return store.fetchTokensMapping(publicClient as any);
   }, [publicClient, store.fetchTokensMapping]);
 
   const getTokenAddress = useCallback(async (symbol: string) => {
     if (!publicClient) {
       throw new Error('PublicClient 未初始化');
     }
-    return store.getTokenAddress(publicClient, symbol);
+    return store.getTokenAddress(publicClient as any, symbol);
   }, [publicClient, store.getTokenAddress]);
 
   const getTokensCount = useCallback(async () => {
     if (!publicClient) {
       throw new Error('PublicClient 未初始化');
     }
-    return store.getTokensCount(publicClient);
+    return store.getTokensCount(publicClient as any);
   }, [publicClient, store.getTokensCount]);
 
   // 包装写入方法
@@ -79,7 +80,7 @@ export const useTokenFactoryWithClients = () => {
 
     const wc = getWalletClient();
 
-    return store.createToken(publicClient, wc, chain, params, address);
+    return store.createToken(publicClient as any, wc as any, chain, params, address);
   }, [publicClient, getWalletClient, chain, address, isConnected, store.createToken]);
 
   // 批量获取代币信息 - 现在直接使用 store 中的数据
@@ -90,7 +91,7 @@ export const useTokenFactoryWithClients = () => {
 
     // 调用 fetchAllTokens 来获取和更新所有代币信息（包含用户余额）
     console.log("👤 检查用户连接状态:", { address: address, isConnected: isConnected });
-    await store.fetchAllTokens(publicClient, address);
+    await store.fetchAllTokens(publicClient as any, address);
 
     // 从 store 中获取所有代币信息
     let allTokens = store.allTokens;
