@@ -43,7 +43,7 @@ interface ICToken {
      * @param owner 账户地址
      * @return 底层资产数量
      */
-    function balanceOfUnderlying(address owner) external returns (uint256);
+    function balanceOfUnderlying(address owner) external view returns (uint256);
     
     /**
      * @dev 获取当前存储的汇率（cToken 对底层资产）

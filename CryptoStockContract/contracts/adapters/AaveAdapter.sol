@@ -74,7 +74,7 @@ contract AaveAdapter is
     function executeOperation(
         OperationType operationType,
         OperationParams calldata params,
-        uint256 feeRateBps
+        uint24 feeRateBps
     ) external override whenNotPaused returns (OperationResult memory result) {
         
         if (operationType == OperationType.DEPOSIT) {
@@ -104,17 +104,6 @@ contract AaveAdapter is
         }
         
         result.message = "Estimate successful";
-    }
-    
-    function getMinAmounts(
-        OperationType /* operationType */,
-        OperationParams calldata params
-    ) external pure override returns (uint256[] memory minAmounts) {
-        minAmounts = new uint256[](params.amounts.length);
-        // 返回最小金额，通常是输入金额的95%
-        for (uint i = 0; i < params.amounts.length; i++) {
-            minAmounts[i] = params.amounts[i] * 95 / 100;
-        }
     }
     
     /**
@@ -195,7 +184,7 @@ contract AaveAdapter is
     
     function _handleDeposit(
         OperationParams calldata params,
-        uint256 feeRateBps
+        uint24 feeRateBps
     ) internal returns (OperationResult memory result) {
         require(params.tokens.length == 1, "Deposit supports single token only");
         require(params.amounts.length == 1, "Amount array mismatch");
@@ -234,7 +223,7 @@ contract AaveAdapter is
     
     function _handleWithdraw(
         OperationParams calldata params,
-        uint256 /* feeRateBps */
+        uint24 /* feeRateBps */
     ) internal returns (OperationResult memory result) {
         require(params.tokens.length == 1, "Withdraw supports single token only");
         require(params.amounts.length == 1, "Amount array mismatch");

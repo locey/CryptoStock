@@ -104,7 +104,7 @@ contract MockCToken is ERC20, ICToken {
     /**
      * @dev 获取账户可赎回的底层资产数量
      */
-    function balanceOfUnderlying(address owner) external override returns (uint256) {
+    function balanceOfUnderlying(address owner) external view override returns (uint256) {
         uint256 cTokenBalance = balanceOf(owner);
         return (cTokenBalance * exchangeRate) / 1e18;
     }

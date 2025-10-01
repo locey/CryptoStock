@@ -73,7 +73,7 @@ contract CompoundAdapter is
     function executeOperation(
         OperationType operationType,
         OperationParams calldata params,
-        uint256 feeRateBps
+        uint24 feeRateBps
     ) external override whenNotPaused nonReentrant returns (OperationResult memory result) {
         if (operationType == OperationType.DEPOSIT) {
             return _handleDeposit(params, feeRateBps);
@@ -105,14 +105,6 @@ contract CompoundAdapter is
         }
         
         return result;
-    }
-    
-    function getMinAmounts(
-        OperationType /* operationType */,
-        OperationParams calldata /* params */
-    ) external pure override returns (uint256[] memory minAmounts) {
-        minAmounts = new uint256[](1);
-        minAmounts[0] = 1; // 最小 1 wei
     }
     
     function getUserBalances(address user) external view override returns (uint256 balance) {
@@ -177,7 +169,7 @@ contract CompoundAdapter is
      */
     function _handleDeposit(
         OperationParams calldata params,
-        uint256 feeRateBps
+        uint24 feeRateBps
     ) internal returns (OperationResult memory result) {
         require(params.tokens.length == 1, "Deposit supports single token only");
         require(params.amounts.length == 1, "Amount array mismatch");
@@ -225,7 +217,7 @@ contract CompoundAdapter is
      */
     function _handleWithdraw(
         OperationParams calldata params,
-        uint256 /* feeRateBps */
+        uint24 /* feeRateBps */
     ) internal returns (OperationResult memory result) {
         require(params.tokens.length == 1, "Withdraw supports single token only");
         require(params.amounts.length == 1, "Amount array mismatch");

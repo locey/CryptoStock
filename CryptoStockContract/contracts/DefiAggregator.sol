@@ -28,7 +28,7 @@ contract DefiAggregator is
     string[] private _adapterNames;
     
     // 手续费率 (基点)
-    uint256 public feeRateBps;
+    uint24 public feeRateBps;
     
     // 事件
     event AdapterRegistered(string indexed adapterName, address indexed adapterAddress);
@@ -44,7 +44,7 @@ contract DefiAggregator is
     /**
      * @dev 初始化聚合器
      */
-    function initialize(uint256 _feeRateBps) public initializer {
+    function initialize(uint24 _feeRateBps) public initializer {
         __Ownable_init(msg.sender);
         __UUPSUpgradeable_init();
         __Pausable_init();
@@ -149,9 +149,9 @@ contract DefiAggregator is
     /**
      * @dev 设置手续费率
      */
-    function setFeeRate(uint256 _feeRateBps) external onlyOwner {
+    function setFeeRate(uint24 _feeRateBps) external onlyOwner {
         require(_feeRateBps <= 1000, "Fee rate too high");
-        uint256 oldRate = feeRateBps;
+        uint24 oldRate = feeRateBps;
         feeRateBps = _feeRateBps;
         emit FeeRateChanged(oldRate, _feeRateBps);
     }

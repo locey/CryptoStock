@@ -26,7 +26,7 @@ interface IDefiAdapter is IOperationTypes {
     function executeOperation(
         OperationType operationType,
         OperationParams calldata params,
-        uint256 feeRateBps
+        uint24 feeRateBps
     ) external returns (OperationResult memory result);
     
     /**
@@ -39,17 +39,6 @@ interface IDefiAdapter is IOperationTypes {
         OperationType operationType,
         OperationParams calldata params
     ) external view returns (OperationResult memory result);
-    
-    /**
-     * @dev 获取操作所需的最小代币数量
-     * @param operationType 操作类型
-     * @param params 操作参数
-     * @return minAmounts 最小数量数组
-     */
-    function getMinAmounts(
-        OperationType operationType,
-        OperationParams calldata params
-    ) external view returns (uint256[] memory minAmounts);
     
     /**
      * @dev 获取用户在该模块中的 USDC 余额
