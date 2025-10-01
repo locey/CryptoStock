@@ -16,9 +16,9 @@ describe("07-compound.test.js - Compound Adapter Test", function () {
         // 获取测试账户
         const [deployer, user] = await ethers.getSigners();
 
-        // 1. 部署 MockUSDC
-        const MockUSDC = await ethers.getContractFactory("MockUSDC");
-        const mockUSDC = await MockUSDC.deploy();
+        // 1. 部署 MockERC20 作为 USDC
+        const MockERC20 = await ethers.getContractFactory("MockERC20");
+        const mockUSDC = await MockERC20.deploy("Mock USDC", "USDC", 6);
         
         // 2. 部署 MockCToken (cUSDC)
         const MockCToken = await ethers.getContractFactory("MockCToken");
