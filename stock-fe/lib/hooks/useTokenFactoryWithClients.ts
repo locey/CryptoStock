@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { Address, parseAbi } from 'viem';
-import { useWeb3Clients } from './useWeb3Clients';
+import { useWeb3Clients } from 'ycdirectory-hooks';
 import useTokenFactoryStore, {
   CreateTokenParams,
   TransactionResult,

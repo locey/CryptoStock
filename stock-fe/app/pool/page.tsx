@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useTokenFactoryWithClients } from "@/lib/hooks/useTokenFactoryWithClients";
-import { useWeb3Clients } from "@/lib/hooks/useWeb3Clients";
+import { useWeb3Clients } from "ycdirectory-hooks";
 import { formatUnits, parseUnits } from "viem";
 import { Button } from "@/components/ui/button";
 import { TradingInterface } from "@/components/TradingInterface";

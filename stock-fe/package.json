@@ -45,6 +45,7 @@
     "tailwindcss-animate": "^1.0.7",
     "viem": "^2.37.9",
     "wagmi": "^2.17.5",
+    "ycdirectory-hooks": "^0.1.3",
     "ycdirectory-ui": "^0.1.4",
     "zod": "^4.1.5",
     "zustand": "^5.0.8"
