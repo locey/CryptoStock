@@ -27,10 +27,10 @@ const PRESET_AMOUNTS = [10, 50, 100, 500, 1000, 5000];
 
 // 滑点选项
 const SLIPPAGE_OPTIONS = [
-  { label: "0.5%", value: 0.5 },
-  { label: "1%", value: 1 },
-  { label: "2%", value: 2 },
   { label: "3%", value: 3 },
+  { label: "5%", value: 5 },
+  { label: "10%", value: 10 },
+  { label: "15%", value: 15 },
   { label: "自定义", value: "custom" },
 ];
 
