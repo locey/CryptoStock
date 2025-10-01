@@ -2,12 +2,31 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useTokenFactoryWithClients } from "@/lib/hooks/useTokenFactoryWithClients";
-import { useWeb3Clients } from "ycdirectory-hooks";
+import { useWallet } from "ycdirectory-ui";
 import { formatUnits, parseUnits } from "viem";
 import { Button } from "@/components/ui/button";
-import { TradingInterface } from "@/components/TradingInterface";
+import BuyModal from "@/components/BuyModal";
+import { SellModal } from "@/components/SellModal";
 import { useToast } from "@/hooks/use-toast";
-import { TrendingUp, TrendingDown, Apple, Car, Search, Server, ShoppingBag, MessageSquare, Cpu, Bitcoin, CircleDollarSign, Gamepad2, Zap, Briefcase, Building2, Heart, Smartphone } from "lucide-react";
+import {
+  TrendingUp,
+  TrendingDown,
+  Apple,
+  Car,
+  Search,
+  Server,
+  ShoppingBag,
+  MessageSquare,
+  Cpu,
+  Bitcoin,
+  CircleDollarSign,
+  Gamepad2,
+  Zap,
+  Briefcase,
+  Building2,
+  Heart,
+  Smartphone,
+} from "lucide-react";
 import {
   formatNumber,
   formatPrice,
@@ -15,6 +34,18 @@ import {
   formatMarketCap,
 } from "@/lib/utils/format";
 import useTokenFactoryStore from "@/lib/store/useTokenFactoryStore";
+import { DEFAULT_CONFIG, getNetworkConfig } from "@/lib/contracts";
+
+// 使用动态合约地址
+function getContractAddresses() {
+  // 使用 Sepolia 测试网配置
+  return {
+    ORACLE_AGGREGATOR_ADDRESS: DEFAULT_CONFIG.contracts.oracleAggregator as const,
+    USDT_ADDRESS: DEFAULT_CONFIG.contracts.usdt as const,
+  };
+}
+
+const { ORACLE_AGGREGATOR_ADDRESS, USDT_ADDRESS } = getContractAddresses();
 
 interface TokenData {
   symbol: string;
@@ -29,16 +60,22 @@ interface TokenData {
   userValue: number;
 }
 
-interface TradingModalState {
+// 分别定义 BuyModal 和 SellModal 的状态
+interface BuyModalState {
   isOpen: boolean;
   token: TokenData | null;
-  tradeType?: 'buy' | 'sell';
+}
+
+interface SellModalState {
+  isOpen: boolean;
+  token: TokenData | null;
 }
 
 export default function TokenPool() {
   const { toast } = useToast();
-  const { publicClient, isConnected, address } = useWeb3Clients();
-  console.log("🔗 钱包连接状态:", { isConnected, address });
+
+  const walletState = useWallet();
+  const { isConnected, address } = walletState;
   const { fetchTokensInfo } = useTokenFactoryWithClients();
 
   // 直接从store获取数据
@@ -49,7 +86,11 @@ export default function TokenPool() {
     "marketCap"
   );
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [tradingModal, setTradingModal] = useState<TradingModalState>({
+  const [buyModal, setBuyModal] = useState<BuyModalState>({
+    isOpen: false,
+    token: null,
+  });
+  const [sellModal, setSellModal] = useState<SellModalState>({
     isOpen: false,
     token: null,
   });
@@ -241,57 +282,113 @@ export default function TokenPool() {
   const getStockIcon = (symbol: string) => {
     const icons: Record<string, React.ReactNode> = {
       // 科技公司
-      'AAPL': <Apple className="w-6 h-6 text-white" />,
-      'MSFT': <Server className="w-6 h-6 text-white" />,
-      'GOOGL': <Search className="w-6 h-6 text-white" />,
-      'META': <MessageSquare className="w-6 h-6 text-white" />,
-      'NVDA': <Cpu className="w-6 h-6 text-white" />,
-      'TSLA': <Car className="w-6 h-6 text-white" />,
-      'AMZN': <ShoppingBag className="w-6 h-6 text-white" />,
-      'NFLX': <Smartphone className="w-6 h-6 text-white" />,
+      AAPL: <Apple className="w-6 h-6 text-white" />,
+      MSFT: <Server className="w-6 h-6 text-white" />,
+      GOOGL: <Search className="w-6 h-6 text-white" />,
+      META: <MessageSquare className="w-6 h-6 text-white" />,
+      NVDA: <Cpu className="w-6 h-6 text-white" />,
+      TSLA: <Car className="w-6 h-6 text-white" />,
+      AMZN: <ShoppingBag className="w-6 h-6 text-white" />,
+      NFLX: <Smartphone className="w-6 h-6 text-white" />,
 
       // 加密货币
-      'BTC': <Bitcoin className="w-6 h-6 text-white" />,
-      'ETH': <CircleDollarSign className="w-6 h-6 text-white" />,
+      BTC: <Bitcoin className="w-6 h-6 text-white" />,
+      ETH: <CircleDollarSign className="w-6 h-6 text-white" />,
 
       // 游戏/娱乐
-      'SONY': <Gamepad2 className="w-6 h-6 text-white" />,
-      'EA': <Gamepad2 className="w-6 h-6 text-white" />,
+      SONY: <Gamepad2 className="w-6 h-6 text-white" />,
+      EA: <Gamepad2 className="w-6 h-6 text-white" />,
 
       // 能源
-      'NIO': <Zap className="w-6 h-6 text-white" />,
+      NIO: <Zap className="w-6 h-6 text-white" />,
 
       // 金融
-      'JPM': <Briefcase className="w-6 h-6 text-white" />,
-      'BAC': <Building2 className="w-6 h-6 text-white" />,
+      JPM: <Briefcase className="w-6 h-6 text-white" />,
+      BAC: <Building2 className="w-6 h-6 text-white" />,
 
       // 医疗健康
-      'JNJ': <Heart className="w-6 h-6 text-white" />,
-      'PFE': <Heart className="w-6 h-6 text-white" />
+      JNJ: <Heart className="w-6 h-6 text-white" />,
+      PFE: <Heart className="w-6 h-6 text-white" />,
     };
 
-    return icons[symbol] || <div className="w-6 h-6 flex items-center justify-center font-bold text-white">{symbol.charAt(0)}</div>;
+    return (
+      icons[symbol] || (
+        <div className="w-6 h-6 flex items-center justify-center font-bold text-white">
+          {symbol.charAt(0)}
+        </div>
+      )
+    );
   };
 
   // 获取代币描述
   const getTokenDescription = (symbol: string): string => {
     const descriptions: Record<string, string> = {
-      'AAPL': '苹果公司是全球领先的科技公司，设计、制造和销售智能手机、个人电脑、平板电脑、可穿戴设备和配件，并提供相关服务。',
-      'TSLA': '特斯拉公司是全球领先的电动汽车和清洁能源公司，致力于加速世界向可持续能源的转变。',
-      'GOOGL': '谷歌是全球最大的搜索引擎公司，提供互联网搜索、广告技术、云计算、人工智能和消费电子产品等服务。',
-      'MSFT': '微软公司是全球领先的软件和技术公司，开发、制造、许可和提供软件产品和服务。',
-      'AMZN': '亚马逊是全球最大的电子商务和云计算公司，提供在线零售、数字流媒体和人工智能服务。',
-      'META': 'Meta平台公司（原Facebook）是全球最大的社交媒体公司，运营Facebook、Instagram、WhatsApp等平台。',
-      'NVDA': '英伟达是全球领先的图形处理器和人工智能芯片设计公司，为游戏、专业可视化和数据中心市场提供解决方案。',
-      'BTC': '比特币是第一个去中心化的数字货币，基于区块链技术，被誉为数字黄金。',
-      'ETH': '以太坊是一个开源的区块链平台，支持智能合约功能，是去中心化应用的主要开发平台。'
+      AAPL: "苹果公司是全球领先的科技公司，设计、制造和销售智能手机、个人电脑、平板电脑、可穿戴设备和配件，并提供相关服务。",
+      TSLA: "特斯拉公司是全球领先的电动汽车和清洁能源公司，致力于加速世界向可持续能源的转变。",
+      GOOGL:
+        "谷歌是全球最大的搜索引擎公司，提供互联网搜索、广告技术、云计算、人工智能和消费电子产品等服务。",
+      MSFT: "微软公司是全球领先的软件和技术公司，开发、制造、许可和提供软件产品和服务。",
+      AMZN: "亚马逊是全球最大的电子商务和云计算公司，提供在线零售、数字流媒体和人工智能服务。",
+      META: "Meta平台公司（原Facebook）是全球最大的社交媒体公司，运营Facebook、Instagram、WhatsApp等平台。",
+      NVDA: "英伟达是全球领先的图形处理器和人工智能芯片设计公司，为游戏、专业可视化和数据中心市场提供解决方案。",
+      BTC: "比特币是第一个去中心化的数字货币，基于区块链技术，被誉为数字黄金。",
+      ETH: "以太坊是一个开源的区块链平台，支持智能合约功能，是去中心化应用的主要开发平台。",
     };
 
-    return descriptions[symbol] || `${symbol}是一种数字资产，基于区块链技术，具有去中心化、透明、不可篡改的特点。`;
+    return (
+      descriptions[symbol] ||
+      `${symbol}是一种数字资产，基于区块链技术，具有去中心化、透明、不可篡改的特点。`
+    );
   };
 
-  // 打开交易界面
-  const openTradingModal = (token: TokenData, tradeType?: 'buy' | 'sell') => {
+  // 打开买入界面
+  const openBuyModal = (token: TokenData) => {
+    console.log("🚀 openBuyModal 调用:", {
+      isConnected,
+      address,
+      tokenSymbol: token.symbol,
+      addressType: typeof address,
+      addressLength: address?.length,
+      isConnectedType: typeof isConnected,
+    });
+
+    // 更严格的连接状态检查
+    const isActuallyConnected =
+      isConnected &&
+      address &&
+      address !== "0x0000000000000000000000000000000000000000";
+
+    console.log("🔍 openBuyModal 连接状态检查:", {
+      isConnected,
+      address,
+      isActuallyConnected,
+    });
+
+    if (!isActuallyConnected) {
+      console.log("❌ 钱包未连接或无有效地址，阻止打开购买弹窗");
+      toast({
+        title: "连接钱包",
+        description: "请先连接钱包后再进行交易",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    console.log("✅ 钱包连接正常，打开购买弹窗");
+
+    // 先设置弹窗状态
+    setBuyModal({
+      isOpen: true,
+      token,
+    });
+
+    // 初始化数据 (获取最新的 Pyth 数据等)
+    console.log("🔄 打开购买弹窗时初始化交易数据...");
+    // 注意：数据初始化现在在 BuyModal 组件内部处理
+  };
+
+  // 打开卖出界面
+  const openSellModal = (token: TokenData) => {
     if (!isConnected) {
       toast({
         title: "连接钱包",
@@ -300,42 +397,29 @@ export default function TokenPool() {
       });
       return;
     }
-    setTradingModal({
+    setSellModal({
       isOpen: true,
       token,
-      tradeType: tradeType || 'buy',
     });
   };
 
-  // 关闭交易界面
-  const closeTradingModal = () => {
-    setTradingModal({
+  // 关闭买入界面
+  const closeBuyModal = () => {
+    setBuyModal({
       isOpen: false,
       token: null,
-      tradeType: 'buy',
+    });
+  };
+
+  // 关闭卖出界面
+  const closeSellModal = () => {
+    setSellModal({
+      isOpen: false,
+      token: null,
     });
   };
 
   // 处理交易
-  const handleTrade = (type: "buy" | "sell", amount: number) => {
-    if (!tradingModal.token) return;
-
-    try {
-      console.log(`${type} ${amount} ${tradingModal.token.symbol}`);
-      toast({
-        title: "交易成功",
-        description: `${type === "buy" ? "买入" : "卖出"}订单已提交！`,
-      });
-      closeTradingModal();
-    } catch (error) {
-      console.error("交易失败:", error);
-      toast({
-        title: "交易失败",
-        description: "交易失败，请重试",
-        variant: "destructive",
-      });
-    }
-  };
 
   return (
     <div className="min-h-screen bg-black">
@@ -411,26 +495,40 @@ export default function TokenPool() {
               <div
                 key={token.symbol}
                 className={`group bg-gray-900/60 backdrop-blur-xl border rounded-2xl p-5 transition-all duration-500 card-hover-3d glow-effect relative overflow-hidden ${
-                  isPositive ? 'border-green-500/20 hover:border-green-500/40' : 'border-red-500/20 hover:border-red-500/40'
+                  isPositive
+                    ? "border-green-500/20 hover:border-green-500/40"
+                    : "border-red-500/20 hover:border-red-500/40"
                 }`}
               >
                 {/* Animated background gradient */}
-                <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br opacity-0 group-hover:opacity-10 transition-opacity duration-500 ${
-                  isPositive ? 'from-green-500/5 to-emerald-500/5' : 'from-red-500/5 to-orange-500/5'
-                }`}></div>
+                <div
+                  className={`absolute inset-0 rounded-2xl bg-gradient-to-br opacity-0 group-hover:opacity-10 transition-opacity duration-500 ${
+                    isPositive
+                      ? "from-green-500/5 to-emerald-500/5"
+                      : "from-red-500/5 to-orange-500/5"
+                  }`}
+                ></div>
 
                 {/* Top glow line */}
-                <div className={`absolute top-0 left-0 right-0 h-1 rounded-t-2xl transition-opacity duration-500 ${
-                  isPositive ? 'bg-gradient-to-r from-green-500 to-emerald-500' : 'bg-gradient-to-r from-red-500 to-orange-500'
-                } opacity-60 group-hover:opacity-100`}></div>
+                <div
+                  className={`absolute top-0 left-0 right-0 h-1 rounded-t-2xl transition-opacity duration-500 ${
+                    isPositive
+                      ? "bg-gradient-to-r from-green-500 to-emerald-500"
+                      : "bg-gradient-to-r from-red-500 to-orange-500"
+                  } opacity-60 group-hover:opacity-100`}
+                ></div>
 
                 <div className="relative z-10">
                   {/* Header with token info and trend indicator */}
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center transform transition-all duration-500 group-hover:scale-110 ${
-                        isPositive ? 'bg-gradient-to-br from-green-500 to-emerald-600' : 'bg-gradient-to-br from-red-500 to-orange-600'
-                      }`}>
+                      <div
+                        className={`w-12 h-12 rounded-xl flex items-center justify-center transform transition-all duration-500 group-hover:scale-110 ${
+                          isPositive
+                            ? "bg-gradient-to-br from-green-500 to-emerald-600"
+                            : "bg-gradient-to-br from-red-500 to-orange-600"
+                        }`}
+                      >
                         {getStockIcon(token.symbol)}
                       </div>
                       <div>
@@ -444,9 +542,13 @@ export default function TokenPool() {
                     </div>
 
                     {/* Trend arrow indicator */}
-                    <div className={`flex items-center gap-1 px-2 py-1 rounded-lg transform transition-all duration-500 group-hover:scale-105 ${
-                      isPositive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-                    }`}>
+                    <div
+                      className={`flex items-center gap-1 px-2 py-1 rounded-lg transform transition-all duration-500 group-hover:scale-105 ${
+                        isPositive
+                          ? "bg-green-500/20 text-green-400"
+                          : "bg-red-500/20 text-red-400"
+                      }`}
+                    >
                       {isPositive ? (
                         <TrendingUp className="w-4 h-4" />
                       ) : (
@@ -463,10 +565,15 @@ export default function TokenPool() {
                     <div className="text-2xl font-bold text-white mb-1">
                       {formatPrice(token.price)}
                     </div>
-                    <div className={`text-sm font-medium flex items-center gap-2 ${
-                      isPositive ? 'text-green-400' : 'text-red-400'
-                    }`}>
-                      <span>{isPositive ? '+' : ''}{formatPrice(Math.abs(changeAmount))}</span>
+                    <div
+                      className={`text-sm font-medium flex items-center gap-2 ${
+                        isPositive ? "text-green-400" : "text-red-400"
+                      }`}
+                    >
+                      <span>
+                        {isPositive ? "+" : ""}
+                        {formatPrice(Math.abs(changeAmount))}
+                      </span>
                       <span>({formatPercent(token.change24h)})</span>
                     </div>
                   </div>
@@ -493,7 +600,10 @@ export default function TokenPool() {
                       <div className="text-xs text-gray-400 mb-1">我的持仓</div>
                       <div className="flex justify-between items-center">
                         <div className="text-sm font-semibold text-white">
-                          {token.userBalance > 0.01 ? token.userBalance.toFixed(2) : token.userBalance.toFixed(6)} {token.symbol}
+                          {token.userBalance > 0.01
+                            ? token.userBalance.toFixed(2)
+                            : token.userBalance.toFixed(6)}{" "}
+                          {token.symbol}
                         </div>
                         <div className="text-sm font-medium text-blue-400">
                           {formatNumber(token.userValue)}
@@ -512,14 +622,14 @@ export default function TokenPool() {
                   {/* Actions */}
                   <div className="flex gap-2">
                     <Button
-                      onClick={() => openTradingModal(token, 'buy')}
+                      onClick={() => openBuyModal(token)}
                       variant="buy"
                       size="trading"
                     >
                       买入
                     </Button>
                     <Button
-                      onClick={() => openTradingModal(token, 'sell')}
+                      onClick={() => openSellModal(token)}
                       variant="sell"
                       size="trading"
                     >
@@ -540,12 +650,41 @@ export default function TokenPool() {
         </div>
       </div>
 
-      {/* Trading Interface */}
-      {tradingModal.isOpen && tradingModal.token && (
-        <TradingInterface
-          token={tradingModal.token}
-          onClose={closeTradingModal}
-          onTrade={handleTrade}
+      {/* Buy Modal */}
+      {buyModal.isOpen && buyModal.token && (
+        <BuyModal
+          isOpen={buyModal.isOpen}
+          onClose={closeBuyModal}
+          token={{
+            symbol: buyModal.token.symbol,
+            name: buyModal.token.name,
+            price: formatPrice(buyModal.token.price),
+            change24h: buyModal.token.change24h,
+            volume24h: buyModal.token.volume24h,
+            marketCap: buyModal.token.marketCap,
+            address: buyModal.token.address as `0x${string}`,
+          }}
+          oracleAddress={ORACLE_AGGREGATOR_ADDRESS}
+          usdtAddress={USDT_ADDRESS}
+        />
+      )}
+
+      {/* Sell Modal */}
+      {sellModal.isOpen && sellModal.token && (
+        <SellModal
+          isOpen={sellModal.isOpen}
+          onClose={closeSellModal}
+          token={{
+            symbol: sellModal.token.symbol,
+            name: sellModal.token.name,
+            price: formatPrice(sellModal.token.price),
+            change24h: sellModal.token.change24h,
+            volume24h: sellModal.token.volume24h,
+            marketCap: sellModal.token.marketCap,
+            address: sellModal.token.address as `0x${string}`,
+          }}
+          oracleAddress={ORACLE_AGGREGATOR_ADDRESS}
+          usdtAddress={USDT_ADDRESS}
         />
       )}
     </div>

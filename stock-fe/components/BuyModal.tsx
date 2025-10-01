@@ -1,11 +1,38 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { X, TrendingUp, TrendingDown, AlertCircle, Wallet, ChevronDown } from 'lucide-react';
-import { formatUnits, parseUnits, formatEther } from 'viem';
-import { useWeb3Clients } from 'ycdirectory-hooks';
-import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
+import { useState, useEffect } from "react";
+import {
+  X,
+  TrendingUp,
+  TrendingDown,
+  AlertCircle,
+  Wallet,
+  ChevronDown,
+  Loader2,
+  CheckCircle,
+  XCircle,
+} from "lucide-react";
+import { formatUnits, parseUnits } from "viem";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { PriceSourceIndicator } from "@/components/PriceSourceIndicator";
+import useTokenTrading, {
+  TokenInfo,
+  TradingState,
+  TradingResult,
+} from "@/lib/hooks/useTokenTrading";
+
+// 预设金额选项
+const PRESET_AMOUNTS = [10, 50, 100, 500, 1000, 5000];
+
+// 滑点选项
+const SLIPPAGE_OPTIONS = [
+  { label: "0.5%", value: 0.5 },
+  { label: "1%", value: 1 },
+  { label: "2%", value: 2 },
+  { label: "3%", value: 3 },
+  { label: "自定义", value: "custom" },
+];
 
 interface BuyModalProps {
   isOpen: boolean;
@@ -17,228 +44,211 @@ interface BuyModalProps {
     change24h: number;
     volume24h: number;
     marketCap: number;
+    address: `0x${string}`;
   };
+  oracleAddress: `0x${string}`;
+  usdtAddress: `0x${string}`;
 }
 
-// 预设金额选项
-const PRESET_AMOUNTS = [10, 50, 100, 500, 1000, 5000];
-
-// 滑点选项
-const SLIPPAGE_OPTIONS = [
-  { label: '0.5%', value: 0.5 },
-  { label: '1%', value: 1 },
-  { label: '2%', value: 2 },
-  { label: '3%', value: 3 },
-  { label: '自定义', value: 'custom' }
-];
-
-export function BuyModal({ isOpen, onClose, token }: BuyModalProps) {
+export default function BuyModal({
+  isOpen,
+  onClose,
+  token,
+  oracleAddress,
+  usdtAddress,
+}: BuyModalProps) {
   const { toast } = useToast();
-  const { publicClient, walletClient, address, isConnected } = useWeb3Clients();
 
-  // 状态管理
-  const [buyAmount, setBuyAmount] = useState<string>('100');
-  const [slippage, setSlippage] = useState<number>(1);
-  const [customSlippage, setCustomSlippage] = useState<string>('');
+  // 转换 token 数据格式
+  const tokenInfo = {
+    symbol: token.symbol,
+    name: token.name,
+    address: token.address,
+    price: parseFloat(token.price.replace(/[$,]/g, "")),
+    change24h: token.change24h,
+    volume24h: token.volume24h,
+    marketCap: token.marketCap,
+    totalSupply: 0, // 暂时使用默认值
+    userBalance: 0, // 暂时使用默认值
+    userValue: 0, // 暂时使用默认值
+  };
+
+  // 使用新的 trading hook
+  const {
+    tradingState,
+    isConnected,
+    address,
+    initializeData,
+    approveUSDT,
+    buyTokens,
+    resetState,
+    updateState,
+    minTokenAmount,
+    publicClient,
+    chain,
+  } = useTokenTrading(tokenInfo, usdtAddress, oracleAddress);
+
   const [showCustomSlippage, setShowCustomSlippage] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
 
-  // 预估信息
-  const [estimatedTokens, setEstimatedTokens] = useState<bigint>(0n);
-  const [estimatedFee, setEstimatedFee] = useState<bigint>(0n);
-  const [gasFee, setGasFee] = useState<bigint>(0n);
+  const isPositive = token.change24h >= 0;
 
-  // 用户余额
-  const [usdtBalance, setUsdtBalance] = useState<bigint>(0n);
-  const [allowance, setAllowance] = useState<bigint>(0n);
-  const [needsApproval, setNeedsApproval] = useState(false);
-  const [approving, setApproving] = useState(false);
-
-  // 计算预期结果
-  const calculateEstimate = useCallback(async () => {
-    if (!publicClient || !buyAmount || parseFloat(buyAmount) <= 0) return;
-
-    try {
-      const buyAmountWei = parseUnits(buyAmount, 6);
-
-      // 这里需要调用合约的 getBuyEstimate 函数
-      // 模拟计算（实际应该调用合约）
-      const currentPrice = parseFloat(token.price);
-      const feeRate = 0.003; // 0.3%
-      const estimatedTokensBeforeFee = buyAmountWei * BigInt(Math.floor(currentPrice * 1000000)) / parseUnits('1', 6);
-      const estimatedFeeAmount = estimatedTokensBeforeFee * BigInt(Math.floor(feeRate * 10000)) / 10000n;
-      const finalEstimatedTokens = estimatedTokensBeforeFee - estimatedFeeAmount;
-
-      setEstimatedTokens(finalEstimatedTokens);
-      setEstimatedFee(estimatedFeeAmount);
-
-      // 估算gas费用（模拟）
-      setGasFee(parseUnits('0.001', 18));
-
-    } catch (error) {
-      console.error('计算预估失败:', error);
+  // 初始化数据
+  useEffect(() => {
+    if (isOpen && isConnected) {
+      console.log("🔍 BuyModal 打开，初始化数据...");
+      initializeData();
     }
-  }, [buyAmount, token.price, publicClient]);
+  }, [isOpen, isConnected, initializeData]);
 
-  // 获取用户余额和授权
-  const fetchUserInfo = useCallback(async () => {
-    if (!publicClient || !address) return;
-
-    try {
-      // 这里需要调用合约获取用户USDT余额和授权额度
-      // 模拟数据
-      setUsdtBalance(parseUnits('10000', 6));
-      setAllowance(parseUnits('5000', 6));
-      setNeedsApproval(parseUnits('5000', 6) < parseUnits(buyAmount || '0', 6));
-    } catch (error) {
-      console.error('获取用户信息失败:', error);
-    }
-  }, [address, publicClient, buyAmount]);
-
-  // 授权USDT
-  const handleApprove = async () => {
-    if (!walletClient) {
-      toast({
-        title: "钱包未连接",
-        description: "请先连接钱包",
-        variant: "destructive",
+  // 监听价格数据更新，实时刷新弹窗显示
+  useEffect(() => {
+    if (isOpen && tradingState.priceData) {
+      console.log("💰 价格数据更新，刷新弹窗显示:", {
+        price: tradingState.priceData.price,
+        lastUpdate: tradingState.updateData ? "有更新" : "无更新"
       });
-      return;
     }
+  }, [isOpen, tradingState.priceData, tradingState.updateData]);
 
-    setApproving(true);
-    try {
-      // 这里需要调用USDT合约的approve方法
-      const buyAmountWei = parseUnits(buyAmount || '0', 6);
+  // 重置状态当模态框关闭时
+  useEffect(() => {
+    if (!isOpen) {
+      resetState();
+      setShowCustomSlippage(false);
+      setShowDropdown(false);
+    }
+  }, [isOpen, resetState]);
 
-      // 模拟授权交易
-      console.log('授权USDT:', formatUnits(buyAmountWei, 6));
+  // 处理授权
+  const handleApprove = async () => {
+    const result = await approveUSDT();
 
+    if (result.success) {
       toast({
         title: "授权成功",
-        description: `已授权 ${formatUnits(buyAmountWei, 6)} USDT`,
+        description: "USDT授权成功，现在可以购买代币了",
       });
-
-      setNeedsApproval(false);
-      setAllowance(buyAmountWei);
-
-    } catch (error) {
-      console.error('授权失败:', error);
+    } else {
       toast({
         title: "授权失败",
-        description: "请重试授权操作",
+        description: result.error || "授权失败，请重试",
         variant: "destructive",
       });
-    } finally {
-      setApproving(false);
     }
   };
 
-  // 执行买入
+  // 处理买入
   const handleBuy = async () => {
-    if (!isConnected || !walletClient) {
+    console.log("🚀 开始购买代币:", {
+      token: token.symbol,
+      tradingState,
+      isConnected,
+    });
+    const result = await buyTokens();
+
+    if (result.success) {
       toast({
-        title: "钱包未连接",
-        description: "请先连接钱包",
+        title: "购买成功",
+        description: `${token.symbol} 购买成功！`,
+      });
+      setTimeout(() => {
+        onClose();
+      }, 2000);
+    } else {
+      toast({
+        title: "购买失败",
+        description: result.error || "购买失败，请重试",
         variant: "destructive",
       });
-      return;
-    }
-
-    if (!buyAmount || parseFloat(buyAmount) <= 0) {
-      toast({
-        title: "金额错误",
-        description: "请输入有效的买入金额",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (usdtBalance < parseUnits(buyAmount, 6)) {
-      toast({
-        title: "余额不足",
-        description: "USDT余额不足以完成交易",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const buyAmountWei = parseUnits(buyAmount, 6);
-      const slippageTolerance = showCustomSlippage ? parseFloat(customSlippage) : slippage;
-      const minTokenAmount = estimatedTokens * BigInt(Math.floor((100 - slippageTolerance) * 100)) / 10000n;
-
-      // 这里需要调用合约的buy方法
-      console.log('执行买入:', {
-        buyAmount: formatUnits(buyAmountWei, 6),
-        minTokenAmount: formatEther(minTokenAmount),
-        token: token.symbol
-      });
-
-      toast({
-        title: "买入成功",
-        description: `成功购买 ${formatEther(estimatedTokens)} ${token.symbol}`,
-      });
-
-      onClose();
-
-    } catch (error) {
-      console.error('买入失败:', error);
-      toast({
-        title: "买入失败",
-        description: "交易失败，请重试",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
     }
   };
 
-  // 监听弹窗状态变化
-  useEffect(() => {
-    if (isOpen) {
-      fetchUserInfo();
-      calculateEstimate();
+  // 计算按钮状态
+  const getButtonState = () => {
+    if (tradingState.transactionStatus === "approving") {
+      return {
+        text: "授权中...",
+        disabled: true,
+        color: "bg-yellow-500",
+        icon: <Loader2 className="w-4 h-4 animate-spin" />,
+      };
     }
-  }, [isOpen, fetchUserInfo, calculateEstimate]);
 
-  // 监听输入变化
-  useEffect(() => {
-    calculateEstimate();
-  }, [buyAmount, calculateEstimate]);
+    if (tradingState.transactionStatus === "buying") {
+      return {
+        text: "购买中...",
+        disabled: true,
+        color: "bg-green-500",
+        icon: <Loader2 className="w-4 h-4 animate-spin" />,
+      };
+    }
 
-  // 监听余额变化
-  useEffect(() => {
-    setNeedsApproval(allowance < parseUnits(buyAmount || '0', 6));
-  }, [allowance, buyAmount]);
+    if (tradingState.transactionStatus === "success") {
+      return {
+        text: "交易成功",
+        disabled: true,
+        color: "bg-green-500",
+        icon: <CheckCircle className="w-4 h-4" />,
+      };
+    }
 
-  const isPositive = token.change24h >= 0;
-  const canBuy = isConnected && !loading && parseFloat(buyAmount) > 0 && usdtBalance >= parseUnits(buyAmount, 6) && !needsApproval;
+    if (!isConnected) {
+      return {
+        text: "连接钱包",
+        disabled: false,
+        color: "bg-blue-500",
+        icon: <Wallet className="w-4 h-4" />,
+      };
+    }
+
+    if (tradingState.needsApproval) {
+      return {
+        text: `授权 ${tradingState.buyAmount} USDT`,
+        disabled:
+          !tradingState.buyAmount || parseFloat(tradingState.buyAmount) <= 0,
+        color: "bg-yellow-500",
+        icon: null,
+      };
+    }
+
+    return {
+      text: `买入 ${token.symbol}`,
+      disabled:
+        !tradingState.buyAmount ||
+        parseFloat(tradingState.buyAmount) <= 0 ||
+        tradingState.usdtBalance < parseUnits(tradingState.buyAmount, 6),
+      color: "bg-green-500",
+      icon: null,
+    };
+  };
+
+  const buttonState = getButtonState();
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-gray-900 rounded-2xl border border-gray-800 w-full max-w-md mx-4">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-900 rounded-2xl w-full max-w-md border border-gray-800 shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-800">
           <div className="flex items-center gap-3">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-              isPositive ? 'bg-gradient-to-br from-green-500 to-emerald-600' : 'bg-gradient-to-br from-red-500 to-orange-600'
-            }`}>
-              <span className="text-white font-bold text-lg">{token.symbol[0]}</span>
+            <div
+              className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                isPositive
+                  ? "bg-gradient-to-br from-green-500 to-emerald-600"
+                  : "bg-gradient-to-br from-red-500 to-orange-600"
+              }`}
+            >
+              <span className="text-white font-bold text-lg">
+                {token.symbol.charAt(0)}
+              </span>
             </div>
             <div>
-              <h3 className="text-white font-semibold text-lg">买入 {token.symbol}</h3>
-              <div className="flex items-center gap-1">
-                <span className="text-white">{formatEther(parseUnits(token.price, 6))}</span>
-                <div className={`flex items-center gap-1 text-sm ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
-                  {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                  <span>{Math.abs(token.change24h).toFixed(2)}%</span>
-                </div>
-              </div>
+              <h3 className="text-white font-semibold text-lg">
+                {token.symbol}
+              </h3>
+              <p className="text-gray-400 text-sm">{token.name}</p>
             </div>
           </div>
           <button
@@ -251,182 +261,160 @@ export function BuyModal({ isOpen, onClose, token }: BuyModalProps) {
 
         {/* Content */}
         <div className="p-6 space-y-6">
-          {/* 余额信息 */}
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-400">可用余额</span>
-            <div className="text-right">
-              <div className="text-white">{formatUnits(usdtBalance, 6)} USDT</div>
-              {allowance > 0 && (
-                <div className="text-gray-400">已授权: {formatUnits(allowance, 6)} USDT</div>
-              )}
+          {/* Price Info */}
+          <div className="bg-gray-800/50 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-gray-400 text-sm">当前价格</span>
+              <PriceSourceIndicator />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-white text-2xl font-bold">
+                {token.price}
+              </span>
+              <div
+                className={`flex items-center gap-1 px-2 py-1 rounded-lg ${
+                  isPositive
+                    ? "bg-green-500/20 text-green-400"
+                    : "bg-red-500/20 text-red-400"
+                }`}
+              >
+                {isPositive ? (
+                  <TrendingUp className="w-4 h-4" />
+                ) : (
+                  <TrendingDown className="w-4 h-4" />
+                )}
+                <span className="text-sm font-semibold">
+                  {isPositive ? "+" : ""}
+                  {token.change24h.toFixed(2)}%
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* 输入金额 */}
-          <div className="space-y-3">
-            <label className="text-sm text-gray-400">买入金额 (USDT)</label>
-            <div className="relative">
-              <input
-                type="number"
-                value={buyAmount}
-                onChange={(e) => setBuyAmount(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-blue-500 focus:outline-none"
-                placeholder="0.00"
-              />
-              <span className="absolute right-4 top-3 text-gray-400">USDT</span>
-            </div>
+          {/* Balance */}
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-400">USDT 余额</span>
+            <span className="text-white">
+              {formatUnits(tradingState.usdtBalance, 6)} USDT
+            </span>
+          </div>
 
-            {/* 快捷金额 */}
-            <div className="flex gap-2">
+          {/* Amount Input */}
+          <div>
+            <label className="block text-gray-400 text-sm mb-2">
+              购买金额 (USDT)
+            </label>
+            <div className="flex gap-2 mb-3">
               {PRESET_AMOUNTS.map((amount) => (
                 <button
                   key={amount}
-                  onClick={() => setBuyAmount(amount.toString())}
-                  className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm text-gray-300 hover:text-white transition-colors"
+                  onClick={() => updateState({ buyAmount: amount.toString() })}
+                  className={`flex-1 py-2 px-3 rounded-lg border transition-all ${
+                    tradingState.buyAmount === amount.toString()
+                      ? "border-blue-500 bg-blue-500/20 text-blue-400"
+                      : "border-gray-700 text-gray-400 hover:border-gray-600"
+                  }`}
                 >
                   ${amount}
                 </button>
               ))}
             </div>
+            <input
+              type="number"
+              value={tradingState.buyAmount}
+              onChange={(e) => updateState({ buyAmount: e.target.value })}
+              placeholder="输入金额"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-blue-500 focus:outline-none"
+            />
           </div>
 
-          {/* 滑点设置 */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-sm text-gray-400">滑点容忍度</label>
-              <button
-                onClick={() => setShowDropdown(!showDropdown)}
-                className="flex items-center gap-2 text-sm text-white hover:text-blue-400 transition-colors"
-              >
-                {showCustomSlippage ? `${customSlippage}%` : `${slippage}%`}
-                <ChevronDown className="w-4 h-4" />
-              </button>
+          {/* Slippage */}
+          <div>
+            <label className="block text-gray-400 text-sm mb-2">
+              滑点容忍度
+            </label>
+            <div className="flex gap-2 mb-3">
+              {SLIPPAGE_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => {
+                    if (option.value === "custom") {
+                      setShowCustomSlippage(true);
+                    } else {
+                      updateState({
+                        slippage: option.value,
+                        customSlippage: "",
+                      });
+                      setShowCustomSlippage(false);
+                    }
+                  }}
+                  className={`flex-1 py-2 px-3 rounded-lg border transition-all text-sm ${
+                    (tradingState.slippage === option.value &&
+                      option.value !== "custom") ||
+                    (option.value === "custom" && showCustomSlippage)
+                      ? "border-blue-500 bg-blue-500/20 text-blue-400"
+                      : "border-gray-700 text-gray-400 hover:border-gray-600"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
             </div>
-
-            {showDropdown && (
-              <div className="bg-gray-800 border border-gray-700 rounded-xl p-3 space-y-2">
-                {SLIPPAGE_OPTIONS.map((option) => (
-                  <button
-                    key={option.label}
-                    onClick={() => {
-                      if (option.value === 'custom') {
-                        setShowCustomSlippage(true);
-                      } else {
-                        setSlippage(Number(option.value));
-                        setShowCustomSlippage(false);
-                        setShowDropdown(false);
-                      }
-                    }}
-                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-700 text-sm text-gray-300 hover:text-white transition-colors"
-                  >
-                    {option.label}
-                  </button>
-                ))}
-
-                {showCustomSlippage && (
-                  <div className="flex items-center gap-2 pt-2 border-t border-gray-700">
-                    <input
-                      type="number"
-                      value={customSlippage}
-                      onChange={(e) => setCustomSlippage(e.target.value)}
-                      className="flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-white"
-                      placeholder="0.1"
-                    />
-                    <span className="text-gray-400">%</span>
-                    <button
-                      onClick={() => {
-                        if (customSlippage) {
-                          setSlippage(parseFloat(customSlippage));
-                          setShowDropdown(false);
-                        }
-                      }}
-                      className="px-2 py-1 bg-blue-500 hover:bg-blue-600 rounded text-white text-sm"
-                    >
-                      确认
-                    </button>
-                  </div>
-                )}
-              </div>
+            {showCustomSlippage && (
+              <input
+                type="number"
+                value={tradingState.customSlippage}
+                onChange={(e) =>
+                  updateState({ customSlippage: e.target.value })
+                }
+                placeholder="自定义滑点 %"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-blue-500 focus:outline-none"
+              />
             )}
           </div>
 
-          {/* 预估信息 */}
-          {estimatedTokens > 0 && (
-            <div className="bg-gray-800/50 rounded-xl p-4 space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-400">预期获得</span>
-                <span className="text-white font-semibold">
-                  {formatEther(estimatedTokens)} {token.symbol}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-400">手续费</span>
-                <span className="text-white">
-                  {formatEther(estimatedFee)} {token.symbol}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-400">网络费用</span>
-                <span className="text-white">
-                  {formatEther(gasFee)} ETH
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-sm pt-2 border-t border-gray-700">
-                <span className="text-gray-400">最小获得</span>
-                <span className="text-white font-semibold">
-                  {formatEther(estimatedTokens * BigInt(Math.floor((100 - (showCustomSlippage ? parseFloat(customSlippage) : slippage)) * 100)) / 10000n)} {token.symbol}
-                </span>
+          {/* Transaction Status */}
+          {tradingState.transactionStatus === "error" && (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-red-400">
+                <AlertCircle className="w-5 h-5" />
+                <span className="text-sm">交易失败，请重试</span>
               </div>
             </div>
           )}
 
-          {/* 风险提示 */}
-          <div className="flex items-start gap-2 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-            <AlertCircle className="w-4 h-4 text-yellow-500 mt-0.5" />
-            <div className="text-xs text-yellow-400">
-              <p className="font-semibold mb-1">交易提示</p>
-              <p>• 最小交易金额: 1 USDT</p>
-              <p>• 手续费率: 0.3%</p>
-              <p>• 价格会根据实时情况变动</p>
-              <p>• 请设置合理的滑点保护</p>
+          {tradingState.transactionStatus === "success" && (
+            <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-green-400">
+                <CheckCircle className="w-5 h-5" />
+                <span className="text-sm">交易成功！</span>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Actions */}
-        <div className="p-6 border-t border-gray-800 space-y-3">
-          {!isConnected ? (
-            <Button
-              onClick={() => {/* 连接钱包逻辑 */}}
-              className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-xl transition-all duration-500 hover:scale-105 flex items-center justify-center gap-2"
-            >
-              <Wallet className="w-4 h-4" />
-              连接钱包
-            </Button>
-          ) : needsApproval ? (
-            <Button
-              onClick={handleApprove}
-              disabled={approving}
-              className="w-full py-3 bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 text-white font-semibold rounded-xl transition-all duration-500 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {approving ? '授权中...' : `授权 ${buyAmount} USDT`}
-            </Button>
-          ) : (
-            <Button
-              onClick={handleBuy}
-              disabled={!canBuy}
-              className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-xl transition-all duration-500 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? '买入中...' : `买入 ${token.symbol}`}
-            </Button>
-          )}
-
-          <button
-            onClick={onClose}
-            className="w-full py-3 text-gray-400 hover:text-white transition-colors"
+        {/* Footer */}
+        <div className="p-6 border-t border-gray-800">
+          <Button
+            onClick={tradingState.needsApproval ? handleApprove : handleBuy}
+            disabled={buttonState.disabled}
+            className={`w-full py-3 rounded-lg font-semibold text-white transition-all ${
+              buttonState.disabled
+                ? "opacity-50 cursor-not-allowed"
+                : "hover:opacity-90"
+            } ${buttonState.color}`}
           >
-            取消
-          </button>
+            <div className="flex items-center justify-center gap-2">
+              {buttonState.icon}
+              {buttonState.text}
+            </div>
+          </Button>
+
+          {!isConnected && (
+            <p className="text-center text-gray-400 text-sm mt-3">
+              请先连接钱包以继续交易
+            </p>
+          )}
         </div>
       </div>
     </div>

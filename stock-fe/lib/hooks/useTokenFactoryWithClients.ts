@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { Address, parseAbi } from 'viem';
-import { useWeb3Clients } from 'ycdirectory-hooks';
+import { useWallet } from 'ycdirectory-ui';
+import { usePublicClient, useWalletClient } from '@/hooks/usePublicClient';
 import useTokenFactoryStore, {
   CreateTokenParams,
   TransactionResult,
@@ -8,6 +9,7 @@ import useTokenFactoryStore, {
   DeploymentInfo
 } from '../store/useTokenFactoryStore';
 import deployments from '@/lib/abi/deployments-uups-sepolia.json';
+import localDeployments from '@/lib/abi/deployments-local.json';
 import StockTokenABI from '@/lib/abi/StockToken.json';
 
 /**
@@ -19,12 +21,19 @@ import StockTokenABI from '@/lib/abi/StockToken.json';
 export const useTokenFactoryWithClients = () => {
   // 获取 store 和客户端
   const store = useTokenFactoryStore();
-  const { publicClient, walletClient, getWalletClient, chain, address, isConnected } = useWeb3Clients();
+  const { isConnected, address, provider } = useWallet();
+  const { publicClient, chain } = usePublicClient();
+  const { walletClient, getWalletClient } = useWalletClient();
 
   // 初始化合约（从部署文件）
   const initContract = useCallback(() => {
     if (store.contractAddress === null) {
+      // 优先使用 Sepolia 测试网部署信息
       const deploymentInfo = deployments as DeploymentInfo;
+      console.log("🔧 使用 Sepolia 测试网部署信息初始化 TokenFactory:", {
+        chainId: deploymentInfo.chainId,
+        tokenFactory: deploymentInfo.contracts?.TokenFactory?.proxy
+      });
       store.initFromDeployment(deploymentInfo);
     }
   }, [store.contractAddress, store.initFromDeployment]);

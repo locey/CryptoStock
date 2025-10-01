@@ -70,6 +70,21 @@ export function Providers({ children }: { children: ReactNode }) {
                     http: ["https://arb1.arbitrum.io/rpc"]
                   }
                 }
+              },
+              {
+                id: 11155111,
+                name: "Sepolia",
+                network: "sepolia",
+                nativeCurrency: {
+                  name: "Sepolia Ether",
+                  symbol: "ETH",
+                  decimals: 18
+                },
+                rpcUrls: {
+                  default: {
+                    http: ["https://sepolia.infura.io/v3/"]
+                  }
+                }
               }
             ],
             storage: typeof window !== 'undefined' ? window.localStorage : undefined,

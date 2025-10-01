@@ -1,0 +1,16 @@
+{
+  "network": "localhost",
+  "chainId": 31337,
+  "deployedAt": "2025-10-01T07:10:28.317Z",
+  "contracts": {
+    "mockPyth": "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
+    "usdt": "0x0165878A594ca255338adfa4d48449f69242Eb8F",
+    "oracleAggregator": "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6",
+    "stockTokenImplementation": "0x8A791620dd6260079BF849Dc5567aDC3F2FdC318",
+    "tokenFactory": "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e"
+  },
+  "tokens": {
+    "aapl": "0x8dAF17A20c9DBA35f005b6324F493785D239719d",
+    "googl": "0x3Ca8f9C04c7e3E1624Ac2008F92f6F366A869444"
+  }
+}

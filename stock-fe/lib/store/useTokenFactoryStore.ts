@@ -11,6 +11,7 @@ import {
 } from 'viem';
 import TokenFactoryABI from '@/lib/abi/TokenFactory.json';
 import StockTokenABI from '@/lib/abi/StockToken.json';
+import { fetchStockPriceWithCache, hermesPriceToBigInt } from '@/lib/hermes';
 
 // ==================== 类型定义 ====================
 /**
@@ -225,8 +226,8 @@ export const useTokenFactoryStore = create<TokenFactoryState>((set, get) => ({
         try {
           console.log(`🔍 获取代币 ${tokenAddress} 的详细信息...`);
 
-          // 使用 StockToken ABI 获取代币详细信息
-          const [name, symbol, decimals, totalSupply, price] = await Promise.all([
+          // 先获取基本信息
+          const [name, symbol, decimals, totalSupply] = await Promise.all([
             publicClient.readContract({
               address: tokenAddress,
               abi: StockTokenABI,
@@ -247,14 +248,44 @@ export const useTokenFactoryStore = create<TokenFactoryState>((set, get) => ({
               abi: StockTokenABI,
               functionName: 'totalSupply',
             }),
-            publicClient.readContract({
+          ]);
+
+          console.log(`📋 代币基本信息获取成功:`, { name, symbol, decimals, totalSupply });
+
+          // 单独获取价格，支持多重数据源
+          let price: bigint;
+          let priceSource: 'contract' | 'hermes' | 'fallback' = 'contract';
+
+          try {
+            // 1. 首先尝试从合约获取价格
+            price = await publicClient.readContract({
               address: tokenAddress,
               abi: StockTokenABI,
               functionName: 'getStockPrice',
-            }),
-          ]);
+            }) as bigint;
+            console.log(`💰 ${symbol} 合约价格获取成功:`, price.toString());
+            priceSource = 'contract';
+          } catch (priceError: any) {
+            // 合约价格获取失败是正常的，将使用备用方案
 
-          console.log(`✅ 代币 ${tokenAddress} 信息获取成功:`, { name, symbol, decimals, totalSupply, price });
+            // 2. 尝试从 Hermes API 获取价格
+            try {
+              const hermesData = await fetchStockPriceWithCache(symbol);
+              if (hermesData) {
+                price = hermesPriceToBigInt(hermesData);
+                console.log(`🔄 ${symbol} Hermes 价格获取成功:`, hermesData.formatted.price);
+                priceSource = 'hermes';
+              } else {
+                throw new Error('Hermes API 未返回价格数据');
+              }
+            } catch (hermesError: any) {
+              console.warn(`⚠️ ${symbol} 所有价格源获取失败，使用默认价格`);
+
+              // 3. 设置默认价格并继续
+              price = BigInt(0);
+              priceSource = 'fallback';
+            }
+          }
 
           // 获取当前用户余额（如果提供了用户地址）
           let userBalance = BigInt(0);
