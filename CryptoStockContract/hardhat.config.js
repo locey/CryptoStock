@@ -26,7 +26,7 @@ module.exports = {
   networks: {
     hardhat: {
       chainId: 31337,
-      gas: 3000000,
+      gas: 12000000,  // 增加到12M
       gasPrice: "auto",
       blockGasLimit: 30000000,
     },

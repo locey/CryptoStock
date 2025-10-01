@@ -8,17 +8,17 @@ const { loadFixture } = require("@nomicfoundation/hardhat-toolbox/network-helper
 describe("06-aave.test.js - Aave Adapter Test", function () {
     
     // 测试固定参数
-    const INITIAL_USDC_SUPPLY = ethers.parseUnits("1000000", 6); // 1M USDC (6 decimals)
-    const USER_DEPOSIT_AMOUNT = ethers.parseUnits("1000", 6);    // 1000 USDC
+    const INITIAL_USDT_SUPPLY = ethers.parseUnits("1000000", 6); // 1M USDT (6 decimals)
+    const USER_DEPOSIT_AMOUNT = ethers.parseUnits("1000", 6);    // 1000 USDT
     const FEE_RATE_BPS = 100; // 1% fee
 
     async function deployContractsFixture() {
         // 获取测试账户
         const [deployer, user] = await ethers.getSigners();
 
-        // 1. 部署 MockERC20 作为 USDC
+        // 1. 部署 MockERC20 作为 USDT
         const MockERC20 = await ethers.getContractFactory("MockERC20");
-        const mockUSDC = await MockERC20.deploy("Mock USDC", "USDC", 6);
+        const mockUSDT = await MockERC20.deploy("Mock USDT", "USDT", 6);
         
         // 2. 部署 MockAavePool
         const MockAavePool = await ethers.getContractFactory("MockAavePool");
@@ -27,14 +27,14 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
         // 3. 部署 MockAToken
         const MockAToken = await ethers.getContractFactory("MockAToken");
         const mockAToken = await MockAToken.deploy(
-            "Mock aUSDC",
-            "aUSDC", 
-            await mockUSDC.getAddress(),
+            "Mock aUSDT",
+            "aUSDT", 
+            await mockUSDT.getAddress(),
             await mockAavePool.getAddress()
         );
         
         // 4. 初始化 Aave Pool 资产映射
-        await mockAavePool.initReserve(await mockUSDC.getAddress(), await mockAToken.getAddress());
+        await mockAavePool.initReserve(await mockUSDT.getAddress(), await mockAToken.getAddress());
         
         // 5. 部署可升级的 DefiAggregator
         const DefiAggregator = await ethers.getContractFactory("DefiAggregator");
@@ -54,7 +54,7 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
             AaveAdapter,
             [
                 await mockAavePool.getAddress(),
-                await mockUSDC.getAddress(),
+                await mockUSDT.getAddress(),
                 await mockAToken.getAddress(),
                 deployer.address
             ], // 初始化参数
@@ -68,16 +68,16 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
         // 7. 在聚合器中注册适配器
         await defiAggregator.registerAdapter("aave", await aaveAdapter.getAddress());
         
-        // 8. 给用户分配 USDC 用于测试
-        await mockUSDC.mint(user.address, USER_DEPOSIT_AMOUNT * 2n); // 多给一些用于测试
+        // 8. 给用户分配 USDT 用于测试
+        await mockUSDT.mint(user.address, USER_DEPOSIT_AMOUNT * 2n); // 多给一些用于测试
         
-        // 9. 给 Pool 一些 USDC 用于支付利息
-        await mockUSDC.mint(await mockAavePool.getAddress(), INITIAL_USDC_SUPPLY);
+        // 9. 给 Pool 一些 USDT 用于支付利息
+        await mockUSDT.mint(await mockAavePool.getAddress(), INITIAL_USDT_SUPPLY);
 
         return {
             deployer,
             user,
-            mockUSDC,
+            mockUSDT,
             mockAavePool,
             mockAToken,
             defiAggregator,
@@ -87,18 +87,18 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
 
     describe("Aave Adapter Deposit Flow", function () {
         
-        it("Should successfully deposit USDC through Aave Adapter", async function () {
-            const { user, mockUSDC, mockAToken, defiAggregator, aaveAdapter } = 
+        it("Should successfully deposit USDT through Aave Adapter", async function () {
+            const { user, mockUSDT, mockAToken, defiAggregator, aaveAdapter } = 
                 await loadFixture(deployContractsFixture);
             
             // === 准备阶段 ===
             
-            // 检查用户初始 USDC 余额
-            const userInitialBalance = await mockUSDC.balanceOf(user.address);
+            // 检查用户初始 USDT 余额
+            const userInitialBalance = await mockUSDT.balanceOf(user.address);
             expect(userInitialBalance).to.equal(USER_DEPOSIT_AMOUNT * 2n);
             
-            // 用户授权 AaveAdapter 使用 USDC
-            await mockUSDC.connect(user).approve(
+            // 用户授权 AaveAdapter 使用 USDT
+            await mockUSDT.connect(user).approve(
                 await aaveAdapter.getAddress(), 
                 USER_DEPOSIT_AMOUNT
             );
@@ -107,7 +107,7 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
             
             // 构造操作参数
             const operationParams = {
-                tokens: [await mockUSDC.getAddress()],
+                tokens: [await mockUSDT.getAddress()],
                 amounts: [USER_DEPOSIT_AMOUNT],
                 recipient: user.address, // 明确指定受益者为用户
                 deadline: Math.floor(Date.now() / 1000) + 3600, // 1 hour
@@ -126,8 +126,8 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
             
             // === 验证结果 ===
             
-            // 1. 检查用户 USDC 余额减少
-            const userFinalBalance = await mockUSDC.balanceOf(user.address);
+            // 1. 检查用户 USDT 余额减少
+            const userFinalBalance = await mockUSDT.balanceOf(user.address);
             expect(userFinalBalance).to.equal(userInitialBalance - USER_DEPOSIT_AMOUNT);
             
             // 2. 计算预期的净存款金额（扣除手续费）
@@ -150,19 +150,19 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
             expect(yieldInfo.isProfit).to.be.true; // 无亏损
             
             console.log("✅ 存款测试通过！");
-            console.log(`💰 用户存款: ${ethers.formatUnits(USER_DEPOSIT_AMOUNT, 6)} USDC`);
-            console.log(`💸 手续费: ${ethers.formatUnits(expectedFee, 6)} USDC`);
-            console.log(`🏦 净存款: ${ethers.formatUnits(expectedNetDeposit, 6)} USDC`);
-            console.log(`🪙 获得 aToken: ${ethers.formatUnits(userATokenBalance, 6)} aUSDC`);
+            console.log(`💰 用户存款: ${ethers.formatUnits(USER_DEPOSIT_AMOUNT, 6)} USDT`);
+            console.log(`💸 手续费: ${ethers.formatUnits(expectedFee, 6)} USDT`);
+            console.log(`🏦 净存款: ${ethers.formatUnits(expectedNetDeposit, 6)} USDT`);
+            console.log(`🪙 获得 aToken: ${ethers.formatUnits(userATokenBalance, 6)} aUSDT`);
         });
 
         it("Should reject Aave deposit with insufficient allowance", async function () {
-            const { user, mockUSDC, defiAggregator } = 
+            const { user, mockUSDT, defiAggregator } = 
                 await loadFixture(deployContractsFixture);
             
             // 不给授权，直接尝试存款
             const operationParams = {
-                tokens: [await mockUSDC.getAddress()],
+                tokens: [await mockUSDT.getAddress()],
                 amounts: [USER_DEPOSIT_AMOUNT],
                 recipient: user.address, // 明确指定受益者
                 deadline: Math.floor(Date.now() / 1000) + 3600,
@@ -182,17 +182,17 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
         });
 
         it("Should reject Aave deposit of zero amount", async function () {
-            const { user, mockUSDC, defiAggregator, aaveAdapter } = 
+            const { user, mockUSDT, defiAggregator, aaveAdapter } = 
                 await loadFixture(deployContractsFixture);
             
             // 授权但尝试存款0
-            await mockUSDC.connect(user).approve(
+            await mockUSDT.connect(user).approve(
                 await aaveAdapter.getAddress(), 
                 USER_DEPOSIT_AMOUNT
             );
             
             const operationParams = {
-                tokens: [await mockUSDC.getAddress()],
+                tokens: [await mockUSDT.getAddress()],
                 amounts: [0n], // 零金额
                 recipient: user.address, // 明确指定受益者
                 deadline: Math.floor(Date.now() / 1000) + 3600,
@@ -214,21 +214,21 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
 
     describe("Aave Adapter Withdraw Flow", function () {
         
-        it("Should successfully withdraw USDC from Aave after deposit", async function () {
-            const { user, mockUSDC, mockAToken, defiAggregator, aaveAdapter } = 
+        it("Should successfully withdraw USDT from Aave after deposit", async function () {
+            const { user, mockUSDT, mockAToken, defiAggregator, aaveAdapter } = 
                 await loadFixture(deployContractsFixture);
             
             // === 先进行存款操作 ===
             
-            // 用户授权 AaveAdapter 使用 USDC
-            await mockUSDC.connect(user).approve(
+            // 用户授权 AaveAdapter 使用 USDT
+            await mockUSDT.connect(user).approve(
                 await aaveAdapter.getAddress(), 
                 USER_DEPOSIT_AMOUNT
             );
             
             // 执行存款
             const depositParams = {
-                tokens: [await mockUSDC.getAddress()],
+                tokens: [await mockUSDT.getAddress()],
                 amounts: [USER_DEPOSIT_AMOUNT],
                 recipient: user.address,
                 deadline: Math.floor(Date.now() / 1000) + 3600,
@@ -256,15 +256,15 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
             
             // 构造取款参数
             const withdrawParams = {
-                tokens: [await mockUSDC.getAddress()],
+                tokens: [await mockUSDT.getAddress()],
                 amounts: [withdrawAmount],
                 recipient: user.address, // 取款到用户地址
                 deadline: Math.floor(Date.now() / 1000) + 3600,
                 extraData: "0x"
             };
             
-            // 记录取款前的 USDC 余额
-            const usdcBalanceBeforeWithdraw = await mockUSDC.balanceOf(user.address);
+            // 记录取款前的 USDT 余额
+            const usdtBalanceBeforeWithdraw = await mockUSDT.balanceOf(user.address);
             const aTokenBalanceBeforeWithdraw = await mockAToken.balanceOf(user.address);
             
             // 执行取款操作
@@ -282,9 +282,9 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
             const balanceAfterWithdraw = await aaveAdapter.getUserBalances(user.address);
             expect(balanceAfterWithdraw).to.equal(expectedNetDeposit - withdrawAmount);
             
-            // 2. 检查用户的 USDC 余额增加（考虑 MockAavePool 的利息）
-            const usdcBalanceAfterWithdraw = await mockUSDC.balanceOf(user.address);
-            expect(usdcBalanceAfterWithdraw).to.be.greaterThan(usdcBalanceBeforeWithdraw);
+            // 2. 检查用户的 USDT 余额增加（考虑 MockAavePool 的利息）
+            const usdtBalanceAfterWithdraw = await mockUSDT.balanceOf(user.address);
+            expect(usdtBalanceAfterWithdraw).to.be.greaterThan(usdtBalanceBeforeWithdraw);
             
             // 3. 检查用户的 aToken 余额减少
             const aTokenBalanceAfterWithdraw = await mockAToken.balanceOf(user.address);
@@ -295,19 +295,19 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
             expect(yieldInfoAfterWithdraw.principal).to.equal(expectedNetDeposit - withdrawAmount);
             
             console.log("✅ 取款测试通过！");
-            console.log(`💰 存款净额: ${ethers.formatUnits(expectedNetDeposit, 6)} USDC`);
-            console.log(`💸 取款金额: ${ethers.formatUnits(withdrawAmount, 6)} USDC`);
-            console.log(`🏦 剩余余额: ${ethers.formatUnits(balanceAfterWithdraw, 6)} USDC`);
-            console.log(`📈 收到 USDC: ${ethers.formatUnits(usdcBalanceAfterWithdraw - usdcBalanceBeforeWithdraw, 6)} USDC (含利息)`);
+            console.log(`💰 存款净额: ${ethers.formatUnits(expectedNetDeposit, 6)} USDT`);
+            console.log(`💸 取款金额: ${ethers.formatUnits(withdrawAmount, 6)} USDT`);
+            console.log(`🏦 剩余余额: ${ethers.formatUnits(balanceAfterWithdraw, 6)} USDT`);
+            console.log(`📈 收到 USDT: ${ethers.formatUnits(usdtBalanceAfterWithdraw - usdtBalanceBeforeWithdraw, 6)} USDT (含利息)`);
         });
 
         it("Should reject Aave withdraw with insufficient balance", async function () {
-            const { user, mockUSDC, defiAggregator } = 
+            const { user, mockUSDT, defiAggregator } = 
                 await loadFixture(deployContractsFixture);
             
             // 尝试取款但没有存款
             const withdrawParams = {
-                tokens: [await mockUSDC.getAddress()],
+                tokens: [await mockUSDT.getAddress()],
                 amounts: [USER_DEPOSIT_AMOUNT],
                 recipient: user.address,
                 deadline: Math.floor(Date.now() / 1000) + 3600,
@@ -327,17 +327,17 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
         });
 
         it("Should reject Aave withdraw of zero amount", async function () {
-            const { user, mockUSDC, defiAggregator, aaveAdapter } = 
+            const { user, mockUSDT, defiAggregator, aaveAdapter } = 
                 await loadFixture(deployContractsFixture);
             
             // 先进行少量存款
-            await mockUSDC.connect(user).approve(
+            await mockUSDT.connect(user).approve(
                 await aaveAdapter.getAddress(), 
                 USER_DEPOSIT_AMOUNT
             );
             
             const depositParams = {
-                tokens: [await mockUSDC.getAddress()],
+                tokens: [await mockUSDT.getAddress()],
                 amounts: [USER_DEPOSIT_AMOUNT],
                 recipient: user.address,
                 deadline: Math.floor(Date.now() / 1000) + 3600,
@@ -348,7 +348,7 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
             
             // 尝试取款0金额
             const withdrawParams = {
-                tokens: [await mockUSDC.getAddress()],
+                tokens: [await mockUSDT.getAddress()],
                 amounts: [0n], // 零金额
                 recipient: user.address,
                 deadline: Math.floor(Date.now() / 1000) + 3600,
@@ -368,18 +368,18 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
         });
 
         it("Should handle full Aave withdrawal", async function () {
-            const { user, mockUSDC, mockAToken, defiAggregator, aaveAdapter } = 
+            const { user, mockUSDT, mockAToken, defiAggregator, aaveAdapter } = 
                 await loadFixture(deployContractsFixture);
             
             // === 先进行存款 ===
             
-            await mockUSDC.connect(user).approve(
+            await mockUSDT.connect(user).approve(
                 await aaveAdapter.getAddress(), 
                 USER_DEPOSIT_AMOUNT
             );
             
             const depositParams = {
-                tokens: [await mockUSDC.getAddress()],
+                tokens: [await mockUSDT.getAddress()],
                 amounts: [USER_DEPOSIT_AMOUNT],
                 recipient: user.address,
                 deadline: Math.floor(Date.now() / 1000) + 3600,
@@ -394,14 +394,14 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
             // === 执行完全取款 ===
             
             const withdrawParams = {
-                tokens: [await mockUSDC.getAddress()],
+                tokens: [await mockUSDT.getAddress()],
                 amounts: [netDeposit], // 取出所有余额
                 recipient: user.address,
                 deadline: Math.floor(Date.now() / 1000) + 3600,
                 extraData: "0x"
             };
             
-            const usdcBalanceBefore = await mockUSDC.balanceOf(user.address);
+            const usdtBalanceBefore = await mockUSDT.balanceOf(user.address);
             
             await defiAggregator.connect(user).executeOperation("aave", 1, withdrawParams);
             
@@ -411,9 +411,9 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
             const finalBalance = await aaveAdapter.getUserBalances(user.address);
             expect(finalBalance).to.equal(0n);
             
-            // 2. 用户收到了 USDC（包含利息）
-            const usdcBalanceAfter = await mockUSDC.balanceOf(user.address);
-            expect(usdcBalanceAfter).to.be.greaterThan(usdcBalanceBefore);
+            // 2. 用户收到了 USDT（包含利息）
+            const usdtBalanceAfter = await mockUSDT.balanceOf(user.address);
+            expect(usdtBalanceAfter).to.be.greaterThan(usdtBalanceBefore);
             
             // 3. 收益查询应显示无余额
             const yieldInfo = await aaveAdapter.getUserYield(user.address);
@@ -422,8 +422,8 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
             expect(yieldInfo.profit).to.equal(0n);
             
             console.log("✅ 完全取款测试通过！");
-            console.log(`💰 取出金额: ${ethers.formatUnits(netDeposit, 6)} USDC`);
-            console.log(`📈 实际收到: ${ethers.formatUnits(usdcBalanceAfter - usdcBalanceBefore, 6)} USDC (含利息)`);
+            console.log(`💰 取出金额: ${ethers.formatUnits(netDeposit, 6)} USDT`);
+            console.log(`📈 实际收到: ${ethers.formatUnits(usdtBalanceAfter - usdtBalanceBefore, 6)} USDT (含利息)`);
         });
     });
 });

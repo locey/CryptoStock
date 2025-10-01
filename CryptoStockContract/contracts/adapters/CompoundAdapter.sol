@@ -13,7 +13,7 @@ import "../interfaces/ICompound.sol";
 
 /**
  * @title CompoundAdapter
- * @dev 可升级的 Compound V2 协议适配器 - 仅支持 USDC 存款和取款操作，支持 UUPS 升级
+ * @dev 可升级的 Compound V2 协议适配器 - 仅支持 USDT 存款和取款操作，支持 UUPS 升级
  */
 contract CompoundAdapter is 
     Initializable,
@@ -25,11 +25,11 @@ contract CompoundAdapter is
 {
     using SafeERC20 for IERC20;
     
-    // Compound cUSDC 合约地址
-    address public cUsdcToken;
+    // Compound cUSDT 合约地址
+    address public cUsdtToken;
     
-    // USDC 代币地址 - 可配置支持不同网络
-    address public usdcToken;
+    // USDT 代币地址 - 可配置支持不同网络
+    address public usdtToken;
     
     // 用户本金记录 (user => principal) - 用于收益计算
     mapping(address => uint256) private _userPrincipal;
@@ -47,12 +47,12 @@ contract CompoundAdapter is
      * @dev 初始化 Compound 适配器
      */
     function initialize(
-        address _cUsdcToken,
-        address _usdcToken,
+        address _cUsdtToken,
+        address _usdtToken,
         address _owner
     ) external initializer {
-        require(_cUsdcToken != address(0), "Invalid cUSDC address");
-        require(_usdcToken != address(0), "Invalid USDC address");
+        require(_cUsdtToken != address(0), "Invalid cUSDT address");
+        require(_usdtToken != address(0), "Invalid USDT address");
         require(_owner != address(0), "Invalid owner address");
         
         __Ownable_init(_owner);
@@ -60,8 +60,8 @@ contract CompoundAdapter is
         __Pausable_init();
         __ReentrancyGuard_init();
         
-        cUsdcToken = _cUsdcToken;
-        usdcToken = _usdcToken;
+        cUsdtToken = _cUsdtToken;
+        usdtToken = _usdtToken;
     }
     
     // ===== IDefiAdapter 接口实现 =====
@@ -124,12 +124,12 @@ contract CompoundAdapter is
         }
         
         // 直接查询用户持有的 cToken 余额，然后计算当前价值
-        try ICToken(cUsdcToken).balanceOf(user) returns (uint256 userCTokens) {
+        try ICToken(cUsdtToken).balanceOf(user) returns (uint256 userCTokens) {
             if (userCTokens == 0) {
                 currentValue = 0;
             } else {
                 // 计算当前价值：cToken余额 * 当前汇率
-                uint256 exchangeRate = ICToken(cUsdcToken).exchangeRateStored();
+                uint256 exchangeRate = ICToken(cUsdtToken).exchangeRateStored();
                 currentValue = (userCTokens * exchangeRate) / EXCHANGE_RATE_SCALE;
             }
             
@@ -173,7 +173,7 @@ contract CompoundAdapter is
     ) internal returns (OperationResult memory result) {
         require(params.tokens.length == 1, "Deposit supports single token only");
         require(params.amounts.length == 1, "Amount array mismatch");
-        require(params.tokens[0] == usdcToken, "Only USDC deposits supported");
+        require(params.tokens[0] == usdtToken, "Only USDT deposits supported");
         require(params.amounts[0] > 0, "Amount must be greater than 0");
         
         address user = params.recipient;
@@ -185,19 +185,19 @@ contract CompoundAdapter is
         uint256 fee = (depositAmount * feeRateBps) / 10000;
         uint256 netAmount = depositAmount - fee;
         
-        // 从用户转入 USDC 到适配器
-        IERC20(usdcToken).safeTransferFrom(user, address(this), depositAmount);
+        // 从用户转入 USDT 到适配器
+        IERC20(usdtToken).safeTransferFrom(user, address(this), depositAmount);
         
         // 授权并存入 Compound
-        IERC20(usdcToken).approve(cUsdcToken, netAmount);
-        uint256 mintResult = ICToken(cUsdcToken).mint(netAmount);
+        IERC20(usdtToken).approve(cUsdtToken, netAmount);
+        uint256 mintResult = ICToken(cUsdtToken).mint(netAmount);
         require(mintResult == 0, "Compound mint failed");
         
         // 获取适配器铸造的 cToken 数量
-        uint256 newCTokens = ICToken(cUsdcToken).balanceOf(address(this));
+        uint256 newCTokens = ICToken(cUsdtToken).balanceOf(address(this));
         
         // 将 cToken 转给用户
-        IERC20(cUsdcToken).safeTransfer(user, newCTokens);
+        IERC20(cUsdtToken).safeTransfer(user, newCTokens);
         
         // 更新用户本金记录
         _userPrincipal[user] += netAmount;
@@ -221,7 +221,7 @@ contract CompoundAdapter is
     ) internal returns (OperationResult memory result) {
         require(params.tokens.length == 1, "Withdraw supports single token only");
         require(params.amounts.length == 1, "Amount array mismatch");
-        require(params.tokens[0] == usdcToken, "Only USDC withdraws supported");
+        require(params.tokens[0] == usdtToken, "Only USDT withdraws supported");
         require(params.amounts[0] > 0, "Amount must be greater than 0");
         
         address user = params.recipient;
@@ -231,22 +231,22 @@ contract CompoundAdapter is
         require(_userPrincipal[user] >= withdrawAmount, "Insufficient balance");
         
         // 计算需要赎回的 cToken 数量
-        uint256 exchangeRate = ICToken(cUsdcToken).exchangeRateCurrent();
+        uint256 exchangeRate = ICToken(cUsdtToken).exchangeRateCurrent();
         uint256 cTokensNeeded = (withdrawAmount * EXCHANGE_RATE_SCALE) / exchangeRate;
         
         // 检查用户的 cToken 余额是否足够
-        uint256 userCTokenBalance = ICToken(cUsdcToken).balanceOf(user);
+        uint256 userCTokenBalance = ICToken(cUsdtToken).balanceOf(user);
         require(userCTokenBalance >= cTokensNeeded, "Insufficient cToken balance");
         
         // 用户将 cToken 转给适配器
-        IERC20(cUsdcToken).safeTransferFrom(user, address(this), cTokensNeeded);
+        IERC20(cUsdtToken).safeTransferFrom(user, address(this), cTokensNeeded);
         
         // 从 Compound 赎回指定数量的底层资产
-        uint256 redeemResult = ICToken(cUsdcToken).redeemUnderlying(withdrawAmount);
+        uint256 redeemResult = ICToken(cUsdtToken).redeemUnderlying(withdrawAmount);
         require(redeemResult == 0, "Compound redeem failed");
         
         // 转账给用户
-        IERC20(usdcToken).safeTransfer(user, withdrawAmount);
+        IERC20(usdtToken).safeTransfer(user, withdrawAmount);
         
         // 更新用户本金记录
         _userPrincipal[user] -= withdrawAmount;
@@ -267,7 +267,7 @@ contract CompoundAdapter is
      * @dev 获取当前 Compound 供应利率（年化）
      */
     function getCurrentAPY() external view returns (uint256) {
-        uint256 supplyRatePerBlock = ICToken(cUsdcToken).supplyRatePerBlock();
+        uint256 supplyRatePerBlock = ICToken(cUsdtToken).supplyRatePerBlock();
         // 计算年化利率：(1 + supplyRatePerBlock) ^ BLOCKS_PER_YEAR - 1
         // 简化计算：supplyRatePerBlock * BLOCKS_PER_YEAR
         return supplyRatePerBlock * BLOCKS_PER_YEAR;
@@ -277,14 +277,14 @@ contract CompoundAdapter is
      * @dev 获取当前汇率
      */
     function getCurrentExchangeRate() external view returns (uint256) {
-        return ICToken(cUsdcToken).exchangeRateStored();
+        return ICToken(cUsdtToken).exchangeRateStored();
     }
     
     /**
      * @dev 获取用户的 cToken 余额
      */
     function getUserCTokenBalance(address user) external view returns (uint256) {
-        return ICToken(cUsdcToken).balanceOf(user);
+        return ICToken(cUsdtToken).balanceOf(user);
     }
     
     // ===== UUPS 升级功能 =====
@@ -295,19 +295,19 @@ contract CompoundAdapter is
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
     
     /**
-     * @dev 设置新的 cUSDC 地址（仅在升级时使用）
+     * @dev 设置新的 cUSDT 地址（仅在升级时使用）
      */
-    function setCUsdcToken(address _cUsdcToken) external onlyOwner {
-        require(_cUsdcToken != address(0), "Invalid cUSDC address");
-        cUsdcToken = _cUsdcToken;
+    function setCUsdtToken(address _cUsdtToken) external onlyOwner {
+        require(_cUsdtToken != address(0), "Invalid cUSDT address");
+        cUsdtToken = _cUsdtToken;
     }
     
     /**
-     * @dev 设置 USDC 代币地址（仅在升级或迁移时使用）
+     * @dev 设置 USDT 代币地址（仅在升级或迁移时使用）
      */
-    function setUsdcToken(address _usdcToken) external onlyOwner {
-        require(_usdcToken != address(0), "Invalid USDC token address");
-        usdcToken = _usdcToken;
+    function setUsdtToken(address _usdtToken) external onlyOwner {
+        require(_usdtToken != address(0), "Invalid USDT token address");
+        usdtToken = _usdtToken;
     }
     
     /**

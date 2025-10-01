@@ -15,7 +15,7 @@ import "../interfaces/IChainlinkPriceFeed.sol";
 
 /**
  * @title UniswapV3Adapter
- * @dev 可升级的 Uniswap V3 协议适配器 - 仅支持 USDC/ETH 流动性操作，支持 UUPS 升级
+ * @dev 可升级的 Uniswap V3 协议适配器 - 仅支持 USDT/ETH 流动性操作，支持 UUPS 升级
  */
 contract UniswapV3Adapter is 
     Initializable,
@@ -31,8 +31,8 @@ contract UniswapV3Adapter is
     // Uniswap V3 Position Manager 合约地址
     address public positionManager;
     
-    // USDC 代币地址
-    address public usdcToken;
+    // USDT 代币地址
+    address public usdtToken;
     
     // WETH 代币地址（用于与 ETH 配对）
     address public wethToken;
@@ -44,7 +44,7 @@ contract UniswapV3Adapter is
     mapping(address => uint256[]) private _userPositions;
     
     // Position 原始投入记录 (tokenId => amounts)
-    mapping(uint256 => uint256[2]) private _positionPrincipal; // [usdc, weth]
+    mapping(uint256 => uint256[2]) private _positionPrincipal; // [usdt, weth]
     
     // Position 初始美元价值记录 (tokenId => initialUsdValue)
     mapping(uint256 => uint256) private _positionInitialValue;
@@ -63,13 +63,13 @@ contract UniswapV3Adapter is
      */
     function initialize(
         address _positionManager,
-        address _usdcToken,
+        address _usdtToken,
         address _wethToken,
         address _ethUsdPriceFeed,
         address _owner
     ) external initializer {
         require(_positionManager != address(0), "Invalid position manager address");
-        require(_usdcToken != address(0), "Invalid USDC token address");
+        require(_usdtToken != address(0), "Invalid USDT token address");
         require(_wethToken != address(0), "Invalid WETH token address");
         require(_ethUsdPriceFeed != address(0), "Invalid ETH/USD price feed address");
         require(_owner != address(0), "Invalid owner address");
@@ -80,7 +80,7 @@ contract UniswapV3Adapter is
         __ReentrancyGuard_init();
         
         positionManager = _positionManager;
-        usdcToken = _usdcToken;
+        usdtToken = _usdtToken;
         wethToken = _wethToken;
         ethUsdPriceFeed = _ethUsdPriceFeed;
     }
@@ -129,7 +129,7 @@ contract UniswapV3Adapter is
         } else if (operationType == OperationType.COLLECT_FEES) {
             // 估算手续费收取 (无法精确预估，返回 0)
             result.outputAmounts = new uint256[](2);
-            result.outputAmounts[0] = 0; // USDC 手续费
+            result.outputAmounts[0] = 0; // USDT 手续费
             result.outputAmounts[1] = 0; // WETH 手续费
             result.message = "Estimated fee collection";
         }
@@ -221,20 +221,20 @@ contract UniswapV3Adapter is
     
     /**
      * @dev 计算 Position 的美元价值
-     * @param usdcAmount USDC 数量 (6 位精度)
+     * @param usdtAmount USDT 数量 (6 位精度)
      * @param wethAmount WETH 数量 (18 位精度)
-     * @return usdValue 总美元价值 (6 位精度，与 USDC 一致)
+     * @return usdValue 总美元价值 (6 位精度，与 USDT 一致)
      */
-    function calculateUSDValue(uint256 usdcAmount, uint256 wethAmount) public view returns (uint256 usdValue) {
-        // USDC 价值 (假设 1 USDC = 1 USD)
-        uint256 usdcValue = usdcAmount; // 已经是 6 位精度
+    function calculateUSDValue(uint256 usdtAmount, uint256 wethAmount) public view returns (uint256 usdValue) {
+        // USDT 价值 (假设 1 USDT = 1 USD)
+        uint256 usdtValue = usdtAmount; // 已经是 6 位精度
         
         // WETH 价值
         uint256 ethPrice = getETHPrice(); // 18 位精度
         uint256 wethValue = (wethAmount * ethPrice) / 1e18; // 转换为 18 位精度
-        wethValue = wethValue / 1e12; // 转换为 6 位精度 (与 USDC 一致)
+        wethValue = wethValue / 1e12; // 转换为 6 位精度 (与 USDT 一致)
         
-        usdValue = usdcValue + wethValue;
+        usdValue = usdtValue + wethValue;
     }
     
     /**
@@ -258,12 +258,12 @@ contract UniswapV3Adapter is
         if (liquidity > 0) {
             // 获取原始投入数量
             uint256[2] memory principal = _positionPrincipal[tokenId];
-            uint256 principalUsdc = principal[0];
+            uint256 principalUsdt = principal[0];
             uint256 principalWeth = principal[1];
             
             // 计算当前流动性价值 (简化计算，假设价格变化不大时流动性价值≈原始投入)
             // 实际应该根据当前价格范围和流动性计算精确价值
-            currentUsdValue = calculateUSDValue(principalUsdc, principalWeth);
+            currentUsdValue = calculateUSDValue(principalUsdt, principalWeth);
         }
         
         // 计算手续费收益
@@ -276,40 +276,40 @@ contract UniswapV3Adapter is
     
     /**
      * @dev 处理添加流动性操作 - 整合所有子函数避免 stack too deep
-     * params.amounts[0] = USDC amount, params.amounts[1] = WETH amount
+     * params.amounts[0] = USDT amount, params.amounts[1] = WETH amount
      */
     function _handleAddLiquidity(
         OperationParams calldata params,
         uint24 feeRateBps
     ) internal returns (OperationResult memory result) {
         require(params.tokens.length == 2, "Add liquidity requires 2 tokens");
-        require(params.amounts.length == 4, "Amount array should contain [usdcAmount, wethAmount, usdcMin, wethMin]");
-        require(params.tokens[0] == usdcToken, "Token 0 must be USDC");
+        require(params.amounts.length == 4, "Amount array should contain [usdtAmount, wethAmount, usdtMin, wethMin]");
+        require(params.tokens[0] == usdtToken, "Token 0 must be USDT");
         require(params.tokens[1] == wethToken, "Token 1 must be WETH");
         require(params.recipient != address(0), "Recipient address must be specified");
         
-        // 转入 USDC 和 WETH
-        IERC20(usdcToken).safeTransferFrom(params.recipient, address(this), params.amounts[0]);
+        // 转入 USDT 和 WETH
+        IERC20(usdtToken).safeTransferFrom(params.recipient, address(this), params.amounts[0]);
         IERC20(wethToken).safeTransferFrom(params.recipient, address(this), params.amounts[1]);
         
         // 计算净金额
-        uint256 netUsdc = params.amounts[0] - (params.amounts[0] * feeRateBps) / 10000;
+        uint256 netUsdt = params.amounts[0] - (params.amounts[0] * feeRateBps) / 10000;
         uint256 netWeth = params.amounts[1] - (params.amounts[1] * feeRateBps) / 10000;
         
         // 批准代币
-        IERC20(usdcToken).approve(positionManager, netUsdc);
+        IERC20(usdtToken).approve(positionManager, netUsdt);
         IERC20(wethToken).approve(positionManager, netWeth);
         
         // 构建 mint 参数
         INonfungiblePositionManager.MintParams memory mintParams = INonfungiblePositionManager.MintParams({
-            token0: usdcToken,
+            token0: usdtToken,
             token1: wethToken,
             fee: feeRateBps,
             tickLower: -887220,
             tickUpper: 887220,
-            amount0Desired: netUsdc,
+            amount0Desired: netUsdt,
             amount1Desired: netWeth,
-            amount0Min: params.amounts[2], // 用户设置的 USDC 最小金额
+            amount0Min: params.amounts[2], // 用户设置的 USDT 最小金额
             amount1Min: params.amounts[3], // 用户设置的 WETH 最小金额
             recipient: params.recipient, // NFT 直接发放给用户
             deadline: params.deadline
@@ -320,10 +320,10 @@ contract UniswapV3Adapter is
         
         // 记录用户 Position
         _userPositions[params.recipient].push(tokenId);
-        _positionPrincipal[tokenId] = [netUsdc, netWeth];
+        _positionPrincipal[tokenId] = [netUsdt, netWeth];
         
         // 计算并保存初始美元价值
-        uint256 initialUsdValue = calculateUSDValue(netUsdc, netWeth);
+        uint256 initialUsdValue = calculateUSDValue(netUsdt, netWeth);
         _positionInitialValue[tokenId] = initialUsdValue;
         
         result.success = true;
@@ -361,7 +361,7 @@ contract UniswapV3Adapter is
             INonfungiblePositionManager.DecreaseLiquidityParams memory decreaseParams = INonfungiblePositionManager.DecreaseLiquidityParams({
                 tokenId: tokenId,
                 liquidity: liquidity,
-                amount0Min: params.amounts[1], // 用户设置的 USDC 最小金额
+                amount0Min: params.amounts[1], // 用户设置的 USDT 最小金额
                 amount1Min: params.amounts[2], // 用户设置的 WETH 最小金额
                 deadline: params.deadline
             });
@@ -372,7 +372,7 @@ contract UniswapV3Adapter is
         INonfungiblePositionManager.CollectParams memory collectParams = INonfungiblePositionManager.CollectParams({
             tokenId: tokenId,
             recipient: params.recipient, // 直接转给用户
-            amount0Max: type(uint128).max, // 收集所有可用的 USDC (包括本金 + 手续费)
+            amount0Max: type(uint128).max, // 收集所有可用的 USDT (包括本金 + 手续费)
             amount1Max: type(uint128).max  // 收集所有可用的 WETH (包括本金 + 手续费)
         });
         (uint256 amount0, uint256 amount1) = INonfungiblePositionManager(positionManager).collect(collectParams);
@@ -384,7 +384,7 @@ contract UniswapV3Adapter is
         
         result.success = true;
         result.outputAmounts = new uint256[](2);
-        result.outputAmounts[0] = amount0; // USDC
+        result.outputAmounts[0] = amount0; // USDT
         result.outputAmounts[1] = amount1; // WETH
         result.message = "Remove liquidity successful";
         
@@ -464,7 +464,7 @@ contract UniswapV3Adapter is
         
         result.success = true;
         result.outputAmounts = new uint256[](2);
-        result.outputAmounts[0] = totalAmount0; // USDC 手续费
+        result.outputAmounts[0] = totalAmount0; // USDT 手续费
         result.outputAmounts[1] = totalAmount1; // WETH 手续费
         result.message = collectAll ? "Collect all fees successful" : "Collect fees successful";
         
@@ -553,7 +553,7 @@ contract UniswapV3Adapter is
     /**
      * @dev 获取 Position 的原始投入
      */
-    function getPositionPrincipal(uint256 tokenId) external view returns (uint256 usdc, uint256 weth) {
+    function getPositionPrincipal(uint256 tokenId) external view returns (uint256 usdt, uint256 weth) {
         uint256[2] memory principal = _positionPrincipal[tokenId];
         return (principal[0], principal[1]);
     }

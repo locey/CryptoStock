@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-// 简单ERC20接口（用于USDT/USDC交互）
+// 简单ERC20接口（用于USDT/USDT交互）
 interface IERC20 {
     function transferFrom(address from, address to, uint256 amount) external returns(bool);
     function transfer(address to, uint256 amount) external returns(bool);
@@ -40,7 +40,7 @@ contract MockAavePool {
 
     // 存入 - 实现真正的Aave逻辑
     function supply(
-        address asset,         // ERC20 Token合约地址（比如USDT/USDC）
+        address asset,         // ERC20 Token合约地址（比如USDT/USDT）
         uint256 amount,
         address onBehalfOf,    // 受益人地址（接收aToken的地址）
         uint16 /* referralCode */

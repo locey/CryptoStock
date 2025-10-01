@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "./MockERC20.sol";
 
 contract MockNonfungiblePositionManager is ERC721, ReentrancyGuard {
     
@@ -20,6 +21,8 @@ contract MockNonfungiblePositionManager is ERC721, ReentrancyGuard {
         uint256 feeGrowthInside1LastX128;
         uint128 tokensOwed0;
         uint128 tokensOwed1;
+        uint256 amount0Deposited;  // 实际存入的token0数量
+        uint256 amount1Deposited;  // 实际存入的token1数量
     }
     
     struct MintParams {
@@ -143,7 +146,9 @@ contract MockNonfungiblePositionManager is ERC721, ReentrancyGuard {
             feeGrowthInside0LastX128: 0,
             feeGrowthInside1LastX128: 0,
             tokensOwed0: 0,
-            tokensOwed1: 0
+            tokensOwed1: 0,
+            amount0Deposited: amount0,  // 记录实际投入的token0
+            amount1Deposited: amount1   // 记录实际投入的token1
         });
         
         // Mint NFT to recipient
@@ -188,6 +193,8 @@ contract MockNonfungiblePositionManager is ERC721, ReentrancyGuard {
         
         // Update position
         position.liquidity += liquidity;
+        position.amount0Deposited += amount0;  // 累加投入
+        position.amount1Deposited += amount1;  // 累加投入
         
         emit IncreaseLiquidity(params.tokenId, liquidity, amount0, amount1);
     }
@@ -207,16 +214,13 @@ contract MockNonfungiblePositionManager is ERC721, ReentrancyGuard {
         Position storage position = _positions[params.tokenId];
         require(position.liquidity >= params.liquidity, "Insufficient liquidity");
         
-        // Mock amount calculation with yield
-        uint256 totalToken0 = IERC20(position.token0).balanceOf(address(this));
-        uint256 totalToken1 = IERC20(position.token1).balanceOf(address(this));
-        
-        // Calculate proportional amounts (simplified)
+        // 基于实际投入计算比例返回
         if (position.liquidity > 0) {
-            amount0 = (totalToken0 * params.liquidity) / position.liquidity;
-            amount1 = (totalToken1 * params.liquidity) / position.liquidity;
+            uint256 proportion = (params.liquidity * 1e18) / position.liquidity;
+            amount0 = (position.amount0Deposited * proportion) / 1e18;
+            amount1 = (position.amount1Deposited * proportion) / 1e18;
             
-            // Add mock yield (0.5%)
+            // 加上简单的固定收益 (0.5%)
             amount0 = amount0 + (amount0 * MOCK_YIELD_RATE) / 10000;
             amount1 = amount1 + (amount1 * MOCK_YIELD_RATE) / 10000;
         }
@@ -224,10 +228,29 @@ contract MockNonfungiblePositionManager is ERC721, ReentrancyGuard {
         require(amount0 >= params.amount0Min, "Amount0 too low");
         require(amount1 >= params.amount1Min, "Amount1 too low");
         
+        // 为了模拟收益，先mint额外的代币到合约
+        if (amount0 > 0) {
+            MockERC20(position.token0).mint(address(this), amount0);
+        }
+        if (amount1 > 0) {
+            MockERC20(position.token1).mint(address(this), amount1);
+        }
+        
         // Update position
         position.liquidity -= params.liquidity;
         position.tokensOwed0 += uint128(amount0);
         position.tokensOwed1 += uint128(amount1);
+        
+        // 按比例减少投入记录
+        if (position.liquidity > 0) {
+            uint256 proportion = (params.liquidity * 1e18) / (position.liquidity + params.liquidity);
+            position.amount0Deposited -= (position.amount0Deposited * proportion) / 1e18;
+            position.amount1Deposited -= (position.amount1Deposited * proportion) / 1e18;
+        } else {
+            // 如果流动性完全移除，清零投入记录
+            position.amount0Deposited = 0;
+            position.amount1Deposited = 0;
+        }
         
         emit DecreaseLiquidity(params.tokenId, params.liquidity, amount0, amount1);
     }

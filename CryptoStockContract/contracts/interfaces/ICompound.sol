@@ -7,7 +7,7 @@ pragma solidity ^0.8.21;
  */
 
 /**
- * @dev CToken 接口 (如 cUSDC)
+ * @dev CToken 接口 (如 cUSDT)
  */
 interface ICToken {
     /**

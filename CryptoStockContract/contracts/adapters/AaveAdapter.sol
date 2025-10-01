@@ -26,11 +26,11 @@ contract AaveAdapter is
     // Aave Pool 合约地址
     address public aavePool;
     
-    // USDC 代币地址 - 可配置支持不同网络
-    address public usdcToken;
+    // USDT 代币地址 - 可配置支持不同网络
+    address public usdtToken;
     
-    // aUSDC 代币地址 - 可配置支持不同网络和测试
-    address public aUsdcToken;
+    // aUSDT 代币地址 - 可配置支持不同网络和测试
+    address public aUsdtToken;
     
     // 用户 USDC 余额记录 (user => balance) - 仅支持 USDC
     mapping(address => uint256) private _userBalances;
@@ -45,8 +45,8 @@ contract AaveAdapter is
      */
     function initialize(
         address _aavePool, 
-        address _usdcToken, 
-        address _aUsdcToken,
+        address _usdtToken, 
+        address _aUsdtToken,
         address _owner
     ) public initializer {
         __Ownable_init(_owner);
@@ -54,12 +54,12 @@ contract AaveAdapter is
         __Pausable_init();
         
         require(_aavePool != address(0), "Invalid Aave pool address");
-        require(_usdcToken != address(0), "Invalid USDC token address");
-        require(_aUsdcToken != address(0), "Invalid aUSDC token address");
+        require(_usdtToken != address(0), "Invalid USDT token address");
+        require(_aUsdtToken != address(0), "Invalid aUSDT token address");
         
         aavePool = _aavePool;
-        usdcToken = _usdcToken;
-        aUsdcToken = _aUsdcToken;
+        usdtToken = _usdtToken;
+        aUsdtToken = _aUsdtToken;
     }
     
     // ===== IDefiAdapter 接口实现 =====
@@ -131,7 +131,7 @@ contract AaveAdapter is
         }
         
         // 直接查询用户的 aToken 余额
-        try IAToken(aUsdcToken).balanceOf(user) returns (uint256 aTokenBalance) {
+        try IAToken(aUsdtToken).balanceOf(user) returns (uint256 aTokenBalance) {
             currentValue = aTokenBalance;
             
             // 计算收益/损失
@@ -167,17 +167,17 @@ contract AaveAdapter is
     }
     
     /**
-     * @dev 获取当前配置的 USDC 代币地址
+     * @dev 获取当前配置的 USDT 代币地址
      */
-    function getUsdcToken() external view returns (address) {
-        return usdcToken;
+    function getUsdtToken() external view returns (address) {
+        return usdtToken;
     }
     
     /**
-     * @dev 获取当前配置的 aUSDC 代币地址
+     * @dev 获取当前配置的 aUSDT 代币地址
      */
-    function getAUsdcToken() external view returns (address) {
-        return aUsdcToken;
+    function getAUsdtToken() external view returns (address) {
+        return aUsdtToken;
     }
     
     // ===== 内部操作处理函数 =====
@@ -207,7 +207,7 @@ contract AaveAdapter is
         IERC20(token).approve(aavePool, netAmount);
         IAavePool(aavePool).supply(token, netAmount, user, 0);
         
-        // 更新受益者的 USDC 余额记录
+        // 更新受益者的 USDT 余额记录
         _userBalances[user] += netAmount;
         
         // 构造返回结果
@@ -243,7 +243,7 @@ contract AaveAdapter is
         // 从 Aave 取款到指定接收者
         uint256 actualAmount = IAavePool(aavePool).withdraw(token, amount, user);
         
-        // 更新用户 USDC 余额记录
+        // 更新用户 USDT 余额记录
         _userBalances[user] -= amount;
         
         // 计算净金额（简化，不收取提现手续费）
@@ -275,19 +275,19 @@ contract AaveAdapter is
     }
     
     /**
-     * @dev 设置 USDC 代币地址（仅在升级或迁移时使用）
+     * @dev 设置 USDT 代币地址（仅在升级或迁移时使用）
      */
-    function setUsdcToken(address _usdcToken) external onlyOwner {
-        require(_usdcToken != address(0), "Invalid USDC token address");
-        usdcToken = _usdcToken;
+    function setUsdtToken(address _usdtToken) external onlyOwner {
+        require(_usdtToken != address(0), "Invalid USDT token address");
+        usdtToken = _usdtToken;
     }
     
     /**
-     * @dev 设置 aUSDC 代币地址（仅在升级或迁移时使用）
+     * @dev 设置 aUSDT 代币地址（仅在升级或迁移时使用）
      */
-    function setAUsdcToken(address _aUsdcToken) external onlyOwner {
-        require(_aUsdcToken != address(0), "Invalid aUSDC token address");
-        aUsdcToken = _aUsdcToken;
+    function setAUsdtToken(address _aUsdtToken) external onlyOwner {
+        require(_aUsdtToken != address(0), "Invalid aUSDT token address");
+        aUsdtToken = _aUsdtToken;
     }
     
     /**
