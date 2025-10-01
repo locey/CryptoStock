@@ -54,7 +54,6 @@ export const usePublicClient = () => {
 };
 
 // 封装 useWalletClient
-// 封装 useWalletClient
 export const useWalletClient = () => {
   const { address, provider, chainID } = useWallet();
   console.log("🔍 useWalletClient 初始化:", { address, provider, chainID });
