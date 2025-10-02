@@ -81,7 +81,7 @@ async function fetchUpdateData(symbols: string[] = ["AAPL"]): Promise<string[]> 
     })));
     
     // 检查价格数据有效性
-    const invalidData = response.data.parsed.filter(x => {
+    const invalidData = response.data.parsed.filter((x: PriceInfo) => {
       const isInvalidPrice = !x.price.price || x.price.price === "0" || x.price.price === 0;
       const isInvalidTime = !x.price.publish_time || x.price.publish_time === "0" || x.price.publish_time === 0;
       return isInvalidPrice || isInvalidTime;
