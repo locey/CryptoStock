@@ -40,8 +40,8 @@ import { DEFAULT_CONFIG, getNetworkConfig } from "@/lib/contracts";
 function getContractAddresses() {
   // 使用 Sepolia 测试网配置
   return {
-    ORACLE_AGGREGATOR_ADDRESS: DEFAULT_CONFIG.contracts.oracleAggregator as const,
-    USDT_ADDRESS: DEFAULT_CONFIG.contracts.usdt as const,
+    ORACLE_AGGREGATOR_ADDRESS: DEFAULT_CONFIG.contracts.oracleAggregator,
+    USDT_ADDRESS: DEFAULT_CONFIG.contracts.usdt,
   };
 }
 
@@ -670,8 +670,8 @@ export default function TokenPool() {
             marketCap: buyModal.token.marketCap,
             address: buyModal.token.address as `0x${string}`,
           }}
-          oracleAddress={ORACLE_AGGREGATOR_ADDRESS}
-          usdtAddress={USDT_ADDRESS}
+          oracleAddress={ORACLE_AGGREGATOR_ADDRESS as `0x${string}`}
+          usdtAddress={USDT_ADDRESS as `0x${string}`}
         />
       )}
 
@@ -689,8 +689,8 @@ export default function TokenPool() {
             marketCap: sellModal.token.marketCap,
             address: sellModal.token.address as `0x${string}`,
           }}
-          oracleAddress={ORACLE_AGGREGATOR_ADDRESS}
-          usdtAddress={USDT_ADDRESS}
+          oracleAddress={ORACLE_AGGREGATOR_ADDRESS as `0x${string}`}
+          usdtAddress={USDT_ADDRESS as `0x${string}`}
         />
       )}
     </div>

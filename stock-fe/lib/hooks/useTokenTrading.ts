@@ -99,9 +99,7 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
 
   // 获取预言机更新数据和费用
   const fetchUpdateDataAndFee = useCallback(async (symbols: string[]) => {
-    debugger; // 🔍 调试点: 检查函数入口参数和状态
-    console.log("🐛 fetchUpdateDataAndFee 调用:", { symbols, publicClient: !!publicClient, chain: chain?.name });
-
+    console.log("🔍 fetchUpdateDataAndFee 调用:", { symbols, publicClient: !!publicClient, chain: chain?.name });
     if (!publicClient || !chain) {
       throw new Error("客户端或链信息未初始化");
     }
@@ -110,8 +108,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
       // 获取当前网络的 oracleAggregator 地址
       const networkConfig = getNetworkConfig(chain.id);
       const oracleAggregatorAddress = networkConfig.contracts.oracleAggregator as Address;
-
-      debugger; // 🔍 调试点: 检查网络配置和预言机地址
       console.log("🐛 网络配置:", {
         chainId: chain.id,
         chainName: chain.name,
@@ -123,7 +119,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
       // 1. 获取 Pyth 更新数据
       const updateData = await getPythUpdateData(symbols);
 
-      debugger; // 🔍 调试点: 检查获取到的更新数据
       console.log("🐛 Pyth 更新数据:", {
         hasData: !!updateData,
         dataLength: updateData?.length || 0,
@@ -145,7 +140,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
 
       // 2. 获取更新费用
       console.log("💰 计算预言机更新费用...");
-      debugger; // 🔍 调试点: 准备调用预言机合约获取费用
 
       const updateFee = await publicClient.readContract({
         address: oracleAggregatorAddress,
@@ -156,7 +150,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
 
       let feeBigInt = BigInt(updateFee);
 
-      debugger; // 🔍 调试点: 检查计算出的费用
       console.log("🐛 预言机费用详情:", {
         rawFee: updateFee,
         feeBigInt: feeBigInt.toString(),
@@ -185,7 +178,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         totalFee: totalFee    // 返回总费用（包括缓冲）
       };
     } catch (error) {
-      debugger; // 🔍 调试点: 捕获错误
       console.error("❌ 获取预言机数据失败:", error);
       throw new Error(`获取预言机数据失败: ${error instanceof Error ? error.message : "未知错误"}`);
     }
@@ -344,7 +336,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
           functionName: "getBuyEstimate",
           args: [buyAmountWei]
         }) as [bigint, bigint];
-        debugger
 
         estimatedTokens = result[0];
         estimatedFee = result[1];
@@ -395,14 +386,17 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         });
       }
 
-      // 应用滑点保护 
-      const minTokenAmount = estimatedTokens * BigInt(Math.floor((100 - tradingState.slippage) * 100) / 100) / 100n;
+      // 应用滑点保护 - 修复计算逻辑
+      const slippageFactor = (100 - tradingState.slippage) / 100;
+      const minTokenAmount = estimatedTokens * BigInt(Math.floor(slippageFactor * 10000)) / 10000n;
 
       console.log("🛡️ 应用滑点保护:", {
         original: formatEther(estimatedTokens),
         slippagePercent: tradingState.slippage,
+        slippageFactor: slippageFactor,
         minAmount: formatEther(minTokenAmount),
-        calculation: `${estimatedTokens} * ${100 - tradingState.slippage} / 100`
+        calculation: `${estimatedTokens} * ${slippageFactor} = ${minTokenAmount}`,
+        reduction: `${((1 - slippageFactor) * 100).toFixed(2)}%`
       });
 
       return { estimatedTokens, minTokenAmount };
@@ -480,7 +474,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
 
   // 执行买入
   const buyTokens = useCallback(async (): Promise<TradingResult> => {
-    debugger; // 🔍 调试点: 购买函数入口
     console.log("🐛 buyTokens 调用:", {
       isConnected,
       address,
@@ -505,7 +498,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
 
     const buyAmountWei = parseUnits(tradingState.buyAmount, 6);
 
-    debugger; // 🔍 调试点: 检查余额
     console.log("🐛 余额检查:", {
       buyAmount: tradingState.buyAmount,
       buyAmountWei: buyAmountWei.toString(),
@@ -541,11 +533,9 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
 
       // 2. 使用 oracleAggregator 获取更新数据和费用
       console.log(`🔍 使用 oracleAggregator 获取 ${token.symbol} 的最新价格更新数据...`);
-      debugger; // 🔍 调试点: 准备获取预言机数据
 
       const { updateData, updateFee, totalFee } = await fetchUpdateDataAndFee([token.symbol]);
 
-      debugger; // 🔍 调试点: 获取到预言机数据后
       console.log("🐛 预言机数据获取完成:", {
         updateDataLength: updateData.length,
         updateFee: updateFee.toString(),
@@ -565,7 +555,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
       const currentUpdateData = updateData;
       const currentUpdateFee = totalFee;
 
-      debugger; // 🔍 调试点: 验证数据
       console.log("🐛 数据验证:", {
         updateDataFromFunction: !!updateData,
         updateDataLength: updateData?.length || 0,
@@ -614,7 +603,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
 
       // 检查用户 ETH 余额是否足够支付预言机费用
       try {
-        debugger; // 🔍 调试点: 检查用户 ETH 余额
         const ethBalance = await publicClient.getBalance({ address });
 
         console.log("🐛 用户 ETH 余额检查:", {
@@ -636,7 +624,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
       }
 
       // 检查 USDT 授权 (仍然需要检查)
-      debugger; // 🔍 调试点: 检查 USDT 授权
       console.log("🐛 USDT 授权检查:", {
         allowance: tradingState.allowance.toString(),
         allowanceFormatted: formatUnits(tradingState.allowance, 6),
@@ -655,7 +642,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
           currentUpdateData || []     // 参数3: 价格更新数据 (动态获取)
       ]);
 
-      debugger; // 🔍 调试点: 准备执行合约调用
       console.log("🐛 合约调用参数 (动态模式):", {
         tokenAddress: token.address,
         functionName: "buy",
@@ -687,7 +673,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         account: address,
         chain: chain?.name
       });
-      debugger
 
       // 打印对比测试值和动态计算值
       console.log("🔍 参数对比:");
@@ -701,8 +686,8 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         abi: STOCK_TOKEN_ABI,
         functionName: "buy",
         args: [
-          BigInt(BUY_PARAMS.usdtAmount),           // 参数1: USDT金额 (测试值)
-          BigInt(BUY_PARAMS.minTokenAmount),            // 参数2: 最小代币数量 (测试值)
+          buyAmountWei,           // 参数1: USDT金额 (测试值)
+          minTokenAmount,            // 参数2: 最小代币数量 (测试值)
           currentUpdateData || []    // 参数3: 价格更新数据 (动态获取)
         ],
         account: address,
@@ -711,7 +696,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         // gas: 3000000n, // 增加gas限制到 3M
       });
 
-      debugger; // 🔍 调试点: 合约调用完成，获得交易哈希
       console.log("🐛 合约调用成功:", {
         transactionHash: hash,
         transactionHashShort: hash.slice(0, 10) + "..." + hash.slice(-8)
@@ -735,7 +719,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         throw new Error('交易失败');
       }
     } catch (error: unknown) {
-      debugger; // 🔍 调试点: 捕获购买错误
       updateState({ transactionStatus: 'error' });
       console.error("❌ 买入交易失败:", error);
 

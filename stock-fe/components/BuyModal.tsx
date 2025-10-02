@@ -7,20 +7,14 @@ import {
   TrendingDown,
   AlertCircle,
   Wallet,
-  ChevronDown,
   Loader2,
   CheckCircle,
-  XCircle,
 } from "lucide-react";
 import { formatUnits, parseUnits } from "viem";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { PriceSourceIndicator } from "@/components/PriceSourceIndicator";
-import useTokenTrading, {
-  TokenInfo,
-  TradingState,
-  TradingResult,
-} from "@/lib/hooks/useTokenTrading";
+import useTokenTrading from "@/lib/hooks/useTokenTrading";
 
 // 预设金额选项
 const PRESET_AMOUNTS = [10, 50, 100, 500, 1000, 5000];
@@ -77,19 +71,14 @@ export default function BuyModal({
   const {
     tradingState,
     isConnected,
-    address,
     initializeData,
     approveUSDT,
     buyTokens,
     resetState,
     updateState,
-    minTokenAmount,
-    publicClient,
-    chain,
   } = useTokenTrading(tokenInfo, usdtAddress, oracleAddress);
 
   const [showCustomSlippage, setShowCustomSlippage] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
 
   const isPositive = token.change24h >= 0;
 
@@ -116,7 +105,6 @@ export default function BuyModal({
     if (!isOpen) {
       resetState();
       setShowCustomSlippage(false);
-      setShowDropdown(false);
     }
   }, [isOpen, resetState]);
 
@@ -265,7 +253,7 @@ export default function BuyModal({
           <div className="bg-gray-800/50 rounded-xl p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-gray-400 text-sm">当前价格</span>
-              <PriceSourceIndicator />
+              <PriceSourceIndicator source="pyth" />
             </div>
             <div className="flex items-center justify-between">
               <span className="text-white text-2xl font-bold">
@@ -364,9 +352,13 @@ export default function BuyModal({
               <input
                 type="number"
                 value={tradingState.customSlippage}
-                onChange={(e) =>
-                  updateState({ customSlippage: e.target.value })
-                }
+                onChange={(e) => {
+                  const value = e.target.value;
+                  updateState({
+                    customSlippage: value,
+                    slippage: value ? parseFloat(value) : 5
+                  });
+                }}
                 placeholder="自定义滑点 %"
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-blue-500 focus:outline-none"
               />

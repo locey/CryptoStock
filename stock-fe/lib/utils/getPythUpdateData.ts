@@ -52,7 +52,6 @@ async function fetchUpdateData(symbols: string[] = ["AAPL"]): Promise<string[]> 
     const response = await axios.get(
       `${HERMES_ENDPOINT}/v2/updates/price/latest?${feedIds.map(id => `ids[]=${id}`).join('&')}`
     );
-    debugger; // 🔍 调试点: 检查 API 响应
     
     // 打印 response.data.parsed 数据进行调试
     console.log("API parsed info:", response.data.parsed.map(x => ({
