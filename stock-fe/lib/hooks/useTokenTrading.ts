@@ -292,7 +292,7 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         console.log(`✅ 使用 ${token.symbol} 的缓存数据`);
         setTradingState(prev => ({
           ...prev,
-          updateData: cachedData,
+          updateData: cachedData as `0x${string}`[],
           updateFee: 0n
         }));
         return;
@@ -308,7 +308,7 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         setPythData(token.symbol, updateData, 0n);
         setTradingState(prev => ({
           ...prev,
-          updateData: updateData,
+          updateData: updateData as `0x${string}`[],
           updateFee: 0n
         }));
       } else {
@@ -409,7 +409,8 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         original: formatEther(estimatedTokens),
         slippagePercent: tradingState.slippage,
         slippageFactor: slippageFactor,
-        minAmount: formatEther(minTokenAmount),
+        // minAmount: formatEther(minTokenAmount),
+        minAmount:
         calculation: `${estimatedTokens} * ${slippageFactor} = ${minTokenAmount}`,
         reduction: `${((1 - slippageFactor) * 100).toFixed(2)}%`
       });
