@@ -618,6 +618,9 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
 
       // 检查用户 ETH 余额是否足够支付预言机费用
       try {
+        if (!publicClient) {
+          throw new Error("Public client not available");
+        }
         const ethBalance = await publicClient.getBalance({ address });
 
         console.log("🐛 用户 ETH 余额检查:", {
