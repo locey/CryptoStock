@@ -331,7 +331,8 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         // 首先尝试调用合约的 getBuyEstimate 函数
         console.log("🔍 尝试调用合约 getBuyEstimate...");
         const result = await publicClient.readContract({
-          address: stockTokenImplAddress,
+          // address: stockTokenImplAddress,
+          address:token.address,
           abi: STOCK_TOKEN_ABI,
           functionName: "getBuyEstimate",
           args: [buyAmountWei]
@@ -339,6 +340,7 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
 
         estimatedTokens = result[0];
         estimatedFee = result[1];
+        debugger
 
         console.log("📊 合约预估结果:", {
           estimatedTokens: estimatedTokens.toString(),
