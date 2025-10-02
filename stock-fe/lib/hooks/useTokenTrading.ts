@@ -10,7 +10,7 @@ import BUY_PARAMS from '@/lib/abi/buy.json';
 // import { fetchStockPrice } from '@/lib/hermes';
 import { usePythStore } from '@/lib/stores/pythStore';
 import { getNetworkConfig } from '@/lib/contracts';
-import getPythUpdateData from "@/lib/utils/getPythUpdateData";
+import getPythUpdateData, { fetchUpdateData } from "@/lib/utils/getPythUpdateData";
 import getPriceInfo from "@/lib/utils/getPythUpdateData";
 export interface TokenInfo {
   symbol: string;
@@ -301,7 +301,7 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
       console.log(`⚠️ ${token.symbol} 缓存过期或不存在，重新获取...`);
       setLoading(token.symbol, true);
 
-      const updateData = await fetchPythUpdateData([token.symbol]);
+      const updateData = await fetchUpdateData([token.symbol]);
 
       if (updateData && updateData.length > 0) {
         console.log(`✅ 成功获取 ${updateData.length} 条更新数据，已缓存`);
@@ -401,17 +401,17 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         });
       }
 
-      // 应用滑点保护 - 修复计算逻辑
-      const slippageFactor = (100 - tradingState.slippage) / 100;
-      const minTokenAmount = estimatedTokens * BigInt(Math.floor(slippageFactor * 10000)) / 10000n;
+      // 应用滑点保护 - 简化计算逻辑
+      const slippagePercentage = BigInt(100 - tradingState.slippage);
+      const minTokenAmount = (estimatedTokens * slippagePercentage) / 100n;
 
       console.log("🛡️ 应用滑点保护:", {
         original: formatEther(estimatedTokens),
         slippagePercent: tradingState.slippage,
-        slippageFactor: slippageFactor,
+        slippageMultiplier: slippagePercentage.toString(),
         minAmount: formatEther(minTokenAmount),
-        calculation: `${estimatedTokens} * ${slippageFactor} = ${minTokenAmount}`,
-        reduction: `${((1 - slippageFactor) * 100).toFixed(2)}%`
+        calculation: `(${estimatedTokens} * ${slippagePercentage}) / 100 = ${minTokenAmount}`,
+        reduction: `${tradingState.slippage}%`
       });
 
       return { estimatedTokens, minTokenAmount };
