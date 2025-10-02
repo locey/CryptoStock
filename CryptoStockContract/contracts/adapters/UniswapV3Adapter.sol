@@ -338,17 +338,19 @@ contract UniswapV3Adapter is
     
     /**
      * @dev 处理移除流动性操作
-     * params.amounts[0] = tokenId
+     * params.tokenId = NFT tokenId
+     * params.amounts[0] = amount0Min (token0 最小金额)
+     * params.amounts[1] = amount1Min (token1 最小金额)
      */
     function _handleRemoveLiquidity(
         OperationParams calldata params,
         uint24 /* feeRateBps */
     ) internal returns (OperationResult memory result) {
-        require(params.tokens.length == 1, "Remove liquidity requires 1 token (tokenId)");
-        require(params.amounts.length == 3, "Amount array should contain [tokenId, amount0Min, amount1Min]");
+        require(params.amounts.length == 2, "Amount array should contain [amount0Min, amount1Min]");
         require(params.recipient != address(0), "Recipient address must be specified");
+        require(params.tokenId > 0, "Invalid tokenId");
         
-        uint256 tokenId = params.amounts[0];
+        uint256 tokenId = params.tokenId;
         
         // 验证用户拥有此 Position
         require(_isUserPosition(params.recipient, tokenId), "User does not own this position");
@@ -361,8 +363,8 @@ contract UniswapV3Adapter is
             INonfungiblePositionManager.DecreaseLiquidityParams memory decreaseParams = INonfungiblePositionManager.DecreaseLiquidityParams({
                 tokenId: tokenId,
                 liquidity: liquidity,
-                amount0Min: params.amounts[1], // 用户设置的 USDT 最小金额
-                amount1Min: params.amounts[2], // 用户设置的 WETH 最小金额
+                amount0Min: params.amounts[0], // 用户设置的 USDT 最小金额
+                amount1Min: params.amounts[1], // 用户设置的 WETH 最小金额
                 deadline: params.deadline
             });
             INonfungiblePositionManager(positionManager).decreaseLiquidity(decreaseParams);
@@ -396,22 +398,20 @@ contract UniswapV3Adapter is
     /**
      * @dev 处理手续费收取操作 (通过聚合合约调用)
      * 两种调用模式：
-     * 1. 收取指定Position手续费：params.amounts = [tokenId]
-     * 2. 收取所有Position手续费：params.amounts = [任意tokenId, 1] (第二个参数为1表示收取所有)
-     * 注意：collectAll模式时第一个tokenId参数会被忽略，因为会遍历用户所有Position
+     * 1. 收取指定Position手续费：params.tokenId > 0
+     * 2. 收取所有Position手续费：params.tokenId = 0 且 params.amounts[0] = 1
      */
     function _handleCollectFees(
         OperationParams calldata params,
         uint24 /* feeRateBps */
     ) internal returns (OperationResult memory result) {
-        require(params.amounts.length >= 1, "TokenId is required");
         require(params.recipient != address(0), "Recipient address must be specified");
         
         uint256 totalAmount0 = 0;
         uint256 totalAmount1 = 0;
         
-        // 检查是否收取所有Position的手续费
-        bool collectAll = params.amounts.length > 1 && params.amounts[1] == 1;
+        // 检查是否收取指定Position或所有Position的手续费
+        bool collectAll = params.tokenId == 0 && params.amounts.length > 0 && params.amounts[0] == 1;
         
         if (collectAll) {
             // 收取用户所有Position的手续费
@@ -442,7 +442,8 @@ contract UniswapV3Adapter is
             }
         } else {
             // 只收取指定Position的手续费
-            uint256 tokenId = params.amounts[0];
+            require(params.tokenId > 0, "Invalid tokenId");
+            uint256 tokenId = params.tokenId;
             require(_isUserPosition(params.recipient, tokenId), "User does not own this position");
             
             INonfungiblePositionManager.CollectParams memory collectParams = INonfungiblePositionManager.CollectParams({

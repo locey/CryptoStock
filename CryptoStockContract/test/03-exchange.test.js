@@ -832,12 +832,12 @@ describe("Exchange - 股票交易所功能测试", function () {
         updateFee = await oracleAggregator.getUpdateFee(updateData);
       }
       
-      // 先更新价格数据到预言机（仅在真实网络）
-      if (!isLocalNetwork) {
-        const overrides = { value: updateFee };
-        await oracleAggregator.updatePriceFeeds(updateData, overrides);
-        console.log(`🔄 价格数据已更新到预言机`);
-      }
+      // // 先更新价格数据到预言机（仅在真实网络）
+      // if (!isLocalNetwork) {
+      //   const overrides = { value: updateFee };
+      //   await oracleAggregator.updatePriceFeeds(updateData, overrides);
+      //   console.log(`🔄 价格数据已更新到预言机`);
+      // }
       
       // 获取预估结果（此时使用的是最新价格）
       const [estimatedUsdt, estimatedFee] = await aaplToken.getSellEstimate(sellAmount);
@@ -845,15 +845,15 @@ describe("Exchange - 股票交易所功能测试", function () {
       console.log(`💡 预估手续费: ${ethers.formatUnits(estimatedFee, 6)} USDT`);
       
       // 获取新的价格更新数据用于实际交易
-      let sellUpdateData, sellFee;
-      if (isLocalNetwork) {
-        sellUpdateData = [];
-        sellFee = 0;
-      } else {
-        sellUpdateData = await fetchUpdateData(["AAPL"]);
-        sellFee = await oracleAggregator.getUpdateFee(sellUpdateData);
-        console.log(`💡 卖出交易更新费用: ${sellFee.toString()} wei`);
-      }
+      // let sellUpdateData, sellFee;
+      // if (isLocalNetwork) {
+      //   sellUpdateData = [];
+      //   sellFee = 0;
+      // } else {
+      //   sellUpdateData = await fetchUpdateData(["AAPL"]);
+      //   sellFee = await oracleAggregator.getUpdateFee(sellUpdateData);
+      //   console.log(`💡 卖出交易更新费用: ${sellFee.toString()} wei`);
+      // }
       
       // 执行卖出（使用网络相应的价格更新数据）
       // ethers v6修复：确保value被正确传递

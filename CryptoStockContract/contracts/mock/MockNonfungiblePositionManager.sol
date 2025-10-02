@@ -154,6 +154,8 @@ contract MockNonfungiblePositionManager is ERC721, ReentrancyGuard {
         // Mint NFT to recipient
         _mint(params.recipient, tokenId);
         
+        // 不在 mint 时立即产生手续费，让我们在 simulateFeeAccumulation 函数中手动模拟
+        
         emit IncreaseLiquidity(tokenId, liquidity, amount0, amount1);
     }
     
@@ -195,6 +197,8 @@ contract MockNonfungiblePositionManager is ERC721, ReentrancyGuard {
         position.liquidity += liquidity;
         position.amount0Deposited += amount0;  // 累加投入
         position.amount1Deposited += amount1;  // 累加投入
+        
+        // 不在 increaseLiquidity 时立即产生手续费
         
         emit IncreaseLiquidity(params.tokenId, liquidity, amount0, amount1);
     }
@@ -287,6 +291,33 @@ contract MockNonfungiblePositionManager is ERC721, ReentrancyGuard {
         emit Collect(params.tokenId, params.recipient, amount0, amount1);
     }
     
+    /**
+     * @dev 手动模拟手续费累积 (仅用于测试)
+     * @param tokenId Position NFT ID
+     * @param feeRateBps 手续费率 (基点，例如 10 = 0.1%)
+     */
+    function simulateFeeAccumulation(uint256 tokenId, uint256 feeRateBps) external {
+        require(_ownerOf(tokenId) != address(0), "Invalid token ID");
+        
+        Position storage position = _positions[tokenId];
+        require(position.liquidity > 0, "No liquidity in position");
+        
+        // 基于当前投入资金计算手续费
+        uint256 fee0 = (position.amount0Deposited * feeRateBps) / 10000;
+        uint256 fee1 = (position.amount1Deposited * feeRateBps) / 10000;
+        
+        if (fee0 > 0) {
+            // 铸造手续费代币到合约
+            MockERC20(position.token0).mint(address(this), fee0);
+            position.tokensOwed0 += uint128(fee0);
+        }
+        if (fee1 > 0) {
+            // 铸造手续费代币到合约
+            MockERC20(position.token1).mint(address(this), fee1);
+            position.tokensOwed1 += uint128(fee1);
+        }
+    }
+    
     function burn(uint256 tokenId) external {
         require(_isAuthorized(ownerOf(tokenId), msg.sender, tokenId), "Not approved");
         
@@ -331,15 +362,5 @@ contract MockNonfungiblePositionManager is ERC721, ReentrancyGuard {
             position.tokensOwed0,
             position.tokensOwed1
         );
-    }
-
-    // 新增函数来获取我们添加的字段
-    function getPositionDeposits(uint256 tokenId)
-        external
-        view
-        returns (uint256 amount0Deposited, uint256 amount1Deposited)
-    {
-        Position memory position = _positions[tokenId];
-        return (position.amount0Deposited, position.amount1Deposited);
     }
 }

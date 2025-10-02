@@ -111,6 +111,7 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
                 amounts: [USER_DEPOSIT_AMOUNT],
                 recipient: user.address, // 明确指定受益者为用户
                 deadline: Math.floor(Date.now() / 1000) + 3600, // 1 hour
+                tokenId: 0, // Aave 不使用 NFT，设为 0
                 extraData: "0x" // 无额外数据
             };
             
@@ -166,6 +167,7 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
                 amounts: [USER_DEPOSIT_AMOUNT],
                 recipient: user.address, // 明确指定受益者
                 deadline: Math.floor(Date.now() / 1000) + 3600,
+                tokenId: 0, // Aave 不使用 NFT，设为 0
                 extraData: "0x"
             };
             
@@ -196,6 +198,7 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
                 amounts: [0n], // 零金额
                 recipient: user.address, // 明确指定受益者
                 deadline: Math.floor(Date.now() / 1000) + 3600,
+                tokenId: 0, // Aave 不使用 NFT，设为 0
                 extraData: "0x"
             };
             

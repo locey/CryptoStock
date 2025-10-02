@@ -61,6 +61,7 @@ interface IOperationTypes {
         uint256[] amounts;     // 相关金额数组
         address recipient;     // 接收地址
         uint256 deadline;      // 操作截止时间
+        uint256 tokenId;       // NFT tokenId (用于 UniswapV3, Aave 等基于 NFT 的协议)
         bytes extraData;       // 额外的操作特定数据
     }
     
