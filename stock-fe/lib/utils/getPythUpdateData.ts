@@ -98,9 +98,9 @@ async function fetchUpdateData(symbols: string[] = ["AAPL"]): Promise<string[]> 
       
       // 过滤掉无效数据对应的符号
       const validIndices = response.data.parsed
-        .map((x, index) => {
-          const isInvalidPrice = !x.price.price || x.price.price === "0" || x.price.price === 0;
-          const isInvalidTime = !x.price.publish_time || x.price.publish_time === "0" || x.price.publish_time === 0;
+        .map((x: PriceInfo, index: number) => {
+          const isInvalidPrice = !x.price.price || x.price.price === "0";
+          const isInvalidTime = !x.price.publish_time || x.price.publish_time === 0;
           return (!isInvalidPrice && !isInvalidTime) ? index : -1;
         })
         .filter(index => index !== -1);
