@@ -228,9 +228,22 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
       const priceDataArray = await getPriceInfo([token.symbol]);
       console.log(`📊 ${token.symbol} 价格数据获取结果:`, priceDataArray);
 
-      const priceData = priceDataArray[0];
-      if (priceData) {
-        setTradingState(prev => ({ ...prev, priceData }));
+      const priceDataString = priceDataArray[0];
+      if (priceDataString) {
+        // 假设 getPriceInfo 返回的是价格字符串，转换为 TradingState 接口格式
+        const price = parseFloat(priceDataString) || 100;
+        const formattedPriceData = {
+          price: price.toString(),
+          conf: '1',
+          expo: -2,
+          publish_time: Date.now(),
+          formatted: {
+            price: price.toFixed(2),
+            conf: '0.01',
+            confidence: '1.00%'
+          }
+        };
+        setTradingState(prev => ({ ...prev, priceData: formattedPriceData }));
         console.log(`✅ ${token.symbol} 价格数据已设置`);
       } else {
         console.warn(`⚠️ ${token.symbol} 价格数据为空，使用默认价格`);
