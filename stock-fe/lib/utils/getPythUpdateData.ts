@@ -88,7 +88,7 @@ async function fetchUpdateData(symbols: string[] = ["AAPL"]): Promise<string[]> 
     });
     
     if (invalidData.length > 0) {
-      console.warn("⚠️  发现无效价格数据:", invalidData.map(x => ({
+      console.warn("⚠️  发现无效价格数据:", invalidData.map((x: PriceInfo) => ({
         symbol: symbols[response.data.parsed.indexOf(x)],
         id: x.id,
         price: x.price.price,
