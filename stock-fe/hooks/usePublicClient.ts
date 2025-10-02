@@ -39,14 +39,14 @@ const getChainConfig = (chainID: number|string) => {
 
 // 创建并返回与当前chainID匹配的publicClient和chain
 export const usePublicClient = () => {
-  const { chainID } = useWallet();
-  const chain = useMemo(() => getChainConfig(chainID), [chainID]);
+  const { chainId } = useWallet();
+  const chain = useMemo(() => chainId ? getChainConfig(chainId) : null, [chainId]);
   const publicClient = useMemo(
     () =>
-      createPublicClient({
+      chain ? createPublicClient({
         chain,
         transport: http(),
-      }),
+      }) : null,
     [chain]
   );
 
@@ -55,17 +55,17 @@ export const usePublicClient = () => {
 
 // 封装 useWalletClient
 export const useWalletClient = () => {
-  const { address, provider, chainID } = useWallet();
-  console.log("🔍 useWalletClient 初始化:", { address, provider, chainID });
+  const { address, provider, chainId } = useWallet();
+  console.log("🔍 useWalletClient 初始化:", { address, provider, chainId });
 
-  const chain = useMemo(() => getChainConfig(chainID), [chainID]);
+  const chain = useMemo(() => chainId ? getChainConfig(chainId) : null, [chainId]);
   
   // 使用 useMemo 缓存 walletClient
   const walletClient = useMemo(() => {
-    if (!provider || !address) {
+    if (!provider || !address || !chain) {
       return null;
     }
-    
+
     return createWalletClient({
       chain,
       transport: custom(provider),

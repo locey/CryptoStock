@@ -13,9 +13,9 @@ export async function debugContractIssues(
   try {
     // 1. 检查合约是否存在
     const code = await publicClient.getBytecode({ address: contractAddress });
-    console.log('📦 合约代码长度:', code.length);
+    console.log('📦 合约代码长度:', code?.length || 0);
 
-    if (code === '0x' || code.length < 2) {
+    if (!code || code === '0x' || code.length < 2) {
       console.error('❌ 合约不存在或未正确部署');
       return { error: '合约不存在或未正确部署' };
     }

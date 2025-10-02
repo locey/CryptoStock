@@ -97,10 +97,18 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       );
     }
+
     
     // 打印 parsed 数据进行调试
     if (response.data.parsed) {
-      console.log("📊 API parsed info:", response.data.parsed.map((x: any) => ({
+      console.log("📊 API parsed info:", response.data.parsed.map((x: {
+        id: string;
+        price?: {
+          price: string;
+          expo: number;
+          publish_time: number;
+        };
+      }) => ({
         id: x.id,
         price: x.price?.price,
         expo: x.price?.expo,
@@ -110,9 +118,16 @@ export async function GET(request: NextRequest) {
     
     // 检查价格数据有效性
     if (response.data.parsed) {
-      const invalidData = response.data.parsed.filter((x: any) => {
-        const isInvalidPrice = !x.price?.price || x.price?.price === "0" || x.price?.price === 0;
-        const isInvalidTime = !x.price?.publish_time || x.price?.publish_time === "0" || x.price?.publish_time === 0;
+      const invalidData = response.data.parsed.filter((x: {
+        id: string;
+        price?: {
+          price: string;
+          expo: number;
+          publish_time: number;
+        };
+      }) => {
+        const isInvalidPrice = !x.price?.price || x.price?.price === "0";
+        const isInvalidTime = !x.price?.publish_time || x.price?.publish_time === 0;
         return isInvalidPrice || isInvalidTime;
       });
       
@@ -135,7 +150,7 @@ export async function GET(request: NextRequest) {
       }
     });
     
-    console.log(`✅ 成功获取 ${bytesData.length} 条更新数据`);
+    console.log(`✅ 成功获取 ${bytesData.length} 条更新数据`,bytesData);
     
     // 返回更新数据
     return NextResponse.json({

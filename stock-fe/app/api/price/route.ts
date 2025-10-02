@@ -81,7 +81,17 @@ export async function GET(request: NextRequest) {
     console.log(`🔄 获取 ${symbols.join(", ")} 的本地价格数据...`);
 
     // 构建返回数据
-    const data: Record<string, any> = {};
+    const data: Record<string, {
+      price: string;
+      conf: string;
+      expo: number;
+      publish_time: number;
+      formatted: {
+        price: string;
+        conf: string;
+        confidence: string;
+      };
+    }> = {};
 
     for (const symbol of symbols) {
       const priceData = LOCAL_PRICES[symbol];
@@ -115,10 +125,10 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString()
     });
 
-  } catch (error: any) {
-    console.error("❌ 获取本地价格数据失败:", error.message);
+  } catch (error: unknown) {
+    console.error("❌ 获取本地价格数据失败:", error instanceof Error ? error.message : "未知错误");
     return NextResponse.json(
-      { error: `Failed to fetch local price data: ${error.message}` },
+      { error: `Failed to fetch local price data: ${error instanceof Error ? error.message : "未知错误"}` },
       { status: 500 }
     );
   }

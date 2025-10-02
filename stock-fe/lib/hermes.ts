@@ -64,7 +64,7 @@ export async function fetchStockPrices(symbols: string[]): Promise<Record<string
         'TSLA': { price: '24850', conf: '200', expo: -2, publish_time: Math.floor(Date.now() / 1000), formatted: { price: '248.50', conf: '2.00', confidence: '0.81%' } },
         'MSFT': { price: '41500', conf: '150', expo: -2, publish_time: Math.floor(Date.now() / 1000), formatted: { price: '415.00', conf: '1.50', confidence: '0.36%' } },
         'AMZN': { price: '19500', conf: '120', expo: -2, publish_time: Math.floor(Date.now() / 1000), formatted: { price: '195.00', conf: '1.20', confidence: '0.62%' } },
-        'NVDA': { price: '128000', conf: '300', expo: -2, publish_time: Math.floor(Date.now() / 1000), formatted: { price: '1280.00', conf: '3.00', confidence: '0.23%' } }
+        'NVDA': { price: '17664', conf: '200', expo: -2, publish_time: Math.floor(Date.now() / 1000), formatted: { price: '176.64', conf: '2.00', confidence: '1.13%' } }
       };
 
       for (const symbol of symbols) {

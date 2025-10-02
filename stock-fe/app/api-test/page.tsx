@@ -10,6 +10,7 @@ interface PriceData {
   symbol: string;
   price: string;
   conf: string;
+  publish_time: number;
   formatted: {
     price: string;
     conf: string;
@@ -30,10 +31,10 @@ export default function APITestPage() {
 
     try {
       const result = await fetchStockPricesWithCache(symbols);
-      setPrices(result);
+      setPrices(result as unknown as Record<string, PriceData>);
       setPriceSource('hermes');
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "未知错误");
     } finally {
       setLoading(false);
     }
