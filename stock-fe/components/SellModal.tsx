@@ -13,10 +13,13 @@ interface SellModalProps {
     change24h: number;
     volume24h: number;
     marketCap: number;
+    address: `0x${string}`;
   };
+  oracleAddress: `0x${string}`;
+  usdtAddress: `0x${string}`;
 }
 
-export function SellModal({ isOpen, onClose, token }: SellModalProps) {
+export function SellModal({ isOpen, onClose, token, oracleAddress, usdtAddress }: SellModalProps) {
   const isPositive = token.change24h >= 0;
 
   if (!isOpen) return null;
