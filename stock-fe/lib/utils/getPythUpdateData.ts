@@ -93,7 +93,7 @@ async function fetchUpdateData(symbols: string[] = ["AAPL"]): Promise<string[]> 
         id: x.id,
         price: x.price.price,
         time: x.price.publish_time,
-        issue: !x.price.price || x.price.price === "0" || x.price.price === 0 ? "价格为0" : "时间戳为0"
+        issue: !x.price.price || x.price.price === "0" ? "价格为0" : "时间戳为0"
       })));
       
       // 过滤掉无效数据对应的符号
