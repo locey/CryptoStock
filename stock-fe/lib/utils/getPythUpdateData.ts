@@ -54,7 +54,7 @@ async function fetchUpdateData(symbols: string[] = ["AAPL"]): Promise<string[]> 
     );
     
     // 打印 response.data.parsed 数据进行调试
-    console.log("API parsed info:", response.data.parsed.map(x => ({
+    console.log("API parsed info:", response.data.parsed.map((x: any) => ({
       id: x.id,
       price: x.price.price,
       expo: x.price.expo,
