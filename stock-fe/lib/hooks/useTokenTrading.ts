@@ -173,7 +173,7 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
       });
 
       return {
-        updateData,
+        updateData: updateData as `0x${string}`[],
         updateFee: feeBigInt, // 返回原始预言机费用（不包括缓冲）
         totalFee: totalFee    // 返回总费用（包括缓冲）
       };
@@ -325,10 +325,10 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
 
   // 计算最小代币数量（使用合约预估函数）
   const calculateMinTokenAmount = useCallback(async () => {
-    if (!publicClient || !stockTokenImplAddress) return 0n;
+    if (!publicClient || !stockTokenImplAddress) return { estimatedTokens: 0n, minTokenAmount: 0n };
 
     const buyAmount = parseFloat(tradingState.buyAmount) || 0;
-    if (buyAmount <= 0) return 0n;
+    if (buyAmount <= 0) return { estimatedTokens: 0n, minTokenAmount: 0n };
 
     try {
       const buyAmountWei = parseUnits(tradingState.buyAmount, 6);
