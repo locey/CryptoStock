@@ -253,7 +253,7 @@ export default function BuyModal({
           <div className="bg-gray-800/50 rounded-xl p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-gray-400 text-sm">当前价格</span>
-              <PriceSourceIndicator source="pyth" />
+              <PriceSourceIndicator source="fallback" />
             </div>
             <div className="flex items-center justify-between">
               <span className="text-white text-2xl font-bold">
@@ -330,15 +330,14 @@ export default function BuyModal({
                       setShowCustomSlippage(true);
                     } else {
                       updateState({
-                        slippage: option.value,
+                        slippage: typeof option.value === 'number' ? option.value : 5,
                         customSlippage: "",
                       });
                       setShowCustomSlippage(false);
                     }
                   }}
                   className={`flex-1 py-2 px-3 rounded-lg border transition-all text-sm ${
-                    (tradingState.slippage === option.value &&
-                      option.value !== "custom") ||
+                    (typeof option.value === 'number' && tradingState.slippage === option.value) ||
                     (option.value === "custom" && showCustomSlippage)
                       ? "border-blue-500 bg-blue-500/20 text-blue-400"
                       : "border-gray-700 text-gray-400 hover:border-gray-600"

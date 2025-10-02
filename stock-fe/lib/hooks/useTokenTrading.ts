@@ -225,9 +225,10 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
   const fetchPriceData = useCallback(async () => {
     try {
       console.log(`🔄 开始获取 ${token.symbol} 价格数据...`);
-      const priceData = await getPriceInfo(token.symbol);
-      console.log(`📊 ${token.symbol} 价格数据获取结果:`, priceData);
+      const priceDataArray = await getPriceInfo([token.symbol]);
+      console.log(`📊 ${token.symbol} 价格数据获取结果:`, priceDataArray);
 
+      const priceData = priceDataArray[0];
       if (priceData) {
         setTradingState(prev => ({ ...prev, priceData }));
         console.log(`✅ ${token.symbol} 价格数据已设置`);
@@ -340,7 +341,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
 
         estimatedTokens = result[0];
         estimatedFee = result[1];
-        debugger
 
         console.log("📊 合约预估结果:", {
           estimatedTokens: estimatedTokens.toString(),
