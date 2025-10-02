@@ -275,7 +275,7 @@ export const useTokenFactoryStore = create<TokenFactoryState>((set, get) => ({
 
             // 2. 尝试从 Hermes API 获取价格
             try {
-              const hermesData = await fetchStockPriceWithCache(symbol);
+              const hermesData = await fetchStockPriceWithCache(symbol as string);
               if (hermesData) {
                 price = hermesPriceToBigInt(hermesData);
                 console.log(`🔄 ${symbol} Hermes 价格获取成功:`, {
