@@ -36,8 +36,18 @@ export interface TradingState {
   needsApproval: boolean;
   transactionStatus: 'idle' | 'approving' | 'buying' | 'success' | 'error';
   transactionHash: `0x${string}` | null;
-  priceData: any;
-  updateData: any[] | null;
+  priceData: {
+    price: string;
+    conf: string;
+    expo: number;
+    publish_time: number;
+    formatted: {
+      price: string;
+      conf: string;
+      confidence: string;
+    };
+  } | null;
+  updateData: `0x${string}`[] | null;
   updateFee: bigint;
 }
 
@@ -458,12 +468,12 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
       } else {
         throw new Error('交易失败');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       updateState({ transactionStatus: 'error' });
       console.error("授权失败:", error);
       return {
         success: false,
-        error: error.message || "授权失败"
+        error: error instanceof Error ? error.message : "授权失败"
       };
     }
   }, [isConnected, address, getWalletClient, usdtAddress, stockTokenImplAddress, chain, publicClient, fetchUserInfo, updateState]);
@@ -724,7 +734,7 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
       } else {
         throw new Error('交易失败');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       debugger; // 🔍 调试点: 捕获购买错误
       updateState({ transactionStatus: 'error' });
       console.error("❌ 买入交易失败:", error);
@@ -733,42 +743,50 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
       let errorMessage = "买入失败";
       let userAction = "";
 
+      const errorObj = error as Error & {
+        code?: string;
+        reason?: string;
+        data?: unknown;
+        transaction?: { hash?: string };
+        stack?: string;
+      };
+
       console.log("🐛 错误详情:", {
-        name: error.name,
-        message: error.message,
-        code: error.code,
-        reason: error.reason,
-        data: error.data,
-        transactionHash: error.transaction?.hash,
-        stack: error.stack ? error.stack.split('\n').slice(0, 3) : 'No stack trace'
+        name: errorObj.name,
+        message: errorObj.message,
+        code: errorObj.code,
+        reason: errorObj.reason,
+        data: errorObj.data,
+        transactionHash: errorObj.transaction?.hash,
+        stack: errorObj.stack ? errorObj.stack.split('\n').slice(0, 3) : 'No stack trace'
       });
 
-      if (error.message) {
-        errorMessage = error.message;
+      if (errorObj.message) {
+        errorMessage = errorObj.message;
 
         // 分析错误类型并给出用户友好的提示
-        if (error.message.includes("insufficient funds")) {
+        if (errorObj.message.includes("insufficient funds")) {
           errorMessage = "账户ETH余额不足";
           userAction = "请为钱包充值足够的ETH来支付Gas费用";
-        } else if (error.message.includes("Insufficient fee")) {
+        } else if (errorObj.message.includes("Insufficient fee")) {
           errorMessage = "预言机费用不足";
           userAction = "ETH余额不足以支付预言机更新费用。请充值ETH或联系管理员调整费用设置。";
-        } else if (error.message.includes("execution reverted")) {
+        } else if (errorObj.message.includes("execution reverted")) {
           errorMessage = "合约执行失败";
           userAction = "请检查：1) 合约代币余额 2) 价格数据是否最新 3) 滑点设置是否合理 4) USDT授权是否足够";
-        } else if (error.message.includes("USDT授权不足")) {
+        } else if (errorObj.message.includes("USDT授权不足")) {
           errorMessage = "USDT授权不足";
           userAction = "请先授权USDT代币给合约";
-        } else if (error.message.includes("合约代币余额不足")) {
+        } else if (errorObj.message.includes("合约代币余额不足")) {
           errorMessage = "合约代币余额不足";
           userAction = "合约中没有足够的代币可供购买";
-        } else if (error.message.includes("无法获取最新的价格更新数据")) {
+        } else if (errorObj.message.includes("无法获取最新的价格更新数据")) {
           errorMessage = "价格数据获取失败";
           userAction = "请检查网络连接或重试";
-        } else if (error.message.includes("无法计算最小代币数量")) {
+        } else if (errorObj.message.includes("无法计算最小代币数量")) {
           errorMessage = "无法计算预期获得的代币数量";
           userAction = "请检查价格数据是否有效";
-        } else if (error.message.includes("call revert exception")) {
+        } else if (errorObj.message.includes("call revert exception")) {
           errorMessage = "合约调用失败";
           userAction = "检查交易参数或合约状态";
         }
@@ -776,14 +794,14 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
 
       // 记录详细错误信息用于调试
       console.error("🔍 买入交易失败详细分析:", {
-        errorType: error.name || 'Unknown',
+        errorType: errorObj.name || 'Unknown',
         errorMessage: errorMessage,
-        errorCode: error.code,
-        errorReason: error.reason,
-        errorData: error.data,
-        transactionHash: error.transaction?.hash,
+        errorCode: errorObj.code,
+        errorReason: errorObj.reason,
+        errorData: errorObj.data,
+        transactionHash: errorObj.transaction?.hash,
         userAction,
-        stack: error.stack ? error.stack.split('\n').slice(0, 5) : 'No stack trace'
+        stack: errorObj.stack ? errorObj.stack.split('\n').slice(0, 5) : 'No stack trace'
       });
 
       // 显示用户友好的提示
