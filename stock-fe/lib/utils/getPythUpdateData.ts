@@ -119,7 +119,7 @@ async function fetchUpdateData(symbols: string[] = ["AAPL"]): Promise<string[]> 
     
     // 转换为 EVM bytes 格式 (0x前缀 + 十六进制)
     // 注意：Pyth API 返回的是包含所有符号价格的单一 updateData
-    const bytesData = response.data.binary.data.map(data => {
+    const bytesData = response.data.binary.data.map((data: string) => {
       if (data && typeof data === 'string') {
         return data.startsWith('0x') ? data : '0x' + data;
       } else {
@@ -131,7 +131,7 @@ async function fetchUpdateData(symbols: string[] = ["AAPL"]): Promise<string[]> 
     return bytesData;
     
   } catch (error) {
-    console.error("❌ 获取 Pyth 更新数据失败:", error.message);
+    console.error("❌ 获取 Pyth 更新数据失败:", error instanceof Error ? error.message : String(error));
     throw error;
   }
 }
@@ -166,7 +166,7 @@ async function getPriceInfo(symbol: string = "AAPL") {
     }
     
   } catch (error) {
-    console.error("❌ 获取价格信息失败:", error.message);
+    console.error("❌ 获取价格信息失败:", error instanceof Error ? error.message : String(error));
     throw error;
   }
 }
