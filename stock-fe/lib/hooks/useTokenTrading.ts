@@ -409,8 +409,7 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         original: formatEther(estimatedTokens),
         slippagePercent: tradingState.slippage,
         slippageFactor: slippageFactor,
-        // minAmount: formatEther(minTokenAmount),
-        minAmount:
+        minAmount: formatEther(minTokenAmount),
         calculation: `${estimatedTokens} * ${slippageFactor} = ${minTokenAmount}`,
         reduction: `${((1 - slippageFactor) * 100).toFixed(2)}%`
       });
