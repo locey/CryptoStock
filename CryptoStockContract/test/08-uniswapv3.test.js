@@ -74,7 +74,7 @@ describe("08-uniswapv3.test.js - UniswapV3Adapter 测试", function () {
     }
 
     it("添加流动性", async function () {
-        const { user, usdt, weth, defiAggregator, uniswapV3Adapter } = await loadFixture(deployFixture);
+        const { user, usdt, weth, mockNPM, defiAggregator, uniswapV3Adapter } = await loadFixture(deployFixture);
         // 用户授权
         await usdt.connect(user).approve(await uniswapV3Adapter.getAddress(), USER_USDT_AMOUNT);
         await weth.connect(user).approve(await uniswapV3Adapter.getAddress(), USER_WETH_AMOUNT);
@@ -96,6 +96,29 @@ describe("08-uniswapv3.test.js - UniswapV3Adapter 测试", function () {
         // 检查用户 Position
         const positions = await uniswapV3Adapter.getUserPositions(user.address);
         expect(positions.length).to.equal(1);
+        
+        // 通过 MockNonfungiblePositionManager 直接验证 NFT 参数
+        const tokenId = positions[0];
+        
+        // 验证 NFT 所有者
+        const owner = await mockNPM.ownerOf(tokenId);
+        expect(owner).to.equal(user.address);
+        
+        // 验证 Position 详细信息（使用官方标准的12个返回值）
+        const position = await mockNPM.positions(tokenId);
+        expect(position[2]).to.equal(await usdt.getAddress()); // token0
+        expect(position[3]).to.equal(await weth.getAddress()); // token1
+        expect(position[7]).to.be.gt(0); // liquidity
+        
+        // 验证我们添加的存款记录字段
+        const deposits = await mockNPM.getPositionDeposits(tokenId);
+        expect(deposits[0]).to.equal(USER_USDT_AMOUNT); // amount0Deposited
+        expect(deposits[1]).to.equal(USER_WETH_AMOUNT); // amount1Deposited
+        
+        console.log("NFT Token ID:", tokenId.toString());
+        console.log("Position Liquidity:", position[7].toString());
+        console.log("Amount0 Deposited:", deposits[0].toString());
+        console.log("Amount1 Deposited:", deposits[1].toString());
     });
 
     it("移除流动性", async function () {

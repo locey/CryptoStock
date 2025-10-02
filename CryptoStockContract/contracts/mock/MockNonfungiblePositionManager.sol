@@ -332,4 +332,14 @@ contract MockNonfungiblePositionManager is ERC721, ReentrancyGuard {
             position.tokensOwed1
         );
     }
+
+    // 新增函数来获取我们添加的字段
+    function getPositionDeposits(uint256 tokenId)
+        external
+        view
+        returns (uint256 amount0Deposited, uint256 amount1Deposited)
+    {
+        Position memory position = _positions[tokenId];
+        return (position.amount0Deposited, position.amount1Deposited);
+    }
 }
