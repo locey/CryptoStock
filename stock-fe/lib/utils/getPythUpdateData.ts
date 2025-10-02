@@ -1,5 +1,24 @@
 import axios from 'axios';
 
+// 定义价格数据接口
+interface PriceInfo {
+  id: string;
+  price: {
+    price: string;
+    expo: number;
+    publish_time: number;
+    conf: string;
+  };
+}
+
+interface ParsedData {
+  parsed: PriceInfo[];
+}
+
+interface ResponseData {
+  data: ParsedData;
+}
+
 // Sepolia 的 Pyth HTTP 端点
 const HERMES_ENDPOINT = "https://hermes.pyth.network";
 
