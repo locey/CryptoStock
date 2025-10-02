@@ -18,9 +18,9 @@ export const NETWORK_CONFIG = {
     name: "sepolia",
     rpcUrl: "https://sepolia.infura.io/v3/",
     contracts: {
-      oracleAggregator: "0x34448d44CcFc49C542c237C46258D64a5C198572",
-      usdt: "0xDec3B9c058daFbAeFb48f2E4C819c96f3174c7D8",
-      stockTokenImplementation: "0xCA2abEAd6A518d9192D1f87a96923CA0B2b5FAE3", // StockToken implementation contract
+      oracleAggregator: "0x9e2fa29C0A79dF98955be0e53ADbC45185ECD71a",
+      usdt: "0xd7C597Cf30fb56162AEDAe8a52927B7CE4076e5B",
+      stockTokenImplementation: "0x27B8A99eE9ad97a3e7d508451af26f1532545A14", // StockToken implementation contract
     }
   },
 
