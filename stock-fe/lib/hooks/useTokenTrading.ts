@@ -7,10 +7,11 @@ import USDT_TOKEN_ABI from '@/lib/abi/MockERC20.json';
 import STOCK_TOKEN_ABI from '@/lib/abi/StockToken.json';
 import ORACLE_AGGREGATOR_ABI from '@/lib/abi/OracleAggregator.json';
 import BUY_PARAMS from '@/lib/abi/buy.json';
-import { fetchStockPrice } from '@/lib/hermes';
+// import { fetchStockPrice } from '@/lib/hermes';
 import { usePythStore } from '@/lib/stores/pythStore';
 import { getNetworkConfig } from '@/lib/contracts';
-import getPythUpdateData from "@/lib/utils/getPythUpdateData"
+import getPythUpdateData from "@/lib/utils/getPythUpdateData";
+import getPriceInfo from "@/lib/utils/getPythUpdateData";
 export interface TokenInfo {
   symbol: string;
   name: string;
@@ -222,7 +223,7 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
   const fetchPriceData = useCallback(async () => {
     try {
       console.log(`🔄 开始获取 ${token.symbol} 价格数据...`);
-      const priceData = await fetchStockPrice(token.symbol);
+      const priceData = await getPriceInfo(token.symbol);
       console.log(`📊 ${token.symbol} 价格数据获取结果:`, priceData);
 
       if (priceData) {
@@ -571,30 +572,30 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         timestamp: new Date().toISOString()
       });
 
-      // 使用写死的购买金额和最小代币数量，但使用动态获取的更新数据
-      console.log("🧪 混合模式：使用测试购买参数 + 动态价格数据...");
+      // 动态计算购买参数
+      console.log("🔄 动态模式：计算购买参数...");
 
-      const testBuyAmountWei = BigInt(BUY_PARAMS.usdtAmount); // 100 USDT (6 decimals)
-      const testMinTokenAmount = BigInt(BUY_PARAMS.minTokenAmount);
+      const buyAmountWei = parseUnits(tradingState.buyAmount, 6);
+      const { minTokenAmount } = await calculateMinTokenAmount();
 
-      console.log("🧪 混合参数详情:", {
-        buyAmount: testBuyAmountWei.toString(),
-        buyAmountFormatted: formatUnits(testBuyAmountWei, 6),
-        minTokenAmount: testMinTokenAmount.toString(),
-        minTokenAmountFormatted: formatEther(testMinTokenAmount),
+      console.log("🧪 动态计算参数详情:", {
+        buyAmount: buyAmountWei.toString(),
+        buyAmountFormatted: formatUnits(buyAmountWei, 6),
+        minTokenAmount: minTokenAmount.toString(),
+        minTokenAmountFormatted: formatEther(minTokenAmount),
         updateDataLength: currentUpdateData?.length || 0,
         updateFee: currentUpdateFee.toString(),
         updateFeeEth: formatEther(currentUpdateFee)
       });
 
       // 检查用户余额是否足够
-      if (tradingState.usdtBalance < testBuyAmountWei) {
-        throw new Error(`USDT余额不足! 需要: ${formatUnits(testBuyAmountWei, 6)}, 可用: ${formatUnits(tradingState.usdtBalance, 6)}`);
+      if (tradingState.usdtBalance < buyAmountWei) {
+        throw new Error(`USDT余额不足! 需要: ${formatUnits(buyAmountWei, 6)}, 可用: ${formatUnits(tradingState.usdtBalance, 6)}`);
       }
 
       console.log("💰 准备执行买入交易:", {
-        buyAmountWei: testBuyAmountWei.toString(),
-        minTokenAmount: testMinTokenAmount.toString(),
+        buyAmountWei: buyAmountWei.toString(),
+        minTokenAmount: minTokenAmount.toString(),
         updateDataLength: currentUpdateData?.length || 0,
         updateFee: currentUpdateFee.toString()
       });
@@ -629,37 +630,37 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
       console.log("🐛 USDT 授权检查:", {
         allowance: tradingState.allowance.toString(),
         allowanceFormatted: formatUnits(tradingState.allowance, 6),
-        testBuyAmountWei: testBuyAmountWei.toString(),
-        testBuyAmountFormatted: formatUnits(testBuyAmountWei, 6),
-        hasEnoughAllowance: tradingState.allowance >= testBuyAmountWei
+        buyAmountWei: buyAmountWei.toString(),
+        buyAmountFormatted: formatUnits(buyAmountWei, 6),
+        hasEnoughAllowance: tradingState.allowance >= buyAmountWei
       });
 
-      if (tradingState.allowance < testBuyAmountWei) {
-        throw new Error(`USDT授权不足! 需要: ${formatUnits(testBuyAmountWei, 6)}, 可用: ${formatUnits(tradingState.allowance, 6)}`);
+      if (tradingState.allowance < buyAmountWei) {
+        throw new Error(`USDT授权不足! 需要: ${formatUnits(buyAmountWei, 6)}, 可用: ${formatUnits(tradingState.allowance, 6)}`);
       }
 
       console.log("📝 准备执行合约调用:", [
-          testBuyAmountWei,               // 参数1: USDT金额 (测试值)
-          testMinTokenAmount,             // 参数2: 最小代币数量 (测试值)
-          currentUpdateData || []         // 参数3: 价格更新数据 (动态获取)
+          buyAmountWei,               // 参数1: USDT金额 (动态计算)
+          minTokenAmount,             // 参数2: 最小代币数量 (动态计算)
+          currentUpdateData || []     // 参数3: 价格更新数据 (动态获取)
       ]);
 
       debugger; // 🔍 调试点: 准备执行合约调用
-      console.log("🐛 合约调用参数 (混合模式):", {
+      console.log("🐛 合约调用参数 (动态模式):", {
         tokenAddress: token.address,
         functionName: "buy",
         args: [
           {
             name: "USDT金额",
-            value: testBuyAmountWei.toString(),
-            formatted: formatUnits(testBuyAmountWei, 6),
-            source: "测试参数"
+            value: buyAmountWei.toString(),
+            formatted: formatUnits(buyAmountWei, 6),
+            source: "动态计算"
           },
           {
             name: "最小代币数量",
-            value: testMinTokenAmount.toString(),
-            formatted: formatEther(testMinTokenAmount),
-            source: "测试参数"
+            value: minTokenAmount.toString(),
+            formatted: formatEther(minTokenAmount),
+            source: "动态计算"
           },
           {
             name: "价格更新数据",
@@ -678,14 +679,21 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
       });
       debugger
 
+      // 打印对比测试值和动态计算值
+      console.log("🔍 参数对比:");
+      console.log("测试值 USDT金额:", BigInt(BUY_PARAMS.usdtAmount).toString(), formatUnits(BigInt(BUY_PARAMS.usdtAmount), 6));
+      console.log("动态计算 USDT金额:", buyAmountWei.toString(), formatUnits(buyAmountWei, 6));
+      console.log("测试值 最小代币数量:", BigInt(BUY_PARAMS.minTokenAmount).toString(), formatEther(BigInt(BUY_PARAMS.minTokenAmount)));
+      console.log("动态计算 最小代币数量:", minTokenAmount.toString(), formatEther(minTokenAmount));
+
       const hash = await client.writeContract({
         address: token.address,
         abi: STOCK_TOKEN_ABI,
         functionName: "buy",
         args: [
-          testBuyAmountWei,           // 参数1: USDT金额 (测试值)
-          testMinTokenAmount,         // 参数2: 最小代币数量 (测试值)
-          currentUpdateData || []     // 参数3: 价格更新数据 (动态获取)
+          BigInt(BUY_PARAMS.usdtAmount),           // 参数1: USDT金额 (测试值)
+          BigInt(BUY_PARAMS.minTokenAmount),            // 参数2: 最小代币数量 (测试值)
+          currentUpdateData || []    // 参数3: 价格更新数据 (动态获取)
         ],
         account: address,
         chain,
