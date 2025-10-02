@@ -934,13 +934,13 @@ describe("StockToken - 股票代币合约测试", function () {
       const mintAmount = ethers.parseEther("10000");
       const initialSupply = await stockToken.totalSupply();
 
-      await stockToken.connect(owner).mint(mintAmount);
+      await stockToken.connect(owner).mint(owner.address, mintAmount);
       expect(await stockToken.totalSupply()).to.equal(
         initialSupply + mintAmount
       );
 
       // 非所有者尝试mint - 使用通用错误检查
-      await expect(stockToken.connect(userA).mint(mintAmount)).to.be.reverted; // 简化错误检查
+      await expect(stockToken.connect(userA).mint(userA.address, mintAmount)).to.be.reverted; // 简化错误检查
     });
 
     it("所有权转移后权限验证", async function () {
@@ -949,13 +949,13 @@ describe("StockToken - 股票代币合约测试", function () {
 
       // 原所有者无法再mint
       await expect(
-        stockToken.connect(owner).mint(ethers.parseEther("1000"))
+        stockToken.connect(owner).mint(owner.address, ethers.parseEther("1000"))
       ).to.be.reverted; // 简化错误检查
 
       // 新所有者可以mint，并且代币会分配给新所有者
       const initialBalance = await stockToken.balanceOf(userA.address);
       const mintAmount = ethers.parseEther("1000");
-      await stockToken.connect(userA).mint(mintAmount);
+      await stockToken.connect(userA).mint(userA.address, mintAmount);
       expect(await stockToken.balanceOf(userA.address)).to.equal(
         initialBalance + mintAmount
       );

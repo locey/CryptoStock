@@ -2,6 +2,8 @@
 // 直接用 npx hardhat run scripts/deploy-full-system.js --network <network> 执行
 
 const { ethers, upgrades } = require("hardhat");
+const fs = require("fs");
+const path = require("path");
 
 const PYTH_SEPOLIA_ADDRESS = "0xDd24F84d36BF92C65F92307595335bdFab5Bbd21";
 const FEED_IDS = {
@@ -12,6 +14,138 @@ const FEED_IDS = {
   "AMZN": "0xb5d0e0fa58a1f8b81498ae670ce93c872d14434b72c364885d4fa1b257cbb07a",
   "NVDA": "0xb1073854ed24cbc755dc527418f52b7d271f6cc967bbf8d8129112b18860a593"
 };
+
+// ABI 提取函数
+async function extractABIFiles() {
+  console.log("\n🔧 [ABI提取] 开始提取ABI文件...");
+  
+  // 需要提取ABI的合约列表
+  const contracts = [
+    'StockToken',
+    'StockTokenV2', 
+    'TokenFactory',
+    'TokenFactoryV2',
+    'OracleAggregator',
+    'OracleAggregatorV2',
+    'CSToken',
+    'DefiAggregator'
+  ];
+
+  // Mock合约
+  const mockContracts = [
+    'MockERC20',
+    'MockPyth',
+    'MockAavePool',
+    'MockAToken'
+  ];
+
+  // 适配器合约
+  const adapterContracts = [
+    'AaveAdapter'
+  ];
+
+  // 创建abi输出目录
+  const abiDir = path.join(__dirname, '..', 'abi');
+  if (!fs.existsSync(abiDir)) {
+    fs.mkdirSync(abiDir, { recursive: true });
+    console.log('✅ 创建ABI目录:', abiDir);
+  }
+
+  let successCount = 0;
+  let failCount = 0;
+
+  // 处理普通合约
+  for (const contractName of contracts) {
+    try {
+      const artifactPath = path.join(
+        __dirname, 
+        '..', 
+        'artifacts', 
+        'contracts', 
+        `${contractName}.sol`, 
+        `${contractName}.json`
+      );
+      
+      processContract(contractName, artifactPath, abiDir);
+      successCount++;
+      
+    } catch (error) {
+      console.log(`❌ 提取失败 ${contractName}:`, error.message);
+      failCount++;
+    }
+  }
+
+  // 处理mock合约
+  for (const contractName of mockContracts) {
+    try {
+      const artifactPath = path.join(
+        __dirname, 
+        '..', 
+        'artifacts', 
+        'contracts',
+        'mock', 
+        `${contractName}.sol`, 
+        `${contractName}.json`
+      );
+      
+      processContract(contractName, artifactPath, abiDir);
+      successCount++;
+      
+    } catch (error) {
+      console.log(`❌ 提取失败 ${contractName}:`, error.message);
+      failCount++;
+    }
+  }
+
+  // 处理适配器合约
+  for (const contractName of adapterContracts) {
+    try {
+      const artifactPath = path.join(
+        __dirname, 
+        '..', 
+        'artifacts', 
+        'contracts',
+        'adapters', 
+        `${contractName}.sol`, 
+        `${contractName}.json`
+      );
+      
+      processContract(contractName, artifactPath, abiDir);
+      successCount++;
+      
+    } catch (error) {
+      console.log(`❌ 提取失败 ${contractName}:`, error.message);
+      failCount++;
+    }
+  }
+
+  console.log(`📊 ABI提取完成:`);
+  console.log(`   成功: ${successCount} 个合约`);
+  console.log(`   失败: ${failCount} 个合约`);
+  console.log(`   输出目录: ${abiDir}`);
+}
+
+function processContract(contractName, artifactPath, abiDir) {
+  // 检查文件是否存在
+  if (!fs.existsSync(artifactPath)) {
+    console.log(`⚠️  跳过 ${contractName}: artifact文件不存在`);
+    throw new Error(`Artifact not found: ${artifactPath}`);
+  }
+  
+  // 读取artifact文件
+  const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
+  
+  // 提取ABI
+  const abi = artifact.abi;
+  
+  // 创建输出文件路径
+  const abiPath = path.join(abiDir, `${contractName}.abi`);
+  
+  // 写入ABI文件 (格式化JSON)
+  fs.writeFileSync(abiPath, JSON.stringify(abi, null, 2));
+  
+  console.log(`✅ 成功提取: ${contractName}.abi`);
+}
 
 async function main() {
   const [deployer, ...accounts] = await ethers.getSigners();
@@ -281,6 +415,9 @@ async function main() {
       console.log("💡 提示: 您可以稍后手动验证合约");
     }
   }
+  
+  // 提取ABI文件
+  await extractABIFiles();
   
   console.log("\n✨ 系统已就绪，可以开始测试！");
 }

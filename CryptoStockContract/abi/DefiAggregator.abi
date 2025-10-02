@@ -430,9 +430,9 @@
     "name": "feeRateBps",
     "outputs": [
       {
-        "internalType": "uint256",
+        "internalType": "uint24",
         "name": "",
-        "type": "uint256"
+        "type": "uint24"
       }
     ],
     "stateMutability": "view",
@@ -604,9 +604,9 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
+        "internalType": "uint24",
         "name": "_feeRateBps",
-        "type": "uint256"
+        "type": "uint24"
       }
     ],
     "name": "initialize",
@@ -694,9 +694,9 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
+        "internalType": "uint24",
         "name": "_feeRateBps",
-        "type": "uint256"
+        "type": "uint24"
       }
     ],
     "name": "setFeeRate",

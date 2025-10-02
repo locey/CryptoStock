@@ -83,10 +83,11 @@ contract StockToken is
     ) internal override onlyOwner {}
 
     /**
-     * @dev 铸造新代币 - 分配给owner
+     * @dev 铸造新代币 - 分配给指定地址
      */
-    function mint(uint256 amount) external onlyOwner {
-        _mint(owner(), amount);
+    function mint(address to, uint256 amount) external onlyOwner {
+        require(to != address(0), "Cannot mint to zero address");
+        _mint(to, amount);
     }
 
     /**

@@ -259,7 +259,7 @@
   },
   {
     "inputs": [],
-    "name": "aUsdcToken",
+    "name": "aUsdtToken",
     "outputs": [
       {
         "internalType": "address",
@@ -433,9 +433,9 @@
         "type": "tuple"
       },
       {
-        "internalType": "uint256",
+        "internalType": "uint24",
         "name": "feeRateBps",
-        "type": "uint256"
+        "type": "uint24"
       }
     ],
     "name": "executeOperation",
@@ -473,7 +473,7 @@
   },
   {
     "inputs": [],
-    "name": "getAUsdcToken",
+    "name": "getAUsdtToken",
     "outputs": [
       {
         "internalType": "address",
@@ -524,57 +524,6 @@
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "enum IOperationTypes.OperationType",
-        "name": "",
-        "type": "uint8"
-      },
-      {
-        "components": [
-          {
-            "internalType": "address[]",
-            "name": "tokens",
-            "type": "address[]"
-          },
-          {
-            "internalType": "uint256[]",
-            "name": "amounts",
-            "type": "uint256[]"
-          },
-          {
-            "internalType": "address",
-            "name": "recipient",
-            "type": "address"
-          },
-          {
-            "internalType": "uint256",
-            "name": "deadline",
-            "type": "uint256"
-          },
-          {
-            "internalType": "bytes",
-            "name": "extraData",
-            "type": "bytes"
-          }
-        ],
-        "internalType": "struct IOperationTypes.OperationParams",
-        "name": "params",
-        "type": "tuple"
-      }
-    ],
-    "name": "getMinAmounts",
-    "outputs": [
-      {
-        "internalType": "uint256[]",
-        "name": "minAmounts",
-        "type": "uint256[]"
-      }
-    ],
-    "stateMutability": "pure",
-    "type": "function"
-  },
-  {
     "inputs": [],
     "name": "getSupportedOperations",
     "outputs": [
@@ -589,7 +538,7 @@
   },
   {
     "inputs": [],
-    "name": "getUsdcToken",
+    "name": "getUsdtToken",
     "outputs": [
       {
         "internalType": "address",
@@ -662,12 +611,12 @@
       },
       {
         "internalType": "address",
-        "name": "_usdcToken",
+        "name": "_usdtToken",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "_aUsdcToken",
+        "name": "_aUsdtToken",
         "type": "address"
       },
       {
@@ -731,11 +680,11 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_aUsdcToken",
+        "name": "_aUsdtToken",
         "type": "address"
       }
     ],
-    "name": "setAUsdcToken",
+    "name": "setAUsdtToken",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -757,11 +706,11 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_usdcToken",
+        "name": "_usdtToken",
         "type": "address"
       }
     ],
-    "name": "setUsdcToken",
+    "name": "setUsdtToken",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -818,7 +767,7 @@
   },
   {
     "inputs": [],
-    "name": "usdcToken",
+    "name": "usdtToken",
     "outputs": [
       {
         "internalType": "address",
