@@ -103,7 +103,7 @@ async function fetchUpdateData(symbols: string[] = ["AAPL"]): Promise<string[]> 
           const isInvalidTime = !x.price.publish_time || x.price.publish_time === 0;
           return (!isInvalidPrice && !isInvalidTime) ? index : -1;
         })
-        .filter(index => index !== -1);
+        .filter((index: number) => index !== -1);
       
       if (validIndices.length === 0) {
         throw new Error("所有符号的价格数据都无效，无法继续执行");
