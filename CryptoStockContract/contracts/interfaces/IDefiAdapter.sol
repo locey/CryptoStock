@@ -41,7 +41,7 @@ interface IDefiAdapter is IOperationTypes {
     ) external view returns (OperationResult memory result);
     
     /**
-     * @dev 获取用户在该模块中的 USDT 余额
+     * @dev 获取用户在该模块中的 USDT 余额，这里存在设计争议，各个模块的资产形式可能不同，没有统一为 USDT
      * @param user 用户地址
      * @return balance USDT 余额
      */
