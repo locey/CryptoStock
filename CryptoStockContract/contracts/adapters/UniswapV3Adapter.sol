@@ -149,11 +149,8 @@ contract UniswapV3Adapter is
         bool isProfit
     ) {
         uint256[] memory positions = _userPositions[user];
-        if (positions.length == 0) {
-            return (0, 0, 0, true);
-        }
         
-        // 计算所有 Position 的总价值
+        // 计算当前持有Position的价值
         uint256 totalLiquidityValue = 0;
         uint256 totalFeeValue = 0;
         
@@ -169,9 +166,23 @@ contract UniswapV3Adapter is
             totalFeeValue += feeValue;
         }
         
-        // 总当前价值 = 流动性价值 + 当前未提取手续费 + 历史累积提取手续费
+        // 获取历史累积提取的手续费（包括移除流动性时的收益）
         uint256 historicalFees = _userTotalCollectedFees[user];
+        
+        // 总当前价值 = 流动性价值 + 当前未提取手续费 + 历史累积提取手续费
         currentValue = totalLiquidityValue + totalFeeValue + historicalFees;
+        
+        // 如果没有当前Position但有历史收益，返回纯收益情况
+        if (positions.length == 0) {
+            if (historicalFees == 0) {
+                // 完全没有任何记录
+                return (0, 0, 0, true);
+            }
+            
+            // 用户已完全退出但获得了手续费收益
+            // principal为0（因为已经拿回本金），currentValue为纯收益
+            return (0, historicalFees, historicalFees, true);
+        }
         
         // 计算盈亏
         if (currentValue >= principal) {
@@ -378,6 +389,18 @@ contract UniswapV3Adapter is
             amount1Max: type(uint128).max  // 收集所有可用的 WETH (包括本金 + 手续费)
         });
         (uint256 amount0, uint256 amount1) = INonfungiblePositionManager(positionManager).collect(collectParams);
+        
+        // 计算并记录移除时的手续费收益
+        {
+            uint256[2] memory principal = _positionPrincipal[tokenId];
+            uint256 feeUsdt = amount0 > principal[0] ? amount0 - principal[0] : 0;
+            uint256 feeWeth = amount1 > principal[1] ? amount1 - principal[1] : 0;
+            
+            if (feeUsdt > 0 || feeWeth > 0) {
+                uint256 feeUsdValue = calculateUSDValue(feeUsdt, feeWeth);
+                _userTotalCollectedFees[params.recipient] += feeUsdValue;
+            }
+        }
         
         // 清理用户记录
         _removeUserPosition(params.recipient, tokenId);
