@@ -18,7 +18,7 @@ describe("10-yearnv3.test.js - YearnV3Adapter 测试", function () {
         const usdc = await MockERC20.deploy("Mock USDC", "USDC", 18);
 
         // 2. 部署 MockYearnV3Vault
-        const MockYearnV3Vault = await ethers.getContractFactory("contracts/mock/MockYearnV3Vault.sol:MockYearnV3Vault");
+        const MockYearnV3Vault = await ethers.getContractFactory("MockYearnV3Vault");
         const mockVault = await MockYearnV3Vault.deploy(
             await usdc.getAddress(),
             "Yearn USDC Vault",
