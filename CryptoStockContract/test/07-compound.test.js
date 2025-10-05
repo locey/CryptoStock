@@ -201,9 +201,7 @@ describe("07-compound.test.js - Compound Adapter Test", function () {
             const { user, mockUSDT, mockCToken, defiAggregator, compoundAdapter } = 
                 await loadFixture(deployContractsFixture);
             
-            // === 准备阶段：先进行存款 ===
-            
-            // 用户授权并存款
+            // 先进行存款以获得 cToken
             await mockUSDT.connect(user).approve(
                 await compoundAdapter.getAddress(), 
                 USER_DEPOSIT_AMOUNT
@@ -214,6 +212,7 @@ describe("07-compound.test.js - Compound Adapter Test", function () {
                 amounts: [USER_DEPOSIT_AMOUNT],
                 recipient: user.address,
                 deadline: Math.floor(Date.now() / 1000) + 3600,
+                tokenId: 0,
                 extraData: "0x"
             };
             
@@ -250,6 +249,7 @@ describe("07-compound.test.js - Compound Adapter Test", function () {
                 amounts: [withdrawUSDTAmount], // 这里是要取回的 USDT 数量
                 recipient: user.address, // 取款到用户地址
                 deadline: Math.floor(Date.now() / 1000) + 3600,
+                tokenId: 0,
                 extraData: "0x"
             };
             
@@ -300,6 +300,7 @@ describe("07-compound.test.js - Compound Adapter Test", function () {
                 amounts: [USER_DEPOSIT_AMOUNT],
                 recipient: user.address,
                 deadline: Math.floor(Date.now() / 1000) + 3600,
+                tokenId: 0,
                 extraData: "0x"
             };
             
@@ -325,6 +326,7 @@ describe("07-compound.test.js - Compound Adapter Test", function () {
                 amounts: [0n], // 零金额
                 recipient: user.address,
                 deadline: Math.floor(Date.now() / 1000) + 3600,
+                tokenId: 0,
                 extraData: "0x"
             };
             
@@ -344,11 +346,6 @@ describe("07-compound.test.js - Compound Adapter Test", function () {
             const { user, mockUSDT, mockCToken, defiAggregator, compoundAdapter } = 
                 await loadFixture(deployContractsFixture);
             
-            // === 准备阶段：先进行存款 ===
-            
-            // 计算预期净存款金额
-            const expectedNetDeposit = USER_DEPOSIT_AMOUNT - (USER_DEPOSIT_AMOUNT * BigInt(FEE_RATE_BPS) / 10000n);
-            
             // 用户授权并存款
             await mockUSDT.connect(user).approve(
                 await compoundAdapter.getAddress(), 
@@ -360,6 +357,7 @@ describe("07-compound.test.js - Compound Adapter Test", function () {
                 amounts: [USER_DEPOSIT_AMOUNT],
                 recipient: user.address,
                 deadline: Math.floor(Date.now() / 1000) + 3600,
+                tokenId: 0,
                 extraData: "0x"
             };
             
@@ -393,6 +391,7 @@ describe("07-compound.test.js - Compound Adapter Test", function () {
                 amounts: [totalUSDTValue], // 取出所有可用的 USDT
                 recipient: user.address,
                 deadline: Math.floor(Date.now() / 1000) + 3600,
+                tokenId: 0,
                 extraData: "0x"
             };
             
@@ -427,53 +426,5 @@ describe("07-compound.test.js - Compound Adapter Test", function () {
         });
     });
     
-    describe("Compound Yield Calculation", function () {
-        
-        it("Should correctly calculate yield over time", async function () {
-            const { user, mockUSDT, mockCToken, defiAggregator, compoundAdapter } = 
-                await loadFixture(deployContractsFixture);
-            
-            // === 准备阶段：进行存款 ===
-            
-            await mockUSDT.connect(user).approve(
-                await compoundAdapter.getAddress(), 
-                USER_DEPOSIT_AMOUNT
-            );
-            
-            const depositParams = {
-                tokens: [await mockUSDT.getAddress()],
-                amounts: [USER_DEPOSIT_AMOUNT],
-                recipient: user.address,
-                deadline: Math.floor(Date.now() / 1000) + 3600,
-                extraData: "0x"
-            };
-            
-            await defiAggregator.connect(user).executeOperation(
-                "compound", 
-                0, // DEPOSIT
-                depositParams
-            );
-            
-            // === 计算初始收益 ===
-            
-            const initialYieldInfo = await compoundAdapter.getUserYield(user.address);
-            
-            console.log(`📊 初始收益 - 本金: ${initialYieldInfo.principal}, 当前价值: ${initialYieldInfo.currentValue}, 利润: ${initialYieldInfo.profit}`);
-            
-            // === 模拟时间经过，汇率变化 ===
-            
-            // 增加 cToken 的汇率来模拟收益
-            await mockCToken.setExchangeRate(ethers.parseUnits("0.025", 18)); // 2.5% 汇率
-            
-            // 再次计算收益
-            const finalYieldInfo = await compoundAdapter.getUserYield(user.address);
-            
-            console.log(`📊 最终收益 - 本金: ${finalYieldInfo.principal}, 当前价值: ${finalYieldInfo.currentValue}, 利润: ${finalYieldInfo.profit}`);
-            
-            // 验证收益增长
-            expect(finalYieldInfo.profit).to.be.gte(initialYieldInfo.profit);
-            
-            console.log("✅ 收益计算测试通过！");
-        });
-    });
+
 });

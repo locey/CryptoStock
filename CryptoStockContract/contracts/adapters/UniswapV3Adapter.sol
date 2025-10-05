@@ -40,17 +40,7 @@ contract UniswapV3Adapter is
     // ETH/USD Chainlink 预言机地址
     address public ethUsdPriceFeed;
     
-    // 用户 Position NFT 记录 (user => tokenId[])
     mapping(address => uint256[]) private _userPositions;
-    
-    // Position 原始投入记录 (tokenId => amounts)
-    mapping(uint256 => uint256[2]) private _positionPrincipal; // [usdt, weth]
-    
-    // Position 初始美元价值记录 (tokenId => initialUsdValue)
-    mapping(uint256 => uint256) private _positionInitialValue;
-    
-    // 用户累积提取的手续费 (user => totalUsdValue) - 以美元计价，6位精度
-    mapping(address => uint256) private _userTotalCollectedFees;
 
     
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -134,65 +124,8 @@ contract UniswapV3Adapter is
             result.message = "Estimated fee collection";
         }
     }
-    
 
-    
-    function getUserBalances(address user) external view override returns (uint256 balance) {
-        // 返回用户拥有的 Position NFT 数量
-        return _userPositions[user].length;
-    }
-    
-    function getUserYield(address user) external view override returns (
-        uint256 principal,
-        uint256 currentValue,
-        uint256 profit,
-        bool isProfit
-    ) {
-        uint256[] memory positions = _userPositions[user];
-        
-        // 计算当前持有Position的价值
-        uint256 totalLiquidityValue = 0;
-        uint256 totalFeeValue = 0;
-        
-        for (uint i = 0; i < positions.length; i++) {
-            uint256 tokenId = positions[i];
-            
-            // 累加初始投入价值 (美元计价)
-            principal += _positionInitialValue[tokenId];
-            
-            // 获取当前价值和手续费收益
-            (, uint256 liquidityValue, uint256 feeValue) = getPositionValue(tokenId);
-            totalLiquidityValue += liquidityValue;
-            totalFeeValue += feeValue;
-        }
-        
-        // 获取历史累积提取的手续费（包括移除流动性时的收益）
-        uint256 historicalFees = _userTotalCollectedFees[user];
-        
-        // 总当前价值 = 流动性价值 + 当前未提取手续费 + 历史累积提取手续费
-        currentValue = totalLiquidityValue + totalFeeValue + historicalFees;
-        
-        // 如果没有当前Position但有历史收益，返回纯收益情况
-        if (positions.length == 0) {
-            if (historicalFees == 0) {
-                // 完全没有任何记录
-                return (0, 0, 0, true);
-            }
-            
-            // 用户已完全退出但获得了手续费收益
-            // principal为0（因为已经拿回本金），currentValue为纯收益
-            return (0, historicalFees, historicalFees, true);
-        }
-        
-        // 计算盈亏
-        if (currentValue >= principal) {
-            profit = currentValue - principal;
-            isProfit = true;
-        } else {
-            profit = principal - currentValue;
-            isProfit = false;
-        }
-    }
+
     
     function getSupportedOperations() external pure override returns (OperationType[] memory operations) {
         operations = new OperationType[](3);
@@ -249,38 +182,25 @@ contract UniswapV3Adapter is
     }
     
     /**
-     * @dev 获取 Position 的当前流动性价值和手续费收益
+     * @dev 获取 Position 的当前流动性数量和手续费收益
      * @param tokenId Position NFT ID
      * @return liquidity 当前流动性数量
-     * @return currentUsdValue 当前流动性的美元价值
-     * @return feeUsdValue 累积手续费的美元价值
+     * @return tokensOwed0 累积的 token0 手续费
+     * @return tokensOwed1 累积的 token1 手续费
      */
     function getPositionValue(uint256 tokenId) public view returns (
         uint128 liquidity,
-        uint256 currentUsdValue,
-        uint256 feeUsdValue
+        uint256 tokensOwed0,
+        uint256 tokensOwed1
     ) {
         // 获取 Position 基本信息
-        uint128 tokensOwed0;
-        uint128 tokensOwed1;
-        (, , , , , , , liquidity, , , tokensOwed0, tokensOwed1) = 
+        uint128 owed0;
+        uint128 owed1;
+        (, , , , , , , liquidity, , , owed0, owed1) = 
             INonfungiblePositionManager(positionManager).positions(tokenId);
         
-        if (liquidity > 0) {
-            // 获取原始投入数量
-            uint256[2] memory principal = _positionPrincipal[tokenId];
-            uint256 principalUsdt = principal[0];
-            uint256 principalWeth = principal[1];
-            
-            // 计算当前流动性价值 (简化计算，假设价格变化不大时流动性价值≈原始投入)
-            // 实际应该根据当前价格范围和流动性计算精确价值
-            currentUsdValue = calculateUSDValue(principalUsdt, principalWeth);
-        }
-        
-        // 计算手续费收益
-        if (tokensOwed0 > 0 || tokensOwed1 > 0) {
-            feeUsdValue = calculateUSDValue(uint256(tokensOwed0), uint256(tokensOwed1));
-        }
+        tokensOwed0 = uint256(owed0);
+        tokensOwed1 = uint256(owed1);
     }
 
     // ===== 内部操作处理函数 =====
@@ -331,11 +251,6 @@ contract UniswapV3Adapter is
         
         // 记录用户 Position
         _userPositions[params.recipient].push(tokenId);
-        _positionPrincipal[tokenId] = [netUsdt, netWeth];
-        
-        // 计算并保存初始美元价值
-        uint256 initialUsdValue = calculateUSDValue(netUsdt, netWeth);
-        _positionInitialValue[tokenId] = initialUsdValue;
         
         result.success = true;
         result.outputAmounts = new uint256[](1);
@@ -390,22 +305,8 @@ contract UniswapV3Adapter is
         });
         (uint256 amount0, uint256 amount1) = INonfungiblePositionManager(positionManager).collect(collectParams);
         
-        // 计算并记录移除时的手续费收益
-        {
-            uint256[2] memory principal = _positionPrincipal[tokenId];
-            uint256 feeUsdt = amount0 > principal[0] ? amount0 - principal[0] : 0;
-            uint256 feeWeth = amount1 > principal[1] ? amount1 - principal[1] : 0;
-            
-            if (feeUsdt > 0 || feeWeth > 0) {
-                uint256 feeUsdValue = calculateUSDValue(feeUsdt, feeWeth);
-                _userTotalCollectedFees[params.recipient] += feeUsdValue;
-            }
-        }
-        
         // 清理用户记录
         _removeUserPosition(params.recipient, tokenId);
-        delete _positionPrincipal[tokenId];
-        delete _positionInitialValue[tokenId];
         
         result.success = true;
         result.outputAmounts = new uint256[](2);
@@ -456,10 +357,8 @@ contract UniswapV3Adapter is
                 totalAmount0 += amount0;
                 totalAmount1 += amount1;
                 
-                // 累加到用户总收益记录（美元计价）
+                // 发出事件记录手续费收集
                 if (amount0 > 0 || amount1 > 0) {
-                    uint256 feeUsdValue = calculateUSDValue(amount0, amount1);
-                    _userTotalCollectedFees[params.recipient] += feeUsdValue;
                     emit FeesCollected(params.recipient, tokenId, amount0, amount1);
                 }
             }
@@ -478,10 +377,8 @@ contract UniswapV3Adapter is
             
             (totalAmount0, totalAmount1) = INonfungiblePositionManager(positionManager).collect(collectParams);
             
-            // 累加到用户总收益记录（美元计价）
+            // 发出事件记录手续费收集
             if (totalAmount0 > 0 || totalAmount1 > 0) {
-                uint256 feeUsdValue = calculateUSDValue(totalAmount0, totalAmount1);
-                _userTotalCollectedFees[params.recipient] += feeUsdValue;
                 emit FeesCollected(params.recipient, tokenId, totalAmount0, totalAmount1);
             }
         }
@@ -567,20 +464,7 @@ contract UniswapV3Adapter is
         return _userPositions[user];
     }
     
-    /**
-     * @dev 获取 Position 的初始价值
-     */
-    function getPositionInitialValue(uint256 tokenId) external view returns (uint256) {
-        return _positionInitialValue[tokenId];
-    }
-    
-    /**
-     * @dev 获取 Position 的原始投入
-     */
-    function getPositionPrincipal(uint256 tokenId) external view returns (uint256 usdt, uint256 weth) {
-        uint256[2] memory principal = _positionPrincipal[tokenId];
-        return (principal[0], principal[1]);
-    }
+
     
     /**
      * @dev 设置 ETH/USD 价格预言机地址 (仅 owner)
@@ -590,41 +474,9 @@ contract UniswapV3Adapter is
         ethUsdPriceFeed = _ethUsdPriceFeed;
     }
     
-    /**
-     * @dev 获取用户历史累积提取的手续费收益（美元计价）
-     * @param user 用户地址
-     * @return totalCollectedFeesUsd 累积提取手续费的美元价值 (6位精度)
-     */
-    function getUserTotalCollectedFees(address user) external view returns (uint256 totalCollectedFeesUsd) {
-        return _userTotalCollectedFees[user];
-    }
+
     
-    /**
-     * @dev 获取用户收益详细信息
-     * @param user 用户地址
-     * @return currentPositionValue 当前Position价值
-     * @return currentUnclaimedFees 当前未提取手续费价值
-     * @return historicalCollectedFees 历史累积提取手续费价值
-     * @return totalValue 总价值
-     */
-    function getUserYieldDetails(address user) external view returns (
-        uint256 currentPositionValue,
-        uint256 currentUnclaimedFees, 
-        uint256 historicalCollectedFees,
-        uint256 totalValue
-    ) {
-        uint256[] memory positions = _userPositions[user];
-        
-        for (uint i = 0; i < positions.length; i++) {
-            uint256 tokenId = positions[i];
-            (, uint256 liquidityValue, uint256 feeValue) = getPositionValue(tokenId);
-            currentPositionValue += liquidityValue;
-            currentUnclaimedFees += feeValue;
-        }
-        
-        historicalCollectedFees = _userTotalCollectedFees[user];
-        totalValue = currentPositionValue + currentUnclaimedFees + historicalCollectedFees;
-    }
+
     
     /**
      * @dev 实现 IERC721Receiver 接口以接收 NFT

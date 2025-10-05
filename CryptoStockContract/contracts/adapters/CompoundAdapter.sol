@@ -31,9 +31,6 @@ contract CompoundAdapter is
     // USDT 代币地址 - 可配置支持不同网络
     address public usdtToken;
     
-    // 用户本金记录 (user => principal) - 用于收益计算
-    mapping(address => uint256) private _userPrincipal;
-    
     // 常量
     uint256 private constant EXCHANGE_RATE_SCALE = 1e18;
     uint256 private constant BLOCKS_PER_YEAR = 2102400; // 大约每年的区块数（15秒/块）
@@ -106,47 +103,7 @@ contract CompoundAdapter is
         
         return result;
     }
-    
-    function getUserBalances(address user) external view override returns (uint256 balance) {
-        return _userPrincipal[user];
-    }
-    
-    function getUserYield(address user) external view override returns (
-        uint256 principal,
-        uint256 currentValue, 
-        uint256 profit,
-        bool isProfit
-    ) {
-        principal = _userPrincipal[user];
-        
-        if (principal == 0) {
-            return (0, 0, 0, true);
-        }
-        
-        // 直接查询用户持有的 cToken 余额，然后计算当前价值
-        try ICToken(cUsdtToken).balanceOf(user) returns (uint256 userCTokens) {
-            if (userCTokens == 0) {
-                currentValue = 0;
-            } else {
-                // 计算当前价值：cToken余额 * 当前汇率
-                uint256 exchangeRate = ICToken(cUsdtToken).exchangeRateStored();
-                currentValue = (userCTokens * exchangeRate) / EXCHANGE_RATE_SCALE;
-            }
-            
-            if (currentValue >= principal) {
-                profit = currentValue - principal;
-                isProfit = true;
-            } else {
-                profit = principal - currentValue;
-                isProfit = false;
-            }
-        } catch {
-            // 调用失败，返回本金作为当前价值
-            currentValue = principal;
-            profit = 0;
-            isProfit = true;
-        }
-    }
+
     
     function getSupportedOperations() external pure override returns (OperationType[] memory operations) {
         operations = new OperationType[](2);
@@ -199,9 +156,6 @@ contract CompoundAdapter is
         // 将 cToken 转给用户
         IERC20(cUsdtToken).safeTransfer(user, newCTokens);
         
-        // 更新用户本金记录
-        _userPrincipal[user] += netAmount;
-        
         result.success = true;
         result.outputAmounts = new uint256[](1);
         result.outputAmounts[0] = newCTokens;
@@ -228,7 +182,6 @@ contract CompoundAdapter is
         require(user != address(0), "Recipient address must be specified");
         
         uint256 withdrawAmount = params.amounts[0];
-        require(_userPrincipal[user] >= withdrawAmount, "Insufficient balance");
         
         // 计算需要赎回的 cToken 数量
         uint256 exchangeRate = ICToken(cUsdtToken).exchangeRateCurrent();
@@ -247,9 +200,6 @@ contract CompoundAdapter is
         
         // 转账给用户
         IERC20(usdtToken).safeTransfer(user, withdrawAmount);
-        
-        // 更新用户本金记录
-        _userPrincipal[user] -= withdrawAmount;
         
         result.success = true;
         result.outputAmounts = new uint256[](1);

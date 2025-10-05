@@ -110,65 +110,14 @@ describe("09-curve.test.js - CurveAdapter 测试", function () {
         expect(userDaiBefore - userDaiAfter).to.equal(USER_DEPOSIT_AMOUNT);
         expect(userLpAfter - userLpBefore).to.be.gt(0); // 获得了LP代币
         
-        // 验证投入记录
-        const totalInvestment = await curveAdapter.getUserInitialInvestment(user.address);
-        const expectedInvestment = (USER_DEPOSIT_AMOUNT * 3n * 99n) / 100n; // 扣除1%手续费
-        expect(totalInvestment).to.equal(expectedInvestment);
-        
         console.log("添加流动性成功:");
         console.log("USDC投入:", ethers.formatUnits(USER_DEPOSIT_AMOUNT, 18));
         console.log("USDT投入:", ethers.formatUnits(USER_DEPOSIT_AMOUNT, 18));
         console.log("DAI投入:", ethers.formatUnits(USER_DEPOSIT_AMOUNT, 18));
         console.log("获得LP代币:", ethers.formatUnits(userLpAfter - userLpBefore, 18));
-        console.log("总投入记录:", ethers.formatUnits(totalInvestment, 18));
     });
 
-    it("收益计算", async function () {
-        const { user, usdc, usdt, dai, mockCurve, defiAggregator, curveAdapter } = await loadFixture(deployFixture);
-        
-        // 先添加流动性
-        await usdc.connect(user).approve(await curveAdapter.getAddress(), USER_DEPOSIT_AMOUNT);
-        await usdt.connect(user).approve(await curveAdapter.getAddress(), USER_DEPOSIT_AMOUNT);
-        await dai.connect(user).approve(await curveAdapter.getAddress(), USER_DEPOSIT_AMOUNT);
-        
-        const params = {
-            tokens: [await usdc.getAddress(), await usdt.getAddress(), await dai.getAddress()],
-            amounts: [USER_DEPOSIT_AMOUNT, USER_DEPOSIT_AMOUNT, USER_DEPOSIT_AMOUNT, 0],
-            recipient: user.address,
-            deadline: Math.floor(Date.now() / 1000) + 3600,
-            tokenId: 0,
-            extraData: "0x"
-        };
-        
-        await defiAggregator.connect(user).executeOperation("curve", 2, params);
-        
-        // 模拟池子产生收益 (虚拟价格上涨0.5%)
-        await mockCurve.simulateYieldGrowth(user.address);
-        
-        // 查询收益
-        const [principal, currentValue, profit, isProfit] = await curveAdapter.getUserYield(user.address);
-        
-        console.log("收益计算结果:");
-        console.log("本金 (USD):", ethers.formatUnits(principal, 18));
-        console.log("当前价值 (USD):", ethers.formatUnits(currentValue, 18));
-        console.log(`${isProfit ? '收益' : '亏损'} (USD):`, ethers.formatUnits(profit, 18));
-        
-        if (principal > 0) {
-            const yieldRate = (Number(ethers.formatUnits(profit, 18)) / Number(ethers.formatUnits(principal, 18)) * 100);
-            console.log(`收益率: ${isProfit ? '+' : '-'}${yieldRate.toFixed(4)}%`);
-        }
-        
-        // 验证收益计算逻辑
-        if (isProfit) {
-            expect(profit).to.equal(currentValue - principal);
-        } else {
-            expect(profit).to.equal(principal - currentValue);
-        }
-        
-        // 应该有正收益 (因为虚拟价格上涨了5%)
-        expect(isProfit).to.be.true;
-        expect(currentValue).to.be.gt(principal);
-    });
+    // 收益计算功能已移除 - 由后端监听事件处理
 
     it("部分移除流动性", async function () {
         const { user, usdc, usdt, dai, mockCurve, defiAggregator, curveAdapter } = await loadFixture(deployFixture);
@@ -194,13 +143,9 @@ describe("09-curve.test.js - CurveAdapter 测试", function () {
         
         // 记录移除前状态
         const lpBalanceBefore = await mockCurve.balanceOf(user.address);
-        const [principalBefore, currentValueBefore, profitBefore, isProfitBefore] = await curveAdapter.getUserYield(user.address);
         
         console.log("移除流动性前:");
         console.log("LP余额:", ethers.formatUnits(lpBalanceBefore, 18));
-        console.log("本金:", ethers.formatUnits(principalBefore, 18));
-        console.log("当前价值:", ethers.formatUnits(currentValueBefore, 18));
-        console.log("总收益:", ethers.formatUnits(profitBefore, 18));
         
         // 移除50%的流动性
         const lpToRemove = lpBalanceBefore / 2n;
@@ -219,26 +164,12 @@ describe("09-curve.test.js - CurveAdapter 测试", function () {
         
         // 记录移除后状态
         const lpBalanceAfter = await mockCurve.balanceOf(user.address);
-        const [principalAfter, currentValueAfter, profitAfter, isProfitAfter] = await curveAdapter.getUserYield(user.address);
         
         console.log("移除流动性后:");
         console.log("LP余额:", ethers.formatUnits(lpBalanceAfter, 18));
-        console.log("本金:", ethers.formatUnits(principalAfter, 18));
-        console.log("当前价值:", ethers.formatUnits(currentValueAfter, 18));
-        console.log("剩余收益:", ethers.formatUnits(profitAfter, 18));
         
         // 验证LP减少了大约50%
         expect(lpBalanceAfter).to.be.closeTo(lpBalanceBefore / 2n, ethers.parseUnits("0.01", 18));
-        
-        // 验证本金按正确的比例减少（由于虚拟价格变化，不会是精确的50%）
-        // 期望本金减少幅度在45%-55%之间
-        const principalReductionRatio = (principalBefore - principalAfter) * 100n / principalBefore;
-        expect(principalReductionRatio).to.be.gte(45n); // 至少减少45%
-        expect(principalReductionRatio).to.be.lte(55n); // 最多减少55%
-        
-        // 验证仍有收益
-        expect(isProfitAfter).to.be.true;
-        expect(currentValueAfter).to.be.gt(principalAfter);
     });
 
     it("完全移除流动性", async function () {
@@ -280,20 +211,11 @@ describe("09-curve.test.js - CurveAdapter 测试", function () {
         
         // 验证完全移除后的状态
         const lpBalanceAfter = await mockCurve.balanceOf(user.address);
-        const [principalAfter, currentValueAfter, profitAfter, isProfitAfter] = await curveAdapter.getUserYield(user.address);
         
         // LP应该为0
         expect(lpBalanceAfter).to.equal(0);
         
-        // 当前价值应该为0 (因为没有LP了)
-        expect(currentValueAfter).to.equal(0);
-        
-        // 本金记录应该为0 (因为用户完全退出了)
-        expect(principalAfter).to.equal(0);
-        
         console.log("完全移除流动性后:");
         console.log("LP余额:", ethers.formatUnits(lpBalanceAfter, 18));
-        console.log("本金记录:", ethers.formatUnits(principalAfter, 18));
-        console.log("当前价值:", ethers.formatUnits(currentValueAfter, 18));
     });
 });

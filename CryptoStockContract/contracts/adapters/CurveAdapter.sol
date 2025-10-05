@@ -47,9 +47,6 @@ contract CurveAdapter is
     
     /// @notice 支持的 Curve 3Pool 地址
     address public curve3Pool;
-    
-    /// @notice 用户投入记录 user => total USD value invested
-    mapping(address => uint256) private _userInitialInvestment;
 
     // ============ 构造函数与初始化 ============
     
@@ -166,53 +163,6 @@ contract CurveAdapter is
         revert("Unsupported operation for estimation");
     }
     
-    /**
-     * @notice 获取用户余额
-     */
-    function getUserBalances(address user) external view override returns (uint256) {
-        uint256 lpBalance = IERC20(curve3Pool).balanceOf(user);
-        if (lpBalance == 0) return 0;
-        
-        ICurve pool = ICurve(curve3Pool);
-        uint256 virtualPrice = pool.get_virtual_price();
-        return (lpBalance * virtualPrice) / 1e18;
-    }
-    
-    /**
-     * @notice 获取用户收益信息
-     * @param user 用户地址
-     */
-    function getUserYield(address user) external view override returns (
-        uint256 principal,
-        uint256 currentValue,
-        uint256 profit,
-        bool isProfit
-    ) {
-        principal = _userInitialInvestment[user];
-        
-        // 获取用户当前 LP 代币余额
-        uint256 lpBalance = IERC20(curve3Pool).balanceOf(user);
-        if (lpBalance == 0) {
-            currentValue = 0;
-            profit = 0;
-            isProfit = false;
-            return (principal, currentValue, profit, isProfit);
-        }
-        
-        // 通过虚拟价格计算当前价值
-        ICurve pool = ICurve(curve3Pool);
-        uint256 virtualPrice = pool.get_virtual_price();
-        currentValue = (lpBalance * virtualPrice) / 1e18;
-        
-        if (currentValue >= principal) {
-            profit = currentValue - principal;
-            isProfit = true;
-        } else {
-            profit = principal - currentValue;
-            isProfit = false;
-        }
-    }
-
     // ============ 内部操作处理函数 ============
     
     /**
@@ -266,12 +216,6 @@ contract CurveAdapter is
         
         // 转移净LP代币给用户
         IERC20(curve3Pool).safeTransfer(params.recipient, netLpTokens);
-        
-        // 计算净投入价值（扣除手续费后的价值）
-        uint256 netValue = (totalValue * (10000 - feeRateBps)) / 10000;
-        
-        // 更新用户投入记录
-        _userInitialInvestment[params.recipient] += netValue;
         
         emit LiquidityAdded(params.recipient, curve3Pool, amounts, netLpTokens, block.timestamp);
         
@@ -332,20 +276,6 @@ contract CurveAdapter is
             }
         }
         
-        // 更新用户记录（正确计算已实现收益）
-        {
-            uint256 userLpBalance = IERC20(curve3Pool).balanceOf(params.recipient);
-            uint256 totalUserLp = userLpBalance + netLpToRemove;
-            
-            if (totalUserLp > 0) {
-                uint256 reductionRatio = (netLpToRemove * 1e18) / totalUserLp;
-                
-                // 只减去原始投入部分，保持收益计算的准确性
-                _userInitialInvestment[params.recipient] -= 
-                    (_userInitialInvestment[params.recipient] * reductionRatio) / 1e18;
-            }
-        }
-        
         emit LiquidityRemoved(params.recipient, curve3Pool, netLpToRemove, tokensReceived, block.timestamp);
         
         
@@ -364,22 +294,6 @@ contract CurveAdapter is
     }
 
     // ============ 查询功能 ============
-    
-    /**
-     * @notice 获取用户总的流动性提供价值
-     * @param user 用户地址
-     */
-    function getUserTotalProvidedLiquidity(address user) external view returns (uint256) {
-        return _userInitialInvestment[user];
-    }
-    
-    /**
-     * @notice 获取用户初始投入
-     * @param user 用户地址
-     */
-    function getUserInitialInvestment(address user) external view returns (uint256) {
-        return _userInitialInvestment[user];
-    }
     
     /**
      * @notice 获取用户当前 LP 代币余额对应的价值

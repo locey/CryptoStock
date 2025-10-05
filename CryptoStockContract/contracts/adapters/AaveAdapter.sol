@@ -32,9 +32,6 @@ contract AaveAdapter is
     // aUSDT 代币地址 - 可配置支持不同网络和测试
     address public aUsdtToken;
     
-    // 用户 USDC 余额记录 (user => balance) - 仅支持 USDC
-    mapping(address => uint256) private _userBalances;
-    
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -106,52 +103,6 @@ contract AaveAdapter is
         result.message = "Estimate successful";
     }
     
-    /**
-     * @dev 获取用户 USDC 余额
-     */
-    function getUserBalances(address user) external view override returns (uint256 balance) {
-        return _userBalances[user];
-    }
-    
-    /**
-     * @dev 获取用户的收益信息
-     */
-    function getUserYield(address user) external view override returns (
-        uint256 principal,
-        uint256 currentValue,
-        uint256 profit,
-        bool isProfit
-    ) {
-        // 本金：适配器记录的用户存款净额
-        principal = _userBalances[user];
-        
-        // 如果用户没有存款记录，直接返回0
-        if (principal == 0) {
-            return (0, 0, 0, true);
-        }
-        
-        // 直接查询用户的 aToken 余额
-        try IAToken(aUsdtToken).balanceOf(user) returns (uint256 aTokenBalance) {
-            currentValue = aTokenBalance;
-            
-            // 计算收益/损失
-            if (currentValue >= principal) {
-                // 有收益
-                profit = currentValue - principal;
-                isProfit = true;
-            } else {
-                // 有损失（理论上 Aave 不太可能出现，但为了安全考虑）
-                profit = principal - currentValue;
-                isProfit = false;
-            }
-        } catch {
-            // 调用失败，返回本金作为当前价值
-            currentValue = principal;
-            profit = 0;
-            isProfit = true;
-        }
-    }
-    
     function getSupportedOperations() external pure override returns (OperationType[] memory operations) {
         operations = new OperationType[](2);
         operations[0] = OperationType.DEPOSIT;
@@ -207,9 +158,6 @@ contract AaveAdapter is
         IERC20(token).approve(aavePool, netAmount);
         IAavePool(aavePool).supply(token, netAmount, user, 0);
         
-        // 更新受益者的 USDT 余额记录
-        _userBalances[user] += netAmount;
-        
         // 构造返回结果
         result.success = true;
         result.outputAmounts = new uint256[](1);
@@ -238,13 +186,8 @@ contract AaveAdapter is
         address user = params.recipient;
         require(user != address(0), "Recipient address must be specified");
         
-        require(_userBalances[user] >= amount, "Insufficient balance");
-        
-        // 从 Aave 取款到指定接收者
+        // 从 Aave 取款到指定接收者（Aave 会自动检查用户余额）
         uint256 actualAmount = IAavePool(aavePool).withdraw(token, amount, user);
-        
-        // 更新用户 USDT 余额记录
-        _userBalances[user] -= amount;
         
         // 计算净金额（简化，不收取提现手续费）
         uint256 netAmount = actualAmount;

@@ -139,16 +139,8 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
             const userATokenBalance = await mockAToken.balanceOf(user.address);
             expect(userATokenBalance).to.equal(expectedNetDeposit);
             
-            // 4. 检查适配器记录的用户余额
-            const adapterRecordedBalance = await aaveAdapter.getUserBalances(user.address);
-            expect(adapterRecordedBalance).to.equal(expectedNetDeposit);
-            
-            // 5. 验证收益查询功能
-            const yieldInfo = await aaveAdapter.getUserYield(user.address);
-            expect(yieldInfo.principal).to.equal(expectedNetDeposit);  // 本金
-            expect(yieldInfo.currentValue).to.equal(expectedNetDeposit); // 当前价值（暂无收益）
-            expect(yieldInfo.profit).to.equal(0n); // 收益为0
-            expect(yieldInfo.isProfit).to.be.true; // 无亏损
+            // 4. 通过 aToken 直接验证用户余额
+            // (已在上面第3步验证过了，无需重复检查)
             
             console.log("✅ 存款测试通过！");
             console.log(`💰 用户存款: ${ethers.formatUnits(USER_DEPOSIT_AMOUNT, 6)} USDT`);
@@ -235,6 +227,7 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
                 amounts: [USER_DEPOSIT_AMOUNT],
                 recipient: user.address,
                 deadline: Math.floor(Date.now() / 1000) + 3600,
+                tokenId: 0,
                 extraData: "0x"
             };
             
@@ -248,9 +241,9 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
             const expectedFee = USER_DEPOSIT_AMOUNT * BigInt(FEE_RATE_BPS) / 10000n;
             const expectedNetDeposit = USER_DEPOSIT_AMOUNT - expectedFee;
             
-            // 验证存款成功
-            const balanceAfterDeposit = await aaveAdapter.getUserBalances(user.address);
-            expect(balanceAfterDeposit).to.equal(expectedNetDeposit);
+            // 验证存款成功 - 通过 aToken 余额检查
+            const aTokenBalance = await mockAToken.balanceOf(user.address);
+            expect(aTokenBalance).to.equal(expectedNetDeposit);
             
             // === 执行取款操作 ===
             
@@ -263,6 +256,7 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
                 amounts: [withdrawAmount],
                 recipient: user.address, // 取款到用户地址
                 deadline: Math.floor(Date.now() / 1000) + 3600,
+                tokenId: 0,
                 extraData: "0x"
             };
             
@@ -281,9 +275,9 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
             
             // === 验证取款结果 ===
             
-            // 1. 检查用户在适配器中的余额记录减少
-            const balanceAfterWithdraw = await aaveAdapter.getUserBalances(user.address);
-            expect(balanceAfterWithdraw).to.equal(expectedNetDeposit - withdrawAmount);
+            // 1. 检查用户的 aToken 余额减少了相应数量
+            const aTokenBalanceAfter = await mockAToken.balanceOf(user.address);
+            expect(aTokenBalanceAfter).to.equal(expectedNetDeposit - withdrawAmount);
             
             // 2. 检查用户的 USDT 余额增加（考虑 MockAavePool 的利息）
             const usdtBalanceAfterWithdraw = await mockUSDT.balanceOf(user.address);
@@ -293,14 +287,12 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
             const aTokenBalanceAfterWithdraw = await mockAToken.balanceOf(user.address);
             expect(aTokenBalanceAfterWithdraw).to.be.lessThan(aTokenBalanceBeforeWithdraw);
             
-            // 4. 验证收益查询功能
-            const yieldInfoAfterWithdraw = await aaveAdapter.getUserYield(user.address);
-            expect(yieldInfoAfterWithdraw.principal).to.equal(expectedNetDeposit - withdrawAmount);
+
             
             console.log("✅ 取款测试通过！");
             console.log(`💰 存款净额: ${ethers.formatUnits(expectedNetDeposit, 6)} USDT`);
             console.log(`💸 取款金额: ${ethers.formatUnits(withdrawAmount, 6)} USDT`);
-            console.log(`🏦 剩余余额: ${ethers.formatUnits(balanceAfterWithdraw, 6)} USDT`);
+            console.log(`🏦 剩余 aToken: ${ethers.formatUnits(aTokenBalanceAfter, 6)} aUSDT`);
             console.log(`📈 收到 USDT: ${ethers.formatUnits(usdtBalanceAfterWithdraw - usdtBalanceBeforeWithdraw, 6)} USDT (含利息)`);
         });
 
@@ -314,6 +306,7 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
                 amounts: [USER_DEPOSIT_AMOUNT],
                 recipient: user.address,
                 deadline: Math.floor(Date.now() / 1000) + 3600,
+                tokenId: 0,
                 extraData: "0x"
             };
             
@@ -324,7 +317,7 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
                     1, // WITHDRAW
                     withdrawParams
                 )
-            ).to.be.revertedWith("Insufficient balance");
+            ).to.be.revertedWith("Insufficient aToken balance");
             
             console.log("✅ 余额不足时正确拒绝取款！");
         });
@@ -344,6 +337,7 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
                 amounts: [USER_DEPOSIT_AMOUNT],
                 recipient: user.address,
                 deadline: Math.floor(Date.now() / 1000) + 3600,
+                tokenId: 0,
                 extraData: "0x"
             };
             
@@ -355,6 +349,7 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
                 amounts: [0n], // 零金额
                 recipient: user.address,
                 deadline: Math.floor(Date.now() / 1000) + 3600,
+                tokenId: 0,
                 extraData: "0x"
             };
             
@@ -386,13 +381,14 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
                 amounts: [USER_DEPOSIT_AMOUNT],
                 recipient: user.address,
                 deadline: Math.floor(Date.now() / 1000) + 3600,
+                tokenId: 0,
                 extraData: "0x"
             };
             
             await defiAggregator.connect(user).executeOperation("aave", 0, depositParams);
             
-            // 获取存款净额
-            const netDeposit = await aaveAdapter.getUserBalances(user.address);
+            // 获取存款净额 - 通过 aToken 余额
+            const netDeposit = await mockAToken.balanceOf(user.address);
             
             // === 执行完全取款 ===
             
@@ -401,6 +397,7 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
                 amounts: [netDeposit], // 取出所有余额
                 recipient: user.address,
                 deadline: Math.floor(Date.now() / 1000) + 3600,
+                tokenId: 0,
                 extraData: "0x"
             };
             
@@ -410,19 +407,15 @@ describe("06-aave.test.js - Aave Adapter Test", function () {
             
             // === 验证完全取款结果 ===
             
-            // 1. 用户在适配器中的余额应为0
-            const finalBalance = await aaveAdapter.getUserBalances(user.address);
-            expect(finalBalance).to.equal(0n);
+            // 1. 用户的 aToken 余额应为0
+            const finalATokenBalance = await mockAToken.balanceOf(user.address);
+            expect(finalATokenBalance).to.equal(0n);
             
             // 2. 用户收到了 USDT（包含利息）
             const usdtBalanceAfter = await mockUSDT.balanceOf(user.address);
             expect(usdtBalanceAfter).to.be.greaterThan(usdtBalanceBefore);
             
-            // 3. 收益查询应显示无余额
-            const yieldInfo = await aaveAdapter.getUserYield(user.address);
-            expect(yieldInfo.principal).to.equal(0n);
-            expect(yieldInfo.currentValue).to.equal(0n);
-            expect(yieldInfo.profit).to.equal(0n);
+
             
             console.log("✅ 完全取款测试通过！");
             console.log(`💰 取出金额: ${ethers.formatUnits(netDeposit, 6)} USDT`);

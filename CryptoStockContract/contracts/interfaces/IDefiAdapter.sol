@@ -41,32 +41,6 @@ interface IDefiAdapter is IOperationTypes {
     ) external view returns (OperationResult memory result);
     
     /**
-     * @dev 获取用户在该模块中的 USDT 余额，这里存在设计争议，各个模块的资产形式可能不同，没有统一为 USDT
-     * @param user 用户地址
-     * @return balance USDT 余额
-     */
-    function getUserBalances(
-        address user
-    ) external view returns (uint256 balance);
-    
-    /**
-     * @dev 获取用户的收益信息
-     * @param user 用户地址
-     * @return principal 本金（用户存入的净金额）
-     * @return currentValue 当前价值（包含收益/损失）
-     * @return profit 收益金额（正数为收益，负数为损失）
-     * @return isProfit true表示盈利，false表示亏损
-     */
-    function getUserYield(
-        address user
-    ) external view returns (
-        uint256 principal,
-        uint256 currentValue,
-        uint256 profit,
-        bool isProfit
-    );
-    
-    /**
      * @dev 获取模块支持的操作类型列表
      * @return operations 支持的操作类型数组
      */
