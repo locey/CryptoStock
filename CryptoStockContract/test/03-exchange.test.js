@@ -349,6 +349,7 @@ describe("Exchange - 股票交易所功能测试", function () {
   });
 
   describe("2. 买入功能（USDT → 股票代币）", function () {
+
     it("正常买入流程，用户A用USDT买入AAPL，余额变化验证", async function () {
       const buyAmount = ethers.parseUnits("100", 6); // 100 USDT
       
@@ -1046,7 +1047,8 @@ describe("Exchange - 股票交易所功能测试", function () {
         // 理论上正常的滑点应该能成功交易
         let slippageTestSuccess = false;
         try {
-          const overrides = { 
+          const 
+           = { 
             value: fee,
             gasLimit: isLocalNetwork ? 200000 : 300000,
             gasPrice: isLocalNetwork ? ethers.parseUnits("20", "gwei") : ethers.parseUnits("30", "gwei")

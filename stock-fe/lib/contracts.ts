@@ -1,3 +1,6 @@
+// 从部署文件中导入合约地址
+import deploymentConfig from './abi/deployments-uups-sepolia.json';
+
 // 合约地址配置
 export const NETWORK_CONFIG = {
   // 本地 Hardhat 网络
@@ -12,15 +15,15 @@ export const NETWORK_CONFIG = {
     }
   },
 
-  // Sepolia 测试网
+  // Sepolia 测试网 - 从部署文件中动态读取合约地址
   sepolia: {
     chainId: 11155111,
     name: "sepolia",
     rpcUrl: "https://sepolia.infura.io/v3/",
     contracts: {
-      oracleAggregator: "0x34448d44CcFc49C542c237C46258D64a5C198572",
-      usdt: "0xDec3B9c058daFbAeFb48f2E4C819c96f3174c7D8",
-      stockTokenImplementation: "0xCA2abEAd6A518d9192D1f87a96923CA0B2b5FAE3", // StockToken implementation contract
+      oracleAggregator: deploymentConfig.contracts.OracleAggregator.proxy,
+      usdt: deploymentConfig.contracts.USDT,
+      stockTokenImplementation: deploymentConfig.contracts.StockTokenImplementation, // StockToken implementation contract
     }
   },
 
@@ -52,3 +55,35 @@ export function getNetworkConfig(chainId: number) {
 
 // 默认导出 Sepolia 测试网配置
 export const DEFAULT_CONFIG = NETWORK_CONFIG.sepolia;
+
+// 从部署文件中导出的股票代币地址映射
+export const STOCK_TOKENS = deploymentConfig.stockTokens;
+
+// 从部署文件中导出的价格预言机Feed ID映射
+export const PRICE_FEEDS = deploymentConfig.priceFeeds;
+
+// 网络部署信息
+export const DEPLOYMENT_INFO = {
+  network: deploymentConfig.network,
+  chainId: deploymentConfig.chainId,
+  deployer: deploymentConfig.deployer,
+  timestamp: deploymentConfig.timestamp,
+} as const;
+
+// 获取股票代币地址的辅助函数
+export function getStockTokenAddress(symbol: string): string {
+  const upperSymbol = symbol.toUpperCase();
+  if (!(upperSymbol in STOCK_TOKENS)) {
+    throw new Error(`未找到股票符号 ${symbol} 对应的代币地址`);
+  }
+  return STOCK_TOKENS[upperSymbol as keyof typeof STOCK_TOKENS];
+}
+
+// 获取价格预言机Feed ID的辅助函数
+export function getPriceFeedId(symbol: string): string {
+  const upperSymbol = symbol.toUpperCase();
+  if (!(upperSymbol in PRICE_FEEDS)) {
+    throw new Error(`未找到股票符号 ${symbol} 对应的价格预言机Feed ID`);
+  }
+  return PRICE_FEEDS[upperSymbol as keyof typeof PRICE_FEEDS];
+}
