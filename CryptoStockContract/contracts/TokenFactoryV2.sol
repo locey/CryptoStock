@@ -67,9 +67,9 @@ contract TokenFactoryV2 is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     event ImplementationUpdated(address newImplementation);
     
     // V2 新增事件
-    event TokenCategoryUpdated(string indexed symbol, TokenCategory oldCategory, TokenCategory newCategory);
-    event TokenStatusUpdated(string indexed symbol, bool isActive);
-    event TokenVolumeUpdated(string indexed symbol, uint256 newVolume);
+    event TokenCategoryUpdated(string symbol, TokenCategory oldCategory, TokenCategory newCategory);
+    event TokenStatusUpdated(string symbol, bool isActive);
+    event TokenVolumeUpdated(string symbol, uint256 newVolume);
     event CreationFeeUpdated(uint256 newFee);
     event FeeRecipientUpdated(address newRecipient);
     event AuthorizedCreatorUpdated(address indexed creator, bool status);

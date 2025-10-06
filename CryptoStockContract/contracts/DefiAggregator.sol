@@ -31,9 +31,9 @@ contract DefiAggregator is
     uint24 public feeRateBps;
     
     // 事件
-    event AdapterRegistered(string indexed adapterName, address indexed adapterAddress);
-    event AdapterRemoved(string indexed adapterName, address indexed adapterAddress);
-    event OperationExecuted(address indexed user, string indexed adapterName, OperationType indexed operationType);
+    event AdapterRegistered(string adapterName, address indexed adapterAddress);
+    event AdapterRemoved(string adapterName, address indexed adapterAddress);
+    event OperationExecuted(address indexed user, string adapterName, OperationType indexed operationType);
     event FeeRateChanged(uint256 oldRate, uint256 newRate);
     
     modifier onlyValidAdapter(string calldata adapterName) {

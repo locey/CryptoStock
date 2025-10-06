@@ -23,8 +23,8 @@ contract OracleAggregatorV2 is Initializable, OwnableUpgradeable, UUPSUpgradeabl
     address public adminAddress;
     
     // 事件
-    event FeedIdUpdated(string indexed symbol, bytes32 feedId);
-    event FeedIdRemoved(string indexed symbol);
+    event FeedIdUpdated(string symbol, bytes32 feedId);
+    event FeedIdRemoved(string symbol);
     
     // V2 新增事件
     event CounterIncremented(uint256 newValue);

@@ -17,8 +17,8 @@ contract OracleAggregator is Initializable, OwnableUpgradeable, UUPSUpgradeable 
     string[] public supportedSymbols;
     
     // 事件
-    event FeedIdUpdated(string indexed symbol, bytes32 feedId);
-    event FeedIdRemoved(string indexed symbol);
+    event FeedIdUpdated(string symbol, bytes32 feedId);
+    event FeedIdRemoved(string symbol);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {

@@ -40,9 +40,9 @@ contract StockToken is
     address public feeReceiver; // 手续费接收地址
     
     // 事件
-    event TokenPurchased(address indexed buyer, string indexed stockSymbol, uint256 usdtAmount, uint256 tokenAmount, uint256 price);
-    event TokenSold(address indexed seller, string indexed stockSymbol, uint256 tokenAmount, uint256 usdtAmount, uint256 price);
-    event ParameterUpdated(string indexed parameter, uint256 oldValue, uint256 newValue);
+    event TokenPurchased(address indexed buyer, string stockSymbol, uint256 usdtAmount, uint256 tokenAmount, uint256 price);
+    event TokenSold(address indexed seller, string stockSymbol, uint256 tokenAmount, uint256 usdtAmount, uint256 price);
+    event ParameterUpdated(string parameter, uint256 oldValue, uint256 newValue);
     event EmergencyWithdraw(address indexed token, address indexed to, uint256 amount);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
