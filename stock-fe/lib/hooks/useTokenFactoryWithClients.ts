@@ -1,13 +1,13 @@
 import { useCallback } from 'react';
 import { Address, parseAbi } from 'viem';
 import { useWallet } from 'ycdirectory-ui';
-import { usePublicClient, useWalletClient } from '@/hooks/usePublicClient';
+import { usePublicClient, useWalletClient } from 'ycdirectory-hooks';
 import useTokenFactoryStore, {
   CreateTokenParams,
   TransactionResult,
   TokenInfo,
   DeploymentInfo
-} from '../store/useTokenFactoryStore';
+} from '../stores/useTokenFactoryStore';
 import deployments from '@/lib/abi/deployments-uups-sepolia.json';
 import localDeployments from '@/lib/abi/deployments-local.json';
 import StockTokenABI from '@/lib/abi/StockToken.json';
