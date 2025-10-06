@@ -1,5 +1,5 @@
-// 完全替代 hardhat-deploy 的一体化部署脚本
-// 直接用 npx hardhat run scripts/deploy-full-system.js --network <network> 执行
+// 股票代币系统 Sepolia 网络部署脚本
+// 直接用 npx hardhat run scripts/deploy-stock-sepolia.js --network sepolia 执行
 
 const { ethers, upgrades } = require("hardhat");
 const fs = require("fs");
