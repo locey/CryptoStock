@@ -169,7 +169,7 @@ interface SellStoreState {
   getSellEstimate: (publicClient: PublicClient, stockTokenAddress: Address, tokenAmount: bigint) => Promise<ContractCallResult>;
 
   // 3. 获取价格更新数据
-  fetchPriceUpdateData: (tokenSymbol: string) => Promise<ContractCallResult>;
+  fetchPriceUpdateData: (publicClient: PublicClient, tokenSymbol: string) => Promise<ContractCallResult>;
 
   // 4. 执行卖出交易
   executeSellTransaction: (
@@ -446,8 +446,8 @@ export const useSellStore = create<SellStoreState>()(
           console.log('📊 余额查询结果:', balanceResults.map(b => b.toString()));
 
           // 安全地转换为 bigint
-          const usdtBalance = BigInt(balanceResults[0] as string);
-          const tokenBalance = BigInt(balanceResults[1] as string);
+          const usdtBalance = BigInt(balanceResults[0] as unknown as string);
+          const tokenBalance = BigInt(balanceResults[1] as unknown as string);
 
           const balanceInfo: BalanceInfo = {
             usdtBalance,
@@ -502,8 +502,8 @@ export const useSellStore = create<SellStoreState>()(
             throw new Error('合约返回结果格式错误');
           }
 
-          const estimatedUsdt = BigInt(resultArray[0] as string);
-          const estimatedFee = BigInt(resultArray[1] as string);
+          const estimatedUsdt = BigInt(resultArray[0] as unknown as string);
+          const estimatedFee = BigInt(resultArray[1] as unknown as string);
 
           console.log('✅ 预估获取成功:', {
             estimatedUsdt: formatUnits(estimatedUsdt, 6),
@@ -526,7 +526,7 @@ export const useSellStore = create<SellStoreState>()(
       /**
        * 3. 获取价格更新数据
        */
-      fetchPriceUpdateData: async (publicClient:PublicClient,tokenSymbol: string): Promise<ContractCallResult> => {
+      fetchPriceUpdateData: async (publicClient: PublicClient, tokenSymbol: string): Promise<ContractCallResult> => {
         try {
           console.log('📡 获取价格更新数据...', { tokenSymbol, tokenSymbolType: typeof tokenSymbol });
 

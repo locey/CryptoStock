@@ -11,8 +11,7 @@ export const useSellConnection = () => {
     (state) => ({
       isConnected: state.isConnected,
       address: state.address,
-    }),
-    shallow
+    })
   );
 };
 
@@ -40,8 +39,7 @@ export const useSellBalances = () => {
         tokenBalance: '0',
       },
       lastBalanceUpdate: state.lastBalanceUpdate,
-    }),
-    shallow
+    })
   );
 };
 
@@ -54,8 +52,7 @@ export const useSellParams = () => {
     (state) => ({
       sellAmount: state.sellAmount,
       slippage: state.slippage,
-    }),
-    shallow
+    })
   );
 };
 
@@ -77,8 +74,7 @@ export const useSellTransaction = () => {
       isTransactionPending: state.isTransactionPending,
       currentTransaction: state.currentTransaction,
       sellHistory: state.sellHistory,
-    }),
-    shallow
+    })
   );
 };
 
@@ -91,8 +87,7 @@ export const useSellError = () => {
     (state) => ({
       error: state.error,
       errorCode: state.errorCode,
-    }),
-    shallow
+    })
   );
 };
 

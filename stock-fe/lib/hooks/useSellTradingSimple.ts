@@ -98,7 +98,7 @@ export function useSellTradingSimple({
 
         console.log("🔢 开始计算预估...", { sellAmount: sellStore.sellAmount });
         const sellAmountWei = parseUnits(sellStore.sellAmount, 18);
-        const result = await sellStore.getSellEstimate(publicClient, stockTokenAddress, sellAmountWei);
+        const result = await sellStore.getSellEstimate(publicClient as any, stockTokenAddress, sellAmountWei);
         if (result.success && result.data) {
           sellStore.setEstimate(result.data.estimatedUsdt, result.data.estimatedFee);
           console.log("✅ 预估计算完成");
@@ -142,7 +142,7 @@ export function useSellTradingSimple({
         return;
       }
 
-      const result = await sellStore.fetchBalances(publicClient, stockTokenAddress, address);
+      const result = await sellStore.fetchBalances(publicClient as any, stockTokenAddress, address);
 
       if (!result.success) {
         throw new Error(result.error || '获取余额失败');
@@ -178,8 +178,8 @@ export function useSellTradingSimple({
       });
 
       const result = await sellStore.sellToken(
-        publicClient,
-        actualWalletClient,
+        publicClient as any,
+        actualWalletClient as any,
         chain,
         address,
         stockTokenAddress
@@ -223,9 +223,9 @@ export function useSellTradingSimple({
     isLoading: sellStore.isTransactionPending,
     canSell: !!sellStore.token && !!sellStore.sellAmount &&
              parseFloat(sellStore.sellAmount) > 0 &&
-             sellStore.balances?.tokenBalance > 0n,
-    hasSufficientBalance: sellStore.balances?.tokenBalance > 0n && sellStore.sellAmount ?
-      sellStore.balances.tokenBalance >= parseUnits(sellStore.sellAmount, 18) : true,
+             (sellStore.balances?.tokenBalance || 0n) > 0n,
+    hasSufficientBalance: (sellStore.balances?.tokenBalance || 0n) > 0n && sellStore.sellAmount ?
+      (sellStore.balances?.tokenBalance || 0n) >= parseUnits(sellStore.sellAmount, 18) : true,
     error: sellStore.error,
 
     // 数据信息
