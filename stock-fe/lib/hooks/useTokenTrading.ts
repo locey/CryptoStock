@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Address, formatUnits, parseUnits, maxUint256, formatEther } from 'viem';
-import { usePublicClient, useWalletClient } from '@/hooks/usePublicClient';
+import { usePublicClient, useWalletClient } from 'ycdirectory-hooks';
 import { useWallet } from 'ycdirectory-ui';
 import { useToast } from '@/hooks/use-toast';
 import USDT_TOKEN_ABI from '@/lib/abi/MockERC20.json';
@@ -56,6 +56,7 @@ export interface TradingResult {
   hash?: `0x${string}`;
   error?: string;
 }
+
 
 /**
  * Token Trading Hook
