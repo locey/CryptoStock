@@ -240,18 +240,29 @@ contract MockNonfungiblePositionManager is ERC721, ReentrancyGuard {
             MockERC20(position.token1).mint(address(this), amount1);
         }
         
+        // 先计算比例，再更新 position（避免算术错误）
+        uint256 originalLiquidity = position.liquidity;
+        
         // Update position
         position.liquidity -= params.liquidity;
         position.tokensOwed0 += uint128(amount0);
         position.tokensOwed1 += uint128(amount1);
         
-        // 按比例减少投入记录
-        if (position.liquidity > 0) {
-            uint256 proportion = (params.liquidity * 1e18) / (position.liquidity + params.liquidity);
-            position.amount0Deposited -= (position.amount0Deposited * proportion) / 1e18;
-            position.amount1Deposited -= (position.amount1Deposited * proportion) / 1e18;
-        } else {
-            // 如果流动性完全移除，清零投入记录
+        // 按比例减少投入记录（使用原始流动性计算）
+        if (originalLiquidity > 0 && params.liquidity > 0) {
+            uint256 proportion = (params.liquidity * 1e18) / originalLiquidity;
+            uint256 reducedAmount0 = (position.amount0Deposited * proportion) / 1e18;
+            uint256 reducedAmount1 = (position.amount1Deposited * proportion) / 1e18;
+            
+            // 确保不会出现下溢
+            position.amount0Deposited = position.amount0Deposited >= reducedAmount0 ? 
+                position.amount0Deposited - reducedAmount0 : 0;
+            position.amount1Deposited = position.amount1Deposited >= reducedAmount1 ? 
+                position.amount1Deposited - reducedAmount1 : 0;
+        }
+        
+        // 如果流动性完全移除，清零投入记录
+        if (position.liquidity == 0) {
             position.amount0Deposited = 0;
             position.amount1Deposited = 0;
         }

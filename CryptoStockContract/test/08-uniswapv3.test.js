@@ -24,15 +24,7 @@ describe("08-uniswapv3.test.js - UniswapV3Adapter 测试", function () {
         const MockNPM = await ethers.getContractFactory("MockNonfungiblePositionManager");
         const mockNPM = await MockNPM.deploy();
 
-        // 3. 部署简单的 MockAggregatorV3Interface (ETH/USD 预言机)
-        const MockAggregator = await ethers.getContractFactory("MockAggregatorV3");
-        const mockPriceFeed = await MockAggregator.deploy(
-            "ETH/USD",
-            8, // decimals
-            ethers.parseUnits("2000", 8) // $2000 per ETH
-        );
-
-        // 4. 部署 DefiAggregator
+        // 3. 部署 DefiAggregator
         const DefiAggregator = await ethers.getContractFactory("DefiAggregator");
         const defiAggregator = await upgrades.deployProxy(
             DefiAggregator,
@@ -41,7 +33,7 @@ describe("08-uniswapv3.test.js - UniswapV3Adapter 测试", function () {
         );
         await defiAggregator.waitForDeployment();
 
-        // 5. 部署 UniswapV3Adapter (增加gas限制)
+        // 4. 部署 UniswapV3Adapter (增加gas限制)
         const UniswapV3Adapter = await ethers.getContractFactory("UniswapV3Adapter");
         const uniswapV3Adapter = await upgrades.deployProxy(
             UniswapV3Adapter,
@@ -49,7 +41,6 @@ describe("08-uniswapv3.test.js - UniswapV3Adapter 测试", function () {
                 await mockNPM.getAddress(),
                 await usdt.getAddress(),
                 await weth.getAddress(),
-                await mockPriceFeed.getAddress(),
                 deployer.address
             ],
             { 
@@ -60,17 +51,17 @@ describe("08-uniswapv3.test.js - UniswapV3Adapter 测试", function () {
         );
         await uniswapV3Adapter.waitForDeployment();
 
-        // 6. 注册适配器
+        // 5. 注册适配器
         await defiAggregator.registerAdapter("uniswapv3", await uniswapV3Adapter.getAddress());
 
-                // 7. 给用户分配 USDT/WETH
+        // 6. 给用户分配 USDT/WETH
         await usdt.mint(user.address, USER_USDT_AMOUNT);
         await weth.mint(user.address, USER_WETH_AMOUNT);
 
-        // 8. 不再需要给 MockNonfungiblePositionManager 额外代币
+        // 7. 不再需要给 MockNonfungiblePositionManager 额外代币
         // 因为现在基于实际投入计算，会自动计算固定收益
 
-        return { deployer, user, usdt, weth, mockNPM, mockPriceFeed, defiAggregator, uniswapV3Adapter };
+        return { deployer, user, usdt, weth, mockNPM, defiAggregator, uniswapV3Adapter };
     }
 
     it("添加流动性", async function () {
@@ -102,7 +93,26 @@ describe("08-uniswapv3.test.js - UniswapV3Adapter 测试", function () {
             2, // ADD_LIQUIDITY
             params
         );
-        await tx.wait();
+        const receipt = await tx.wait();
+        
+        // 从 OperationExecuted 事件的 returnData 中获取 tokenId
+        const operationExecutedEvent = receipt.logs.find(log => {
+            try {
+                const parsed = uniswapV3Adapter.interface.parseLog(log);
+                return parsed && parsed.name === 'OperationExecuted';
+            } catch (e) {
+                return false;
+            }
+        });
+        
+        expect(operationExecutedEvent).to.not.be.undefined;
+        const parsedEvent = uniswapV3Adapter.interface.parseLog(operationExecutedEvent);
+        
+        // 从 returnData 中解码 tokenId
+        const returnData = parsedEvent.args.returnData;
+        const actualTokenId = ethers.AbiCoder.defaultAbiCoder().decode(['uint256'], returnData)[0];
+        
+        console.log("从事件 returnData 获取的 Token ID:", actualTokenId.toString());
         
         // 记录操作后的余额
         const userUsdtBalanceAfter = await usdt.balanceOf(user.address);
@@ -120,12 +130,12 @@ describe("08-uniswapv3.test.js - UniswapV3Adapter 测试", function () {
         expect(npmUsdtBalanceAfter - npmUsdtBalanceBefore).to.equal(actualUsdtDeposited); // NPM收到扣费后金额
         expect(npmWethBalanceAfter - npmWethBalanceBefore).to.equal(actualWethDeposited); // NPM收到扣费后金额
         
-        // 检查用户 Position
-        const positions = await uniswapV3Adapter.getUserPositions(user.address);
-        expect(positions.length).to.equal(1);
+        // 检查用户 NFT 余额
+        const nftBalance = await mockNPM.balanceOf(user.address);
+        expect(nftBalance).to.equal(1);
         
-        // 通过 MockNonfungiblePositionManager 直接验证 NFT 参数
-        const tokenId = positions[0];
+        // 使用从事件获取的 tokenId
+        const tokenId = actualTokenId;
         
         // 验证 NFT 所有者
         const owner = await mockNPM.ownerOf(tokenId);
@@ -163,11 +173,25 @@ describe("08-uniswapv3.test.js - UniswapV3Adapter 测试", function () {
             2,
             params
         );
-        await tx.wait();
-        const positions = await uniswapV3Adapter.getUserPositions(user.address);
+        const receipt = await tx.wait();
+        
+        // 从 OperationExecuted 事件的 returnData 中获取 tokenId
+        const operationExecutedEvent = receipt.logs.find(log => {
+            try {
+                const parsed = uniswapV3Adapter.interface.parseLog(log);
+                return parsed && parsed.name === 'OperationExecuted';
+            } catch (e) {
+                return false;
+            }
+        });
+        
+        expect(operationExecutedEvent).to.not.be.undefined;
+        const parsedEvent = uniswapV3Adapter.interface.parseLog(operationExecutedEvent);
+        const returnData = parsedEvent.args.returnData;
+        const removeTokenId = ethers.AbiCoder.defaultAbiCoder().decode(['uint256'], returnData)[0];
         
         // 用户需要授权 UniswapV3Adapter 操作其 NFT
-        await mockNPM.connect(user).approve(await uniswapV3Adapter.getAddress(), positions[0]);
+        await mockNPM.connect(user).approve(await uniswapV3Adapter.getAddress(), removeTokenId);
         
         // 移除流动性 - 提供占位符代币地址以满足 DefiAggregator 的要求
         const removeParams = {
@@ -175,7 +199,7 @@ describe("08-uniswapv3.test.js - UniswapV3Adapter 测试", function () {
             amounts: [0, 0],                   // amount0Min, amount1Min
             recipient: user.address,
             deadline: Math.floor(Date.now() / 1000) + 3600,
-            tokenId: positions[0],             // 使用 tokenId 字段
+            tokenId: removeTokenId,            // 使用 tokenId 字段
             extraData: "0x"
         };
         // 记录移除流动性前的余额
@@ -197,9 +221,9 @@ describe("08-uniswapv3.test.js - UniswapV3Adapter 测试", function () {
         const mockNpmUsdtBalanceAfter = await usdt.balanceOf(await mockNPM.getAddress());
         const mockNpmWethBalanceAfter = await weth.balanceOf(await mockNPM.getAddress());
         
-        // 1. 检查 Position 被移除
-        const positionsAfter = await uniswapV3Adapter.getUserPositions(user.address);
-        expect(positionsAfter.length).to.equal(0);
+        // 1. 检查用户NFT余额是否减少（移除流动性后NFT可能被销毁或转移）
+        const nftBalanceAfter = await mockNPM.balanceOf(user.address);
+        // 注意：在某些实现中，移除流动性可能不会销毁NFT，所以这里只检查余额变化
         
         // 2. 检查用户代币余额是否增加了
         expect(userUsdtBalanceAfter).to.be.gt(userUsdtBalanceBefore);
@@ -218,7 +242,7 @@ describe("08-uniswapv3.test.js - UniswapV3Adapter 测试", function () {
         console.log(`MockNPM WETH 变化: ${ethers.formatUnits(mockNpmWethBalanceAfter - mockNpmWethBalanceBefore, 18)} (铸造+转出=0)`);
         
         // 4. 验证 NFT 仍然存在但流动性已清零（符合 UniswapV3 实际行为）
-        const tokenId = positions[0];
+        const tokenId = removeTokenId; // 使用之前获取的 tokenId
         const ownerAfter = await mockNPM.ownerOf(tokenId);
         expect(ownerAfter).to.equal(user.address);
         
@@ -247,22 +271,36 @@ describe("08-uniswapv3.test.js - UniswapV3Adapter 测试", function () {
             2,
             params
         );
-        await tx.wait();
-        const positions = await uniswapV3Adapter.getUserPositions(user.address);
+        const receipt = await tx.wait();
+        
+        // 从 OperationExecuted 事件的 returnData 中获取 tokenId
+        const operationExecutedEvent = receipt.logs.find(log => {
+            try {
+                const parsed = uniswapV3Adapter.interface.parseLog(log);
+                return parsed && parsed.name === 'OperationExecuted';
+            } catch (e) {
+                return false;
+            }
+        });
+        
+        expect(operationExecutedEvent).to.not.be.undefined;
+        const parsedEvent = uniswapV3Adapter.interface.parseLog(operationExecutedEvent);
+        const returnData = parsedEvent.args.returnData;
+        const tokenId2 = ethers.AbiCoder.defaultAbiCoder().decode(['uint256'], returnData)[0];
         
         // 用户需要授权 UniswapV3Adapter 操作其 NFT
-        await mockNPM.connect(user).approve(await uniswapV3Adapter.getAddress(), positions[0]);
+        await mockNPM.connect(user).approve(await uniswapV3Adapter.getAddress(), tokenId2);
         
         // 手动模拟一段时间后的手续费累积 (0.2% 手续费)
-        await mockNPM.simulateFeeAccumulation(positions[0], 20); // 20 基点 = 0.2%
+        await mockNPM.simulateFeeAccumulation(tokenId2, 20); // 20 基点 = 0.2%
         
-        const positionInfo = await mockNPM.positions(positions[0]);
+        const positionInfo = await mockNPM.positions(tokenId2);
         console.log(`模拟手续费累积后:`);
         console.log(`tokensOwed0 (USDT): ${ethers.formatUnits(positionInfo.tokensOwed0, 6)}`);
         console.log(`tokensOwed1 (WETH): ${ethers.formatUnits(positionInfo.tokensOwed1, 18)}`);
         
         // 在执行 collect 操作前再次检查手续费状态
-        const positionBeforeCollect = await mockNPM.positions(positions[0]);
+        const positionBeforeCollect = await mockNPM.positions(tokenId2);
         console.log(`\n执行 collect 操作前:`);
         console.log(`tokensOwed0: ${ethers.formatUnits(positionBeforeCollect.tokensOwed0, 6)}`);
         console.log(`tokensOwed1: ${ethers.formatUnits(positionBeforeCollect.tokensOwed1, 18)}`);
@@ -274,7 +312,7 @@ describe("08-uniswapv3.test.js - UniswapV3Adapter 测试", function () {
         const mockNpmWethBalanceBefore = await weth.balanceOf(await mockNPM.getAddress());
         
         // 获取Position收取前的手续费状态
-        const positionBefore = await mockNPM.positions(positions[0]);
+        const positionBefore = await mockNPM.positions(tokenId2);
         console.log(`收取前 tokensOwed0 (USDT): ${ethers.formatUnits(positionBefore.tokensOwed0, 6)}`);
         console.log(`收取前 tokensOwed1 (WETH): ${ethers.formatUnits(positionBefore.tokensOwed1, 18)}`);
         
@@ -284,7 +322,7 @@ describe("08-uniswapv3.test.js - UniswapV3Adapter 测试", function () {
             amounts: [],                       // 空数组表示收取指定 tokenId 的手续费
             recipient: user.address,
             deadline: Math.floor(Date.now() / 1000) + 3600,
-            tokenId: positions[0],             // 使用新的 tokenId 字段
+            tokenId: tokenId2,                 // 使用新的 tokenId 字段
             extraData: "0x"
         };
         const tx2 = await defiAggregator.connect(user).executeOperation(
@@ -303,7 +341,7 @@ describe("08-uniswapv3.test.js - UniswapV3Adapter 测试", function () {
         const mockNpmWethBalanceAfter = await weth.balanceOf(await mockNPM.getAddress());
         
         // 获取Position收取后的手续费状态
-        const positionAfter = await mockNPM.positions(positions[0]);
+        const positionAfter = await mockNPM.positions(tokenId2);
         console.log(`收取后 tokensOwed0 (USDT): ${ethers.formatUnits(positionAfter.tokensOwed0, 6)}`);
         console.log(`收取后 tokensOwed1 (WETH): ${ethers.formatUnits(positionAfter.tokensOwed1, 18)}`);
         

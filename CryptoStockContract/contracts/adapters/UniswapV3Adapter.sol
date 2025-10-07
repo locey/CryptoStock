@@ -11,7 +11,6 @@ import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "../interfaces/IDefiAdapter.sol";
 import "../interfaces/INonfungiblePositionManager.sol";
-import "../interfaces/IChainlinkPriceFeed.sol";
 
 /**
  * @title UniswapV3Adapter
@@ -37,12 +36,6 @@ contract UniswapV3Adapter is
     // WETH 代币地址（用于与 ETH 配对）
     address public wethToken;
     
-    // ETH/USD Chainlink 预言机地址
-    address public ethUsdPriceFeed;
-    
-    mapping(address => uint256[]) private _userPositions;
-
-    
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -55,13 +48,11 @@ contract UniswapV3Adapter is
         address _positionManager,
         address _usdtToken,
         address _wethToken,
-        address _ethUsdPriceFeed,
         address _owner
     ) external initializer {
         require(_positionManager != address(0), "Invalid position manager address");
         require(_usdtToken != address(0), "Invalid USDT token address");
         require(_wethToken != address(0), "Invalid WETH token address");
-        require(_ethUsdPriceFeed != address(0), "Invalid ETH/USD price feed address");
         require(_owner != address(0), "Invalid owner address");
         
         __Ownable_init(_owner);
@@ -72,7 +63,6 @@ contract UniswapV3Adapter is
         positionManager = _positionManager;
         usdtToken = _usdtToken;
         wethToken = _wethToken;
-        ethUsdPriceFeed = _ethUsdPriceFeed;
     }
     
     // ===== IDefiAdapter 接口实现 =====
@@ -142,66 +132,7 @@ contract UniswapV3Adapter is
         return "1.0.0";
     }
 
-    // ===== 价格查询函数 =====
-    
-    /**
-     * @dev 从 Chainlink 获取 ETH/USD 价格
-     * @return price ETH 价格 (18 位精度)
-     */
-    function getETHPrice() public view returns (uint256 price) {
-        (, int256 rawPrice, , uint256 updatedAt, ) = AggregatorV3Interface(ethUsdPriceFeed).latestRoundData();
-        require(rawPrice > 0, "Invalid ETH price");
-        require(updatedAt > 0, "Price feed not updated");
-        require(block.timestamp - updatedAt <= 3600, "Price feed stale"); // 1小时内的价格
-        
-        uint8 decimals = AggregatorV3Interface(ethUsdPriceFeed).decimals();
-        // 将价格调整为 18 位精度
-        if (decimals < 18) {
-            price = uint256(rawPrice) * (10 ** (18 - decimals));
-        } else {
-            price = uint256(rawPrice) / (10 ** (decimals - 18));
-        }
-    }
-    
-    /**
-     * @dev 计算 Position 的美元价值
-     * @param usdtAmount USDT 数量 (6 位精度)
-     * @param wethAmount WETH 数量 (18 位精度)
-     * @return usdValue 总美元价值 (6 位精度，与 USDT 一致)
-     */
-    function calculateUSDValue(uint256 usdtAmount, uint256 wethAmount) public view returns (uint256 usdValue) {
-        // USDT 价值 (假设 1 USDT = 1 USD)
-        uint256 usdtValue = usdtAmount; // 已经是 6 位精度
-        
-        // WETH 价值
-        uint256 ethPrice = getETHPrice(); // 18 位精度
-        uint256 wethValue = (wethAmount * ethPrice) / 1e18; // 转换为 18 位精度
-        wethValue = wethValue / 1e12; // 转换为 6 位精度 (与 USDT 一致)
-        
-        usdValue = usdtValue + wethValue;
-    }
-    
-    /**
-     * @dev 获取 Position 的当前流动性数量和手续费收益
-     * @param tokenId Position NFT ID
-     * @return liquidity 当前流动性数量
-     * @return tokensOwed0 累积的 token0 手续费
-     * @return tokensOwed1 累积的 token1 手续费
-     */
-    function getPositionValue(uint256 tokenId) public view returns (
-        uint128 liquidity,
-        uint256 tokensOwed0,
-        uint256 tokensOwed1
-    ) {
-        // 获取 Position 基本信息
-        uint128 owed0;
-        uint128 owed1;
-        (, , , , , , , liquidity, , , owed0, owed1) = 
-            INonfungiblePositionManager(positionManager).positions(tokenId);
-        
-        tokensOwed0 = uint256(owed0);
-        tokensOwed1 = uint256(owed1);
-    }
+
 
     // ===== 内部操作处理函数 =====
     
@@ -249,15 +180,15 @@ contract UniswapV3Adapter is
         // 调用 mint 函数
         (uint256 tokenId,,,) = INonfungiblePositionManager(positionManager).mint(mintParams);
         
-        // 记录用户 Position
-        _userPositions[params.recipient].push(tokenId);
-        
         result.success = true;
         result.outputAmounts = new uint256[](1);
         result.outputAmounts[0] = tokenId;
         result.message = "Add liquidity successful";
         
-        emit OperationExecuted(params.recipient, OperationType.ADD_LIQUIDITY, params.tokens, params.amounts, "");
+        // 将 tokenId 编码到 returnData 中
+        bytes memory returnData = abi.encode(tokenId);
+        
+        emit OperationExecuted(params.recipient, OperationType.ADD_LIQUIDITY, params.tokens, params.amounts, returnData);
         
         return result;
     }
@@ -279,7 +210,7 @@ contract UniswapV3Adapter is
         uint256 tokenId = params.tokenId;
         
         // 验证用户拥有此 Position
-        require(_isUserPosition(params.recipient, tokenId), "User does not own this position");
+        require(INonfungiblePositionManager(positionManager).ownerOf(tokenId) == params.recipient, "User does not own this position");
         
         // 获取流动性并移除
         (, , , , , , , uint128 liquidity, , , , ) = INonfungiblePositionManager(positionManager).positions(tokenId);
@@ -305,9 +236,6 @@ contract UniswapV3Adapter is
         });
         (uint256 amount0, uint256 amount1) = INonfungiblePositionManager(positionManager).collect(collectParams);
         
-        // 清理用户记录
-        _removeUserPosition(params.recipient, tokenId);
-        
         result.success = true;
         result.outputAmounts = new uint256[](2);
         result.outputAmounts[0] = amount0; // USDT
@@ -330,64 +258,32 @@ contract UniswapV3Adapter is
         uint24 /* feeRateBps */
     ) internal returns (OperationResult memory result) {
         require(params.recipient != address(0), "Recipient address must be specified");
+        require(params.tokenId > 0, "Invalid tokenId");
         
-        uint256 totalAmount0 = 0;
-        uint256 totalAmount1 = 0;
+        uint256 tokenId = params.tokenId;
         
-        // 检查是否收取指定Position或所有Position的手续费
-        bool collectAll = params.tokenId == 0 && params.amounts.length > 0 && params.amounts[0] == 1;
+        // 验证用户拥有此 Position
+        require(INonfungiblePositionManager(positionManager).ownerOf(tokenId) == params.recipient, "User does not own this position");
         
-        if (collectAll) {
-            // 收取用户所有Position的手续费
-            uint256[] memory userPositions = _userPositions[params.recipient];
-            require(userPositions.length > 0, "No positions found");
-            
-            for (uint i = 0; i < userPositions.length; i++) {
-                uint256 tokenId = userPositions[i];
-                
-                // 提取每个Position的手续费
-                INonfungiblePositionManager.CollectParams memory collectParams = INonfungiblePositionManager.CollectParams({
-                    tokenId: tokenId,
-                    recipient: params.recipient,
-                    amount0Max: type(uint128).max,
-                    amount1Max: type(uint128).max
-                });
-                
-                (uint256 amount0, uint256 amount1) = INonfungiblePositionManager(positionManager).collect(collectParams);
-                totalAmount0 += amount0;
-                totalAmount1 += amount1;
-                
-                // 发出事件记录手续费收集
-                if (amount0 > 0 || amount1 > 0) {
-                    emit FeesCollected(params.recipient, tokenId, amount0, amount1);
-                }
-            }
-        } else {
-            // 只收取指定Position的手续费
-            require(params.tokenId > 0, "Invalid tokenId");
-            uint256 tokenId = params.tokenId;
-            require(_isUserPosition(params.recipient, tokenId), "User does not own this position");
-            
-            INonfungiblePositionManager.CollectParams memory collectParams = INonfungiblePositionManager.CollectParams({
-                tokenId: tokenId,
-                recipient: params.recipient,
-                amount0Max: type(uint128).max,
-                amount1Max: type(uint128).max
-            });
-            
-            (totalAmount0, totalAmount1) = INonfungiblePositionManager(positionManager).collect(collectParams);
-            
-            // 发出事件记录手续费收集
-            if (totalAmount0 > 0 || totalAmount1 > 0) {
-                emit FeesCollected(params.recipient, tokenId, totalAmount0, totalAmount1);
-            }
+        INonfungiblePositionManager.CollectParams memory collectParams = INonfungiblePositionManager.CollectParams({
+            tokenId: tokenId,
+            recipient: params.recipient,
+            amount0Max: type(uint128).max,
+            amount1Max: type(uint128).max
+        });
+        
+        (uint256 amount0, uint256 amount1) = INonfungiblePositionManager(positionManager).collect(collectParams);
+        
+        // 发出事件记录手续费收集
+        if (amount0 > 0 || amount1 > 0) {
+            emit FeesCollected(params.recipient, tokenId, amount0, amount1);
         }
         
         result.success = true;
         result.outputAmounts = new uint256[](2);
-        result.outputAmounts[0] = totalAmount0; // USDT 手续费
-        result.outputAmounts[1] = totalAmount1; // WETH 手续费
-        result.message = collectAll ? "Collect all fees successful" : "Collect fees successful";
+        result.outputAmounts[0] = amount0; // USDT 手续费
+        result.outputAmounts[1] = amount1; // WETH 手续费
+        result.message = "Collect fees successful";
         
         emit OperationExecuted(params.recipient, OperationType.COLLECT_FEES, params.tokens, params.amounts, "");
         
@@ -407,27 +303,6 @@ contract UniswapV3Adapter is
     );
     
     // ===== 辅助函数 =====
-    
-    function _isUserPosition(address user, uint256 tokenId) internal view returns (bool) {
-        uint256[] memory positions = _userPositions[user];
-        for (uint i = 0; i < positions.length; i++) {
-            if (positions[i] == tokenId) {
-                return true;
-            }
-        }
-        return false;
-    }
-    
-    function _removeUserPosition(address user, uint256 tokenId) internal {
-        uint256[] storage positions = _userPositions[user];
-        for (uint i = 0; i < positions.length; i++) {
-            if (positions[i] == tokenId) {
-                positions[i] = positions[positions.length - 1];
-                positions.pop();
-                break;
-            }
-        }
-    }
 
     // ===== UUPS 升级功能 =====
     
@@ -456,27 +331,6 @@ contract UniswapV3Adapter is
     function getContractVersion() external pure returns (string memory) {
         return "1.0.0";
     }
-    
-    /**
-     * @dev 获取用户的 Position NFT 列表
-     */
-    function getUserPositions(address user) external view returns (uint256[] memory) {
-        return _userPositions[user];
-    }
-    
-
-    
-    /**
-     * @dev 设置 ETH/USD 价格预言机地址 (仅 owner)
-     */
-    function setEthUsdPriceFeed(address _ethUsdPriceFeed) external onlyOwner {
-        require(_ethUsdPriceFeed != address(0), "Invalid price feed address");
-        ethUsdPriceFeed = _ethUsdPriceFeed;
-    }
-    
-
-    
-
     
     /**
      * @dev 实现 IERC721Receiver 接口以接收 NFT

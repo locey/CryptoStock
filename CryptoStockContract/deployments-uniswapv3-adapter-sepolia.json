@@ -2,19 +2,19 @@
   "network": "sepolia",
   "chainId": "11155111",
   "deployer": "0x46b43ad9F6C20c400aC17a282022E578417F796A",
-  "timestamp": "2025-10-07T02:55:49.347Z",
+  "timestamp": "2025-10-07T03:53:13.219Z",
   "feeRateBps": 30,
   "basedOn": "deployments-defi-infrastructure-sepolia.json",
   "contracts": {
     "DefiAggregator": "0xd45e7BA407f060410cB3e86f7Be143DD3038E2a8",
     "MockERC20_USDT": "0x00E9F8763b8f092F119430b5133aB8569Ab2406A",
-    "MockWethToken": "0xC9f9B4bE7c451AEaa83a3FE5C75988FeF664590F",
-    "MockPositionManager": "0xA7192A60AD2A28CC8975FF1202Bb9f09996A4AA5",
-    "UniswapV3Adapter": "0xA0d99c0B57Fa70c593CcBe6269AD6F7718cEeF67",
-    "UniswapV3Adapter_Implementation": "0x164315a2336977A48a77c211dDaD046319F7F82B"
+    "MockWethToken": "0xC1DCcAe98D970AcA1b017AF3181B8313AbB2F771",
+    "MockPositionManager": "0xEF468fDF4Ed7DdABe9Bc0530a558690e03748eB3",
+    "UniswapV3Adapter": "0xdC0a2574B8b56a894BE360E8495dd5e57472dda9",
+    "UniswapV3Adapter_Implementation": "0x3A4d0ce60aff8c6723A03A054d26a24da9Dc54b0"
   },
   "adapterRegistrations": {
-    "uniswapv3": "0xA0d99c0B57Fa70c593CcBe6269AD6F7718cEeF67"
+    "uniswapv3": "0xdC0a2574B8b56a894BE360E8495dd5e57472dda9"
   },
   "notes": {
     "description": "UniswapV3适配器部署，复用了基础设施合约",
