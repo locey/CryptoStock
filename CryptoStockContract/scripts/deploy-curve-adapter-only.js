@@ -9,6 +9,102 @@ const path = require("path");
  * 使用方法: npx hardhat run scripts/deploy-curve-adapter-only.js --network <network>
  */
 
+// ABI 提取函数
+async function extractABIFiles() {
+  console.log("\n🔧 [ABI提取] 开始提取ABI文件...");
+  
+  // 适配器合约
+  const adapterContracts = [
+    'CurveAdapter'
+  ];
+
+  // Mock合约
+  const mockContracts = [
+    'MockCurve'  // MockCurve 合约既是池子又是 LP 代币
+  ];
+
+  // 创建abi输出目录
+  const abiDir = path.join(__dirname, '..', 'abi');
+  if (!fs.existsSync(abiDir)) {
+    fs.mkdirSync(abiDir, { recursive: true });
+    console.log('✅ 创建ABI目录:', abiDir);
+  }
+
+  let successCount = 0;
+  let failCount = 0;
+
+  // 处理适配器合约
+  for (const contractName of adapterContracts) {
+    try {
+      const artifactPath = path.join(
+        __dirname, 
+        '..', 
+        'artifacts', 
+        'contracts',
+        'adapters', 
+        `${contractName}.sol`, 
+        `${contractName}.json`
+      );
+      
+      processContract(contractName, artifactPath, abiDir);
+      successCount++;
+      
+    } catch (error) {
+      console.log(`❌ 提取失败 ${contractName}:`, error.message);
+      failCount++;
+    }
+  }
+
+  // 处理mock合约
+  for (const contractName of mockContracts) {
+    try {
+      const artifactPath = path.join(
+        __dirname, 
+        '..', 
+        'artifacts', 
+        'contracts',
+        'mock', 
+        `${contractName}.sol`, 
+        `${contractName}.json`
+      );
+      
+      processContract(contractName, artifactPath, abiDir);
+      successCount++;
+      
+    } catch (error) {
+      console.log(`❌ 提取失败 ${contractName}:`, error.message);
+      failCount++;
+    }
+  }
+
+  console.log(`📊 ABI提取完成:`);
+  console.log(`   成功: ${successCount} 个合约`);
+  console.log(`   失败: ${failCount} 个合约`);
+  console.log(`   输出目录: ${abiDir}`);
+}
+
+function processContract(contractName, artifactPath, abiDir) {
+  // 检查文件是否存在
+  if (!fs.existsSync(artifactPath)) {
+    console.log(`⚠️  跳过 ${contractName}: artifact文件不存在`);
+    throw new Error(`Artifact not found: ${artifactPath}`);
+  }
+  
+  // 读取artifact文件
+  const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
+  
+  // 提取ABI
+  const abi = artifact.abi;
+  
+  // 创建输出文件路径
+  const abiPath = path.join(abiDir, `${contractName}.abi`);
+  
+  // 写入ABI文件 (格式化JSON)
+  fs.writeFileSync(abiPath, JSON.stringify(abi, null, 2));
+  
+  console.log(`✅ 成功提取: ${contractName}.abi`);
+}
+
 async function main() {
   console.log("🚀 开始部署 Curve 适配器...\n");
   
@@ -189,8 +285,74 @@ async function main() {
       console.log("   部署仍然成功，可以后续手动添加流动性");
     }
 
-    // STEP 8: 保存部署结果
-    console.log("\n📄 [STEP 8] 保存部署结果...");
+    // STEP 8: 验证合约到Etherscan (仅Sepolia网络)
+    if (networkName === "sepolia") {
+      console.log("\n🔍 [开始验证] 正在验证合约到Etherscan...");
+      try {
+        // 等待几个区块确认
+        console.log("⏳ 等待区块确认...");
+        await new Promise(resolve => setTimeout(resolve, 30000)); // 等待30秒
+
+        // 验证MockCurvePool合约
+        console.log("🔍 验证MockCurvePool合约...");
+        try {
+          await hre.run("verify:verify", {
+            address: mockCurvePoolAddress,
+            constructorArguments: []
+          });
+          console.log("✅ MockCurvePool合约验证成功");
+        } catch (error) {
+          console.log("⚠️ MockCurvePool合约验证跳过 (可能已验证):", error.message);
+        }
+
+        // 验证MockCurveToken合约
+        console.log("🔍 验证MockCurveToken合约...");
+        try {
+          await hre.run("verify:verify", {
+            address: mockCurveTokenAddress,
+            constructorArguments: [mockCurvePoolAddress]
+          });
+          console.log("✅ MockCurveToken合约验证成功");
+        } catch (error) {
+          console.log("⚠️ MockCurveToken合约验证跳过 (可能已验证):", error.message);
+        }
+
+        // 验证CurveAdapter实现合约
+        console.log("🔍 验证CurveAdapter实现合约...");
+        try {
+          const curveImplementationAddress = await upgrades.erc1967.getImplementationAddress(curveAdapterAddress);
+          await hre.run("verify:verify", {
+            address: curveImplementationAddress,
+            constructorArguments: []
+          });
+          console.log("✅ CurveAdapter实现合约验证成功");
+        } catch (error) {
+          console.log("⚠️ CurveAdapter实现合约验证跳过 (可能已验证):", error.message);
+        }
+
+        // 验证CurveAdapter代理合约
+        console.log("🔍 验证CurveAdapter代理合约...");
+        try {
+          await hre.run("verify:verify", {
+            address: curveAdapterAddress
+          });
+          console.log("✅ CurveAdapter代理合约验证成功");
+        } catch (error) {
+          console.log("⚠️ CurveAdapter代理合约验证跳过:", error.message);
+        }
+
+        console.log("\n✅ [验证完成] Curve适配器合约验证已完成!");
+      } catch (error) {
+        console.log("⚠️ [验证警告] 合约验证过程中出现问题:", error.message);
+        console.log("💡 提示: 您可以稍后手动验证合约");
+      }
+    }
+    
+    // STEP 9: 提取ABI文件
+    await extractABIFiles();
+
+    // STEP 10: 保存部署结果
+    console.log("\n📄 [STEP 10] 保存部署结果...");
     
     const deploymentFile = `deployments-curve-adapter-${networkName}.json`;
     

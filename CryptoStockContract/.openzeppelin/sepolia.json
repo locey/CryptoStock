@@ -279,6 +279,56 @@
       "address": "0xdC0a2574B8b56a894BE360E8495dd5e57472dda9",
       "txHash": "0x68fa804eff7d3f41ab7ece55b5e80f816cbfc7976fbcdf917563dd8e1f71d2b2",
       "kind": "uups"
+    },
+    {
+      "address": "0x43C83cE19346e2148A18aE44315f03de20203ff3",
+      "txHash": "0x7420789428c9d8232d90b15289c01f580fad344d9c10abab290923273f1c3d6f",
+      "kind": "uups"
+    },
+    {
+      "address": "0xc84cCaDa821939902e7f3D728440e193d6903fCb",
+      "txHash": "0xfc01de5ba546760499e9b027bbebcf4fd7dbf746afb5dabcdf38531498ca2dbb",
+      "kind": "uups"
+    },
+    {
+      "address": "0x73DbEb54692d6eC593891CC6E675642EDC72a671",
+      "txHash": "0xf7466425b5bfc82f1934a71c1b6ec29688a265f6210f57b9d57fb3901b06c9d9",
+      "kind": "uups"
+    },
+    {
+      "address": "0x92FDC0bb19d94C69aA2fAC975CBd5D28dDc1D573",
+      "txHash": "0x3b6b468996bd4cf34c61c17560b39b324e685fe9e2a75a8b7927b57866b2fc11",
+      "kind": "uups"
+    },
+    {
+      "address": "0x66d3336ccEd029e1112985b873F6c9E98E919b82",
+      "txHash": "0x45fb3342641b28b1cd1063765168ba6f2853b7da8e5c36a0d429245ec99f061e",
+      "kind": "uups"
+    },
+    {
+      "address": "0x57A7875E46775a906D0366eD050240656BCD42f6",
+      "txHash": "0x611aac0fdfc35c7e77a2c9ac476c43e703b3383cb803ffb0ff8a63872283beb7",
+      "kind": "uups"
+    },
+    {
+      "address": "0x92EB5f1471b3483584b1908AD55418961561cc12",
+      "txHash": "0x766ba9329676cfff4b8462d67db2211d4bc28815a830e25a08705501d8ced948",
+      "kind": "uups"
+    },
+    {
+      "address": "0xb73e6d9f5689959F7645B44BC30DF19862333fD7",
+      "txHash": "0x040bfe6e4b1cf08da36736739ca11ec5ff12674f138f8a3de391e6edfecdb241",
+      "kind": "uups"
+    },
+    {
+      "address": "0xb2D825DE44Cdcb8530fCB7Dd929Cd92474B805F8",
+      "txHash": "0x37014e58077381389cd94c240bb92eda4e2b4000482ceb3f45b6848a006919a4",
+      "kind": "uups"
+    },
+    {
+      "address": "0x7b5AF42f9A7EfaC3b3c3EBd283E15a2CA1e22160",
+      "txHash": "0xe05fc9364579aabee3625ec88d14776ce77fc05f77ce555be42e5925dafc6636",
+      "kind": "uups"
     }
   ],
   "impls": {

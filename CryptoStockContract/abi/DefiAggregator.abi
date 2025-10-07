@@ -93,7 +93,7 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": true,
+        "indexed": false,
         "internalType": "string",
         "name": "adapterName",
         "type": "string"
@@ -112,7 +112,7 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": true,
+        "indexed": false,
         "internalType": "string",
         "name": "adapterName",
         "type": "string"
@@ -169,7 +169,7 @@
         "type": "address"
       },
       {
-        "indexed": true,
+        "indexed": false,
         "internalType": "string",
         "name": "adapterName",
         "type": "string"
@@ -304,6 +304,11 @@
             "type": "uint256"
           },
           {
+            "internalType": "uint256",
+            "name": "tokenId",
+            "type": "uint256"
+          },
+          {
             "internalType": "bytes",
             "name": "extraData",
             "type": "bytes"
@@ -379,6 +384,11 @@
           {
             "internalType": "uint256",
             "name": "deadline",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "tokenId",
             "type": "uint256"
           },
           {
@@ -465,118 +475,6 @@
         "internalType": "string[]",
         "name": "",
         "type": "string[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      }
-    ],
-    "name": "getUserDetailedYield",
-    "outputs": [
-      {
-        "internalType": "string[]",
-        "name": "adapterNames",
-        "type": "string[]"
-      },
-      {
-        "internalType": "uint256[]",
-        "name": "principals",
-        "type": "uint256[]"
-      },
-      {
-        "internalType": "uint256[]",
-        "name": "currentValues",
-        "type": "uint256[]"
-      },
-      {
-        "internalType": "uint256[]",
-        "name": "profits",
-        "type": "uint256[]"
-      },
-      {
-        "internalType": "bool[]",
-        "name": "isProfits",
-        "type": "bool[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      }
-    ],
-    "name": "getUserTotalYield",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "totalPrincipal",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "totalCurrentValue",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "totalProfit",
-        "type": "uint256"
-      },
-      {
-        "internalType": "bool",
-        "name": "isProfit",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "adapterName",
-        "type": "string"
-      }
-    ],
-    "name": "getUserYieldByAdapter",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "principal",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "currentValue",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "profit",
-        "type": "uint256"
-      },
-      {
-        "internalType": "bool",
-        "name": "isProfit",
-        "type": "bool"
       }
     ],
     "stateMutability": "view",
