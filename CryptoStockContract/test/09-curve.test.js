@@ -12,7 +12,6 @@ describe("09-curve.test.js - CurveAdapter 测试", function () {
 
     async function deployFixture() {
         const [deployer, user] = await ethers.getSigners();
-
         // 1. 部署三个 MockERC20 代币 (USDC, USDT, DAI)
         const MockERC20 = await ethers.getContractFactory("MockERC20");
         const usdc = await MockERC20.deploy("Mock USDC", "USDC", 18);

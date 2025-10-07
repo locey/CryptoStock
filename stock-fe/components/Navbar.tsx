@@ -36,10 +36,10 @@ export function Navbar() {
               币股池
             </Link>
             <Link
-              href="/trade"
+              href="/pools"
               className="text-gray-300 hover:text-white transition-colors text-sm font-medium font-chinese"
             >
-              交易
+              DeFi池
             </Link>
             <Link
               href="/portfolio"
