@@ -1,12 +1,12 @@
-// Test case for Compound adapter functionality on Sepolia network
-// Test to verify DefiAggregator + CompoundAdapter deposit flow using deployed contracts
+// Test case for Aave adapter functionality on Sepolia network
+// Test to verify DefiAggregator + AaveAdapter deposit flow using deployed contracts
 
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const fs = require("fs");
 const path = require("path");
 
-describe("07-compound-sepolia.test.js - Compound Adapter Sepolia Test", function () {
+describe("06-aave-sepolia.test.js - Aave Adapter Sepolia Test", function () {
     
     // 测试固定参数
     const INITIAL_USDT_SUPPLY = ethers.parseUnits("1000000", 6); // 1M USDT (6 decimals)
@@ -20,27 +20,27 @@ describe("07-compound-sepolia.test.js - Compound Adapter Sepolia Test", function
         
         console.log("🌐 使用 Sepolia 网络上已部署的合约...");
         
-        // 加载 Compound 适配器部署文件
-        const compoundDeploymentFile = path.join(__dirname, "..", "deployments-compound-adapter-sepolia.json");
+        // 加载 Aave 适配器部署文件
+        const aaveDeploymentFile = path.join(__dirname, "..", "deployments-aave-adapter-sepolia.json");
         
-        if (!fs.existsSync(compoundDeploymentFile)) {
-            throw new Error("未找到 Compound 部署文件。请先运行部署脚本: npx hardhat run scripts/deploy-compound-adapter-only.js --network sepolia");
+        if (!fs.existsSync(aaveDeploymentFile)) {
+            throw new Error("未找到 Aave 部署文件。请先运行部署脚本: npx hardhat run scripts/deploy-aave-adapter-only.js --network sepolia");
         }
         
-        const deployments = JSON.parse(fs.readFileSync(compoundDeploymentFile, 'utf8'));
-        console.log("✅ 使用新的拆分部署结构 (compound-adapter + infrastructure)");
+        const deployments = JSON.parse(fs.readFileSync(aaveDeploymentFile, 'utf8'));
+        console.log("✅ 使用新的拆分部署结构 (aave-adapter + infrastructure)");
         
         // 连接到已部署的合约
         const mockUSDT = await ethers.getContractAt("MockERC20", deployments.contracts.MockERC20_USDT);
-        const mockCToken = await ethers.getContractAt("MockCToken", deployments.contracts.MockCToken_cUSDT);
+        const mockAToken = await ethers.getContractAt("MockAToken", deployments.contracts.MockAToken_aUSDT);
         const defiAggregator = await ethers.getContractAt("DefiAggregator", deployments.contracts.DefiAggregator);
-        const compoundAdapter = await ethers.getContractAt("CompoundAdapter", deployments.contracts.CompoundAdapter);
+        const aaveAdapter = await ethers.getContractAt("AaveAdapter", deployments.contracts.AaveAdapter);
         
         console.log("✅ 已连接到 Sepolia 上的合约:");
         console.log("   USDT:", deployments.contracts.MockERC20_USDT);
-        console.log("   cUSDT:", deployments.contracts.MockCToken_cUSDT);
+        console.log("   aUSDT:", deployments.contracts.MockAToken_aUSDT);
         console.log("   DefiAggregator:", deployments.contracts.DefiAggregator);
-        console.log("   CompoundAdapter:", deployments.contracts.CompoundAdapter);
+        console.log("   AaveAdapter:", deployments.contracts.AaveAdapter);
         
         if (deployments.basedOn) {
             console.log("   基于部署文件:", deployments.basedOn);
@@ -61,21 +61,21 @@ describe("07-compound-sepolia.test.js - Compound Adapter Sepolia Test", function
             deployer,
             user,
             mockUSDT,
-            mockCToken,
+            mockAToken,
             defiAggregator,
-            compoundAdapter
+            aaveAdapter
         };
     }
 
-    describe("Compound Adapter Deposit Flow", function () {
+    describe("Aave Adapter Deposit Flow", function () {
         
-        it("Should successfully deposit USDT through Compound Adapter", async function () {
+        it("Should successfully deposit USDT through Aave Adapter", async function () {
             // Sepolia 网络专用超时时间
             this.timeout(120000); // 2分钟超时
             console.log("⏰ 已设置 Sepolia 网络专用超时时间: 2分钟");
             
             // 获取已部署的合约
-            const { user, mockUSDT, mockCToken, defiAggregator, compoundAdapter } = await deployContractsFixture();
+            const { user, mockUSDT, mockAToken, defiAggregator, aaveAdapter } = await deployContractsFixture();
             
             // === 准备阶段 ===
             
@@ -89,10 +89,10 @@ describe("07-compound-sepolia.test.js - Compound Adapter Sepolia Test", function
             
             expect(userInitialBalance).to.be.gte(USER_DEPOSIT_AMOUNT);
             
-            // 用户授权 CompoundAdapter 使用 USDT
-            console.log("🔑 授权 CompoundAdapter 使用 USDT...");
-            const compoundAdapterAddress = await compoundAdapter.getAddress();
-            const approveTx = await mockUSDT.connect(user).approve(compoundAdapterAddress, USER_DEPOSIT_AMOUNT);
+            // 用户授权 AaveAdapter 使用 USDT
+            console.log("🔑 授权 AaveAdapter 使用 USDT...");
+            const aaveAdapterAddress = await aaveAdapter.getAddress();
+            const approveTx = await mockUSDT.connect(user).approve(aaveAdapterAddress, USER_DEPOSIT_AMOUNT);
             
             console.log("⏳ 等待 Sepolia 网络授权交易确认...");
             await approveTx.wait(2); // 等待2个区块确认
@@ -101,11 +101,11 @@ describe("07-compound-sepolia.test.js - Compound Adapter Sepolia Test", function
             console.log("✅ 授权完成 (已等待网络同步)");
             
             // 验证授权
-            const allowance = await mockUSDT.allowance(user.address, compoundAdapterAddress);
+            const allowance = await mockUSDT.allowance(user.address, aaveAdapterAddress);
             console.log("📋 授权金额:", ethers.formatUnits(allowance, 6), "USDT");
             
             // 检查适配器是否已注册
-            const hasAdapter = await defiAggregator.hasAdapter("compound");
+            const hasAdapter = await defiAggregator.hasAdapter("aave");
             console.log("🔌 适配器已注册:", hasAdapter);
             
             // === 执行存款操作 ===
@@ -116,12 +116,12 @@ describe("07-compound-sepolia.test.js - Compound Adapter Sepolia Test", function
                 amounts: [USER_DEPOSIT_AMOUNT],
                 recipient: user.address, // 明确指定受益者为用户
                 deadline: Math.floor(Date.now() / 1000) + 3600, // 1 hour
-                tokenId: 0, // Compound 不使用 NFT，设为 0
+                tokenId: 0, // Aave 不使用 NFT，设为 0
                 extraData: "0x" // 无额外数据
             };
             
             console.log("🚀 执行存款操作...");
-            console.log("   适配器名称: compound");
+            console.log("   适配器名称: aave");
             console.log("   操作类型: 0 (DEPOSIT)");
             console.log("   代币:", await mockUSDT.getAddress());
             console.log("   金额:", ethers.formatUnits(USER_DEPOSIT_AMOUNT, 6), "USDT");
@@ -131,7 +131,7 @@ describe("07-compound-sepolia.test.js - Compound Adapter Sepolia Test", function
             let tx;
             try {
                 tx = await defiAggregator.connect(user).executeOperation(
-                    "compound",     // adapter name
+                    "aave",         // adapter name
                     0,              // OperationType.DEPOSIT
                     operationParams
                 );
@@ -150,7 +150,7 @@ describe("07-compound-sepolia.test.js - Compound Adapter Sepolia Test", function
                 // 尝试估算 gas 来获取更详细的错误信息
                 try {
                     await defiAggregator.connect(user).executeOperation.estimateGas(
-                        "compound", 0, operationParams
+                        "aave", 0, operationParams
                     );
                 } catch (estimateError) {
                     console.log("💣 Gas 估算错误:", estimateError.message);
@@ -172,37 +172,37 @@ describe("07-compound-sepolia.test.js - Compound Adapter Sepolia Test", function
             const expectedFee = USER_DEPOSIT_AMOUNT * actualFeeRate / 10000n;
             const expectedNetDeposit = USER_DEPOSIT_AMOUNT - expectedFee;
             
-            // 3. 验证用户收到 cToken
-            const userCTokenBalance = await mockCToken.balanceOf(user.address);
-            console.log("🪙 用户当前 cToken 余额:", ethers.formatUnits(userCTokenBalance, 8), "cUSDT");
+            // 3. 验证用户收到 aToken
+            const userATokenBalance = await mockAToken.balanceOf(user.address);
+            console.log("🪙 用户当前 aToken 余额:", ethers.formatUnits(userATokenBalance, 6), "aUSDT");
             
-            // 检查用户至少获得了一些 cToken
-            expect(userCTokenBalance).to.be.gt(0);
+            // 检查用户至少获得了一些 aToken
+            expect(userATokenBalance).to.be.gt(0);
             
             console.log("✅ 存款测试通过！");
             console.log(`💰 用户存款: ${ethers.formatUnits(USER_DEPOSIT_AMOUNT, 6)} USDT`);
             console.log(`💸 手续费: ${ethers.formatUnits(expectedFee, 6)} USDT`);
             console.log(`🏦 净存款: ${ethers.formatUnits(expectedNetDeposit, 6)} USDT`);
-            console.log(`🪙 获得 cToken: ${ethers.formatUnits(userCTokenBalance, 8)} cUSDT`);
+            console.log(`🪙 获得 aToken: ${ethers.formatUnits(userATokenBalance, 6)} aUSDT`);
         });
     });
 
-    describe("Compound Adapter Withdraw Flow", function () {
+    describe("Aave Adapter Withdraw Flow", function () {
         
-        it("Should successfully withdraw USDT from Compound after deposit", async function () {
+        it("Should successfully withdraw USDT from Aave after deposit", async function () {
             // Sepolia 网络专用超时时间
             this.timeout(180000); // 3分钟超时，因为需要先存款再取款
             console.log("⏰ 已设置 Sepolia 网络专用超时时间: 3分钟");
             
             // 获取已部署的合约
-            const { user, mockUSDT, mockCToken, defiAggregator, compoundAdapter } = await deployContractsFixture();
+            const { user, mockUSDT, mockAToken, defiAggregator, aaveAdapter } = await deployContractsFixture();
             
             // === 先进行存款操作 ===
             
-            // 用户授权 CompoundAdapter 使用 USDT
-            console.log("🔑 授权 CompoundAdapter 使用 USDT (用于存款)...");
-            const compoundAdapterAddress = await compoundAdapter.getAddress();
-            const approveTx = await mockUSDT.connect(user).approve(compoundAdapterAddress, USER_DEPOSIT_AMOUNT);
+            // 用户授权 AaveAdapter 使用 USDT
+            console.log("🔑 授权 AaveAdapter 使用 USDT (用于存款)...");
+            const aaveAdapterAddress = await aaveAdapter.getAddress();
+            const approveTx = await mockUSDT.connect(user).approve(aaveAdapterAddress, USER_DEPOSIT_AMOUNT);
             
             console.log("⏳ 等待 Sepolia 网络授权交易确认...");
             await approveTx.wait(2); // 等待2个区块确认
@@ -220,7 +220,7 @@ describe("07-compound-sepolia.test.js - Compound Adapter Sepolia Test", function
             
             console.log("🚀 执行存款操作...");
             const depositTx = await defiAggregator.connect(user).executeOperation(
-                "compound",
+                "aave",
                 0, // DEPOSIT
                 depositParams
             );
@@ -240,29 +240,25 @@ describe("07-compound-sepolia.test.js - Compound Adapter Sepolia Test", function
             
             // === 执行取款操作 ===
             
-            // 获取用户的 cToken 余额和汇率
-            const userCTokenBalance = await mockCToken.balanceOf(user.address);
-            const exchangeRate = await mockCToken.exchangeRateStored();
-            console.log("🪙 存款后 cToken 余额:", ethers.formatUnits(userCTokenBalance, 8), "cUSDT");
-            console.log("📊 cToken 汇率:", ethers.formatUnits(exchangeRate, 18));
+            // 获取用户的 aToken 余额
+            const userATokenBalance = await mockAToken.balanceOf(user.address);
+            console.log("🪙 存款后 aToken 余额:", ethers.formatUnits(userATokenBalance, 6), "aUSDT");
             
             // 计算可取款的 USDT 数量（取一半）
-            const totalUSDTValue = userCTokenBalance * exchangeRate / ethers.parseUnits("1", 18);
-            const withdrawUSDTAmount = totalUSDTValue / 2n; // 取一半的 USDT 价值
-            console.log("💰 计算总价值:", ethers.formatUnits(totalUSDTValue, 6), "USDT");
+            const withdrawUSDTAmount = userATokenBalance / 2n; // 取一半的 aToken（对于Aave，aToken与底层资产1:1）
             console.log("💰 计划取款:", ethers.formatUnits(withdrawUSDTAmount, 6), "USDT");
             
-            // 用户需要授权 CompoundAdapter 使用 cToken
-            console.log("🔑 授权 CompoundAdapter 使用 cToken...");
-            const cTokenApproveTx = await mockCToken.connect(user).approve(
-                compoundAdapterAddress,
-                userCTokenBalance // 授权所有 cToken，适配器会计算需要多少
+            // 用户需要授权 AaveAdapter 使用 aToken
+            console.log("🔑 授权 AaveAdapter 使用 aToken...");
+            const aTokenApproveTx = await mockAToken.connect(user).approve(
+                aaveAdapterAddress,
+                userATokenBalance // 授权所有 aToken，适配器会计算需要多少
             );
             
-            console.log("⏳ 等待 Sepolia 网络 cToken 授权交易确认...");
-            await cTokenApproveTx.wait(2);
+            console.log("⏳ 等待 Sepolia 网络 aToken 授权交易确认...");
+            await aTokenApproveTx.wait(2);
             await new Promise(resolve => setTimeout(resolve, 2000));
-            console.log("✅ cToken 授权完成 (已等待网络同步)");
+            console.log("✅ aToken 授权完成 (已等待网络同步)");
             
             // 构造取款参数（金额是想要取回的 USDT 数量）
             const withdrawParams = {
@@ -276,7 +272,7 @@ describe("07-compound-sepolia.test.js - Compound Adapter Sepolia Test", function
             
             // 记录取款前的余额
             const usdtBalanceBeforeWithdraw = await mockUSDT.balanceOf(user.address);
-            const cTokenBalanceBeforeWithdraw = await mockCToken.balanceOf(user.address);
+            const aTokenBalanceBeforeWithdraw = await mockAToken.balanceOf(user.address);
             
             // 执行取款操作
             console.log("🚀 执行取款操作...");
@@ -285,7 +281,7 @@ describe("07-compound-sepolia.test.js - Compound Adapter Sepolia Test", function
             let withdrawTx;
             try {
                 withdrawTx = await defiAggregator.connect(user).executeOperation(
-                    "compound", 
+                    "aave", 
                     1, // WITHDRAW
                     withdrawParams
                 );
@@ -307,9 +303,9 @@ describe("07-compound-sepolia.test.js - Compound Adapter Sepolia Test", function
             const usdtBalanceAfterWithdraw = await mockUSDT.balanceOf(user.address);
             expect(usdtBalanceAfterWithdraw).to.be.gt(usdtBalanceBeforeWithdraw);
             
-            // 2. 检查 cToken 余额减少
-            const cTokenBalanceAfterWithdraw = await mockCToken.balanceOf(user.address);
-            expect(cTokenBalanceAfterWithdraw).to.be.lt(cTokenBalanceBeforeWithdraw);
+            // 2. 检查 aToken 余额减少
+            const aTokenBalanceAfterWithdraw = await mockAToken.balanceOf(user.address);
+            expect(aTokenBalanceAfterWithdraw).to.be.lt(aTokenBalanceBeforeWithdraw);
             
             // 3. 计算实际取回的 USDT 并验证金额
             const actualWithdrawn = usdtBalanceAfterWithdraw - usdtBalanceBeforeWithdraw;
@@ -318,7 +314,7 @@ describe("07-compound-sepolia.test.js - Compound Adapter Sepolia Test", function
             
             console.log("✅ 取款测试通过！");
             console.log(`💰 实际取回 USDT: ${ethers.formatUnits(actualWithdrawn, 6)} USDT`);
-            console.log(`🪙 剩余 cToken: ${ethers.formatUnits(cTokenBalanceAfterWithdraw, 8)} cUSDT`);
+            console.log(`🪙 剩余 aToken: ${ethers.formatUnits(aTokenBalanceAfterWithdraw, 6)} aUSDT`);
             console.log(`💰 最终 USDT 余额: ${ethers.formatUnits(usdtBalanceAfterWithdraw, 6)} USDT`);
         });
     });
