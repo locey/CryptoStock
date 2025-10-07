@@ -131,6 +131,23 @@ async function main() {
 
     // STEP 5: 注册适配器到 DefiAggregator
     console.log("\n📄 [STEP 5] 注册适配器到 DefiAggregator...");
+    
+    // 检查适配器是否已经存在
+    const adapterExists = await defiAggregator.hasAdapter("curve");
+    if (adapterExists) {
+      console.log("⚠️  适配器 'curve' 已存在，先注销旧适配器...");
+      const removeTx = await defiAggregator.removeAdapter("curve");
+      if (networkName !== "localhost" && networkName !== "hardhat") {
+        console.log("⏳ 等待注销交易确认...");
+        await removeTx.wait(2);
+      } else {
+        await removeTx.wait();
+      }
+      console.log("✅ 旧适配器已注销");
+    }
+    
+    // 注册新适配器
+    console.log("📝 注册新适配器...");
     const registerTx = await defiAggregator.registerAdapter("curve", curveAdapterAddress);
     
     if (networkName !== "localhost" && networkName !== "hardhat") {
