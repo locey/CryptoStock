@@ -46,7 +46,7 @@ const TokenVirtualList = React.memo<TokenVirtualListProps>(({
   }, []);
 
   // 虚拟列表项渲染
-  const Row = useCallback(({ index, style }: any) => {
+  const Row = useCallback(({ index, style }: { index: number; style: React.CSSProperties }) => {
     const token = currentTokens[index];
 
     if (!token) {

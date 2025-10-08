@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
       });
       
       if (invalidData.length > 0) {
-        console.warn("⚠️ 发现无效价格数据:", invalidData.map((x: any) => ({
+        console.warn("⚠️ 发现无效价格数据:", invalidData.map((x: { id: string; price?: { price: string | number; publish_time: number } }) => ({
           id: x.id,
           price: x.price?.price,
           time: x.price?.publish_time,
@@ -160,7 +160,7 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString()
     });
     
-  } catch (error: any) {
+  } catch (error: Error | { message: string }) {
     console.error("❌ 获取 Pyth 更新数据失败:", error.message);
     return NextResponse.json(
       { error: `Failed to fetch Pyth update data: ${error.message}` },
@@ -246,7 +246,7 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString()
     });
     
-  } catch (error: any) {
+  } catch (error: Error | { message: string }) {
     console.error("❌ 获取 Pyth 更新数据失败:", error.message);
     return NextResponse.json(
       { error: `Failed to fetch Pyth update data: ${error.message}` },

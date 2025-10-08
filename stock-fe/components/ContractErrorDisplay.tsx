@@ -4,7 +4,7 @@ import { AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface ContractErrorDisplayProps {
-  error: any;
+  error: Error | { message: string; code?: string; data?: unknown };
   contractAddress?: string;
   onRetry?: () => void;
 }

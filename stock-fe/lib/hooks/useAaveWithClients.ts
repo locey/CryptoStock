@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { Address, formatUnits, parseUnits, PublicClient, WalletClient, Chain } from 'viem';
+import { Address, formatUnits, parseUnits, PublicClient, WalletClient, Chain, GetLogsReturnType } from 'viem';
 import { useWallet } from 'ycdirectory-ui';
 import { usePublicClient, useWalletClient } from 'ycdirectory-hooks';
 import useAaveStore, {
@@ -9,6 +9,11 @@ import useAaveStore, {
   UserBalanceInfo
 } from '../stores/useAaveStore';
 import AaveDeploymentInfo from '@/lib/abi/deployments-aave-adapter-sepolia.json';
+
+// 类型别名，避免复杂类型推导问题
+type SafePublicClient = PublicClient;
+type SafeWalletClient = WalletClient;
+type SafeChain = Chain;
 
 /**
  * Aave Hook with Clients
@@ -88,7 +93,7 @@ export const useAaveWithClients = () => {
   }, [publicClient, store.fetchFeeRate]);
 
   // 包装写入方法
-  const approveUSDT = useCallback(async (amount: string) => {
+  const approveUSDT = useCallback(async (amount: string, userAddress?: Address) => {
     if (!isConnected || !address) {
       throw new Error('请先连接钱包');
     }
@@ -108,7 +113,15 @@ export const useAaveWithClients = () => {
 
     const amountBigInt = parseUnits(amount, 6); // USDT 是 6 位小数
 
-    return store.approveUSDT(publicClient, wc, chain, amountBigInt, address);
+    // 自定义 gas 设置以提高成功率 (EIP-1559 兼容)
+    const gasConfig = {
+      gas: 8000000, // 增加到 8M gas limit
+      maxFeePerGas: 100000000000n, // 100 Gwei
+      maxPriorityFeePerGas: 5000000000n, // 5 Gwei
+      // 移除 gasPrice 以支持 EIP-1559
+    };
+
+    return store.approveUSDT(publicClient, wc, chain, amountBigInt, address, userAddress || address, gasConfig);
   }, [isConnected, address, publicClient, chain, getWalletClient, store.approveUSDT]);
 
   const approveAUSDT = useCallback(async (amount: string) => {
@@ -131,7 +144,15 @@ export const useAaveWithClients = () => {
 
     const amountBigInt = parseUnits(amount, 6); // aUSDT 也是 6 位小数
 
-    return store.approveAUSDT(publicClient, wc, chain, amountBigInt, address);
+    // 自定义 gas 设置以提高成功率 (EIP-1559 兼容)
+    const gasConfig = {
+      gas: 8000000, // 增加到 8M gas limit
+      maxFeePerGas: 100000000000n, // 100 Gwei
+      maxPriorityFeePerGas: 5000000000n, // 5 Gwei
+      // 移除 gasPrice 以支持 EIP-1559
+    };
+
+    return store.approveAUSDT(publicClient, wc, chain, amountBigInt, address, gasConfig);
   }, [isConnected, address, publicClient, chain, getWalletClient, store.approveAUSDT]);
 
   const supplyUSDT = useCallback(async (amount: string): Promise<AaveTransactionResult> => {
@@ -154,7 +175,15 @@ export const useAaveWithClients = () => {
 
     const amountBigInt = parseUnits(amount, 6); // USDT 是 6 位小数
 
-    return store.supplyUSDT(publicClient, wc, chain, amountBigInt, address);
+    // 自定义 gas 设置以提高成功率 (EIP-1559 兼容)
+    const gasConfig = {
+      gas: 8000000, // 增加到 8M gas limit
+      maxFeePerGas: 100000000000n, // 100 Gwei
+      maxPriorityFeePerGas: 5000000000n, // 5 Gwei
+      // 移除 gasPrice 以支持 EIP-1559
+    };
+
+    return store.supplyUSDT(publicClient, wc, chain, amountBigInt, address, gasConfig);
   }, [isConnected, address, publicClient, chain, getWalletClient, store.supplyUSDT]);
 
   const withdrawUSDT = useCallback(async (amount: string): Promise<AaveTransactionResult> => {
@@ -177,8 +206,47 @@ export const useAaveWithClients = () => {
 
     const amountBigInt = parseUnits(amount, 6); // USDT 是 6 位小数
 
-    return store.withdrawUSDT(publicClient, wc, chain, amountBigInt, address);
+    // 自定义 gas 设置以提高成功率 (EIP-1559 兼容)
+    const gasConfig = {
+      gas: 8000000, // 增加到 8M gas limit
+      maxFeePerGas: 100000000000n, // 100 Gwei
+      maxPriorityFeePerGas: 5000000000n, // 5 Gwei
+      // 移除 gasPrice 以支持 EIP-1559
+    };
+
+    return store.withdrawUSDT(publicClient, wc, chain, amountBigInt, address, gasConfig);
   }, [isConnected, address, publicClient, chain, getWalletClient, store.withdrawUSDT]);
+
+  const sellUSDT = useCallback(async (amount: string): Promise<AaveTransactionResult> => {
+    if (!isConnected || !address) {
+      throw new Error('请先连接钱包');
+    }
+
+    if (!publicClient) {
+      throw new Error('PublicClient 未初始化');
+    }
+
+    if (!chain) {
+      throw new Error('Chain 未初始化');
+    }
+
+    const wc = await getWalletClient();
+    if (!wc) {
+      throw new Error('WalletClient 未初始化');
+    }
+
+    const amountBigInt = parseUnits(amount, 6); // USDT 是 6 位小数
+
+    // 自定义 gas 设置以提高成功率 (EIP-1559 兼容)
+    const gasConfig = {
+      gas: 8000000, // 增加到 8M gas limit
+      maxFeePerGas: 100000000000n, // 100 Gwei
+      maxPriorityFeePerGas: 5000000000n, // 5 Gwei
+      // 移除 gasPrice 以支持 EIP-1559
+    };
+
+    return store.sellUSDT(publicClient, wc, chain, amountBigInt, address, gasConfig);
+  }, [isConnected, address, publicClient, chain, getWalletClient, store.sellUSDT]);
 
   // 初始化 Aave 交易功能
   const initializeAaveTrading = useCallback(async () => {
@@ -333,6 +401,7 @@ export const useAaveWithClients = () => {
     // 交易方法
     supplyUSDT,
     withdrawUSDT,
+    sellUSDT,
 
     // 辅助方法
     setLoading: store.setLoading,

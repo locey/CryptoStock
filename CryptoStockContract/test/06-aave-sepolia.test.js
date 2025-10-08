@@ -262,7 +262,8 @@ describe("06-aave-sepolia.test.js - Aave Adapter Sepolia Test", function () {
             
             // 构造取款参数（金额是想要取回的 USDT 数量）
             const withdrawParams = {
-                tokens: [await mockUSDT.getAddress()],
+                tokens: [await 
+                    .getAddress()],
                 amounts: [withdrawUSDTAmount], // 这里是要取回的 USDT 数量
                 recipient: user.address, // 取款到用户地址
                 deadline: Math.floor(Date.now() / 1000) + 3600,
