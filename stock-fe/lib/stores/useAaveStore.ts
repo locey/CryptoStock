@@ -705,18 +705,24 @@ export const useAaveStore = create<AaveState>((set, get) => ({
         gasConfig
       });
 
+      // 构建交易参数，正确处理 gas 配置
       const hash = await walletClient.writeContract({
         address: defiAggregatorAddress,
         abi: typedDefiAggregatorABI,
-        functionName: 'executeOperation',
+        functionName: 'executeOperation' as const,
         args: [
           'aave', // 适配器名称
           AaveOperationType.DEPOSIT, // 操作类型：0
           operationParams
-        ],
+        ] as [string, number, AaveOperationParams],
         chain,
         account,
-        ...gasConfig, // 应用自定义 gas 配置
+        ...(gasConfig?.gas && { gas: gasConfig.gas }),
+        ...(gasConfig?.maxFeePerGas && gasConfig?.maxPriorityFeePerGas && {
+          maxFeePerGas: gasConfig.maxFeePerGas,
+          maxPriorityFeePerGas: gasConfig.maxPriorityFeePerGas,
+        }),
+        ...(gasConfig?.gasPrice && { gasPrice: gasConfig.gasPrice }),
       });
 
       console.log('📝 存款交易哈希:', hash);
@@ -837,7 +843,12 @@ export const useAaveStore = create<AaveState>((set, get) => ({
         ],
         chain,
         account,
-        ...gasConfig, // 应用自定义 gas 配置
+        ...(gasConfig?.gas && { gas: gasConfig.gas }),
+        ...(gasConfig?.maxFeePerGas && gasConfig?.maxPriorityFeePerGas && {
+          maxFeePerGas: gasConfig.maxFeePerGas,
+          maxPriorityFeePerGas: gasConfig.maxPriorityFeePerGas,
+        }),
+        ...(gasConfig?.gasPrice && { gasPrice: gasConfig.gasPrice }),
       });
 
       console.log('📝 取款交易哈希:', hash);
@@ -956,7 +967,12 @@ export const useAaveStore = create<AaveState>((set, get) => ({
         ],
         chain,
         account,
-        ...gasConfig, // 应用自定义 gas 配置
+        ...(gasConfig?.gas && { gas: gasConfig.gas }),
+        ...(gasConfig?.maxFeePerGas && gasConfig?.maxPriorityFeePerGas && {
+          maxFeePerGas: gasConfig.maxFeePerGas,
+          maxPriorityFeePerGas: gasConfig.maxPriorityFeePerGas,
+        }),
+        ...(gasConfig?.gasPrice && { gasPrice: gasConfig.gasPrice }),
       });
 
       console.log('📝 卖出（提取）交易哈希:', hash);
