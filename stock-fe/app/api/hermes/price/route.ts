@@ -26,7 +26,7 @@ const HERMES_ENDPOINT = "https://hermes.pyth.network";
 
 /**
  * 获取价格更新数据 API 路由
- * 
+ *
  * 请求格式: /api/hermes/price?symbols=AAPL,MSFT
  * 返回格式: { updateData: string[] }
  */
