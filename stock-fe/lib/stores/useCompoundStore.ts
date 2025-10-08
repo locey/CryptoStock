@@ -638,7 +638,7 @@ export const useCompoundStore = create<CompoundStore>((set, get) => ({
         address: cUsdtToken as Address, // 从合约读取 cUSDT 地址
         abi: typedMockERC20ABI,
         functionName: 'approve' as const,
-        args: [compoundAdapterAddress, cUsdtBalance] as [`0x${string}`, bigint], // 授权所有 cUSDT 给 CompoundAdapter
+        args: [compoundAdapterAddress, cUsdtBalance as bigint] as [`0x${string}`, bigint], // 授权所有 cUSDT 给 CompoundAdapter
         chain,
         account,
       };
