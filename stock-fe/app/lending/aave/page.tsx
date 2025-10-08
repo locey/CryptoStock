@@ -780,7 +780,7 @@ export default function AaveLendingPage() {
                     <div>
                       <div className="text-sm text-gray-400 mb-1">年收益减少</div>
                       <div className="font-semibold text-red-400">
-                        -${(parseFloat(withdrawAmount) || 0) * selectedAsset.supplyApy.toFixed(2)}
+                        -${((parseFloat(withdrawAmount) || 0) * parseFloat(selectedAsset.supplyApy.toFixed(2))).toFixed(2)}
                       </div>
                     </div>
                   </div>
