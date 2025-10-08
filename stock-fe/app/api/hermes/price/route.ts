@@ -159,11 +159,11 @@ export async function GET(request: NextRequest) {
       feedIds,
       timestamp: new Date().toISOString()
     });
-    
-  } catch (error: Error | { message: string }) {
-    console.error("❌ 获取 Pyth 更新数据失败:", error.message);
+
+  } catch (error: unknown) {
+    console.error("❌ 获取 Pyth 更新数据失败:", error instanceof Error ? error.message : String(error));
     return NextResponse.json(
-      { error: `Failed to fetch Pyth update data: ${error.message}` },
+      { error: `Failed to fetch Pyth update data: ${error instanceof Error ? error.message : String(error)}` },
       { status: 500 }
     );
   }
@@ -245,11 +245,11 @@ export async function POST(request: NextRequest) {
       feedIds,
       timestamp: new Date().toISOString()
     });
-    
-  } catch (error: Error | { message: string }) {
-    console.error("❌ 获取 Pyth 更新数据失败:", error.message);
+
+  } catch (error: unknown) {
+    console.error("❌ 获取 Pyth 更新数据失败:", error instanceof Error ? error.message : String(error));
     return NextResponse.json(
-      { error: `Failed to fetch Pyth update data: ${error.message}` },
+      { error: `Failed to fetch Pyth update data: ${error instanceof Error ? error.message : String(error)}` },
       { status: 500 }
     );
   }
