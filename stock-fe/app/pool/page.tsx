@@ -21,7 +21,7 @@ import { DEFAULT_CONFIG, getNetworkConfig } from "@/lib/contracts";
 import { TokenData } from "@/types/token";
 
 // 使用动态合约地址
-function getContractAddresses() {
+export function getContractAddresses() {
   // 使用 Sepolia 测试网配置
   return {
     ORACLE_AGGREGATOR_ADDRESS: DEFAULT_CONFIG.contracts.oracleAggregator,

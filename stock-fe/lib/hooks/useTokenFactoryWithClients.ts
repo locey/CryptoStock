@@ -9,8 +9,6 @@ import useTokenFactoryStore, {
   DeploymentInfo
 } from '../stores/useTokenFactoryStore';
 import deployments from '@/lib/abi/deployments-uups-sepolia.json';
-import localDeployments from '@/lib/abi/deployments-local.json';
-import StockTokenABI from '@/lib/abi/StockToken.json';
 
 /**
  * TokenFactory Hook with Clients
