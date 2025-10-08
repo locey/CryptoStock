@@ -26,7 +26,7 @@ const HERMES_ENDPOINT = "https://hermes.pyth.network";
 
 /**
  * 获取价格更新数据 API 路由
- * 
+ *
  * 请求格式: /api/hermes/price?symbols=AAPL,MSFT
  * 返回格式: { updateData: string[] }
  */
@@ -35,26 +35,26 @@ export async function GET(request: NextRequest) {
     // 从查询参数获取股票符号
     const searchParams = request.nextUrl.searchParams;
     const symbolsParam = searchParams.get('symbols');
-    
+
     if (!symbolsParam) {
       return NextResponse.json(
         { error: "Missing 'symbols' parameter" },
         { status: 400 }
       );
     }
-    
+
     // 解析股票符号
     const symbols = symbolsParam.split(',').map(s => s.trim().toUpperCase());
-    
+
     if (symbols.length === 0) {
       return NextResponse.json(
         { error: "No valid symbols provided" },
         { status: 400 }
       );
     }
-    
+
     console.log(`🔄 获取 ${symbols.join(", ")} 的 Pyth 更新数据...`);
-    
+
     // 获取对应的 feed IDs
     const feedIds = symbols.map(symbol => {
       const feedId = STOCK_FEED_IDS[symbol];
@@ -64,23 +64,23 @@ export async function GET(request: NextRequest) {
       }
       return feedId;
     }).filter(id => id !== null) as string[];
-    
+
     if (feedIds.length === 0) {
       return NextResponse.json(
         { error: "No valid feed IDs found for the provided symbols" },
         { status: 400 }
       );
     }
-    
+
     console.log(`📡 Feed IDs: ${feedIds.join(", ")}`);
-    
+
     // 使用 Pyth HTTP API v2 获取价格更新数据
     // 与合约测试代码使用相同的端点和参数
     const queryParams = feedIds.map(id => `ids[]=${id}`).join('&');
     const url = `${HERMES_ENDPOINT}/v2/updates/price/latest?${queryParams}`;
-    
+
     console.log(`🌐 请求 Pyth 更新数据: ${url}`);
-    
+
     const response = await axios.get(url, {
       headers: {
         'Accept': 'application/json',
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
       },
       timeout: 10000 // 10秒超时
     });
-    
+
     // 检查返回数据
     if (!response.data || !response.data.binary || !response.data.binary.data) {
       console.error("❌ API 返回数据格式错误:", response.data);
@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    
+
     // 打印 parsed 数据进行调试
     if (response.data.parsed) {
       console.log("📊 API parsed info:", response.data.parsed.map((x: {
@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
         time: x.price?.publish_time
       })));
     }
-    
+
     // 检查价格数据有效性
     if (response.data.parsed) {
       const invalidData = response.data.parsed.filter((x: {
@@ -130,9 +130,9 @@ export async function GET(request: NextRequest) {
         const isInvalidTime = !x.price?.publish_time || x.price?.publish_time === 0;
         return isInvalidPrice || isInvalidTime;
       });
-      
+
       if (invalidData.length > 0) {
-        console.warn("⚠️ 发现无效价格数据:", invalidData.map((x: any) => ({
+        console.warn("⚠️ 发现无效价格数据:", invalidData.map((x: { id: string; price?: { price: string | number; publish_time: number } }) => ({
           id: x.id,
           price: x.price?.price,
           time: x.price?.publish_time,
@@ -140,7 +140,7 @@ export async function GET(request: NextRequest) {
         })));
       }
     }
-    
+
     // 转换为 EVM bytes 格式 (0x前缀 + 十六进制)
     const bytesData = response.data.binary.data.map((data: string) => {
       if (data && typeof data === 'string') {
@@ -149,9 +149,9 @@ export async function GET(request: NextRequest) {
         throw new Error('无效的更新数据格式');
       }
     });
-    
+
     console.log(`✅ 成功获取 ${bytesData.length} 条更新数据`,bytesData);
-    
+
     // 返回更新数据
     return NextResponse.json({
       updateData: bytesData,
@@ -159,11 +159,12 @@ export async function GET(request: NextRequest) {
       feedIds,
       timestamp: new Date().toISOString()
     });
-    
-  } catch (error: any) {
-    console.error("❌ 获取 Pyth 更新数据失败:", error.message);
+
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error("❌ 获取 Pyth 更新数据失败:", errorMessage);
     return NextResponse.json(
-      { error: `Failed to fetch Pyth update data: ${error.message}` },
+      { error: `Failed to fetch Pyth update data: ${errorMessage}` },
       { status: 500 }
     );
   }
@@ -176,19 +177,19 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { symbols } = body;
-    
+
     if (!symbols || !Array.isArray(symbols) || symbols.length === 0) {
       return NextResponse.json(
         { error: "Invalid or missing 'symbols' in request body" },
         { status: 400 }
       );
     }
-    
+
     // 处理符号列表
     const validSymbols = symbols.map(s => s.trim().toUpperCase());
-    
+
     console.log(`🔄 获取 ${validSymbols.join(", ")} 的 Pyth 更新数据...`);
-    
+
     // 获取对应的 feed IDs
     const feedIds = validSymbols.map(symbol => {
       const feedId = STOCK_FEED_IDS[symbol];
@@ -198,18 +199,18 @@ export async function POST(request: NextRequest) {
       }
       return feedId;
     }).filter(id => id !== null) as string[];
-    
+
     if (feedIds.length === 0) {
       return NextResponse.json(
         { error: "No valid feed IDs found for the provided symbols" },
         { status: 400 }
       );
     }
-    
+
     // 使用 Pyth HTTP API v2 获取价格更新数据
     const queryParams = feedIds.map(id => `ids[]=${id}`).join('&');
     const url = `${HERMES_ENDPOINT}/v2/updates/price/latest?${queryParams}`;
-    
+
     const response = await axios.get(url, {
       headers: {
         'Accept': 'application/json',
@@ -217,7 +218,7 @@ export async function POST(request: NextRequest) {
       },
       timeout: 10000
     });
-    
+
     // 检查返回数据
     if (!response.data || !response.data.binary || !response.data.binary.data) {
       console.error("❌ API 返回数据格式错误:", response.data);
@@ -226,7 +227,7 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-    
+
     // 转换为 EVM bytes 格式
     const bytesData = response.data.binary.data.map((data: string) => {
       if (data && typeof data === 'string') {
@@ -235,9 +236,9 @@ export async function POST(request: NextRequest) {
         throw new Error('无效的更新数据格式');
       }
     });
-    
+
     console.log(`✅ 成功获取 ${bytesData.length} 条更新数据`);
-    
+
     // 返回更新数据
     return NextResponse.json({
       updateData: bytesData,
@@ -245,11 +246,12 @@ export async function POST(request: NextRequest) {
       feedIds,
       timestamp: new Date().toISOString()
     });
-    
-  } catch (error: any) {
-    console.error("❌ 获取 Pyth 更新数据失败:", error.message);
+
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error("❌ 获取 Pyth 更新数据失败:", errorMessage);
     return NextResponse.json(
-      { error: `Failed to fetch Pyth update data: ${error.message}` },
+      { error: `Failed to fetch Pyth update data: ${errorMessage}` },
       { status: 500 }
     );
   }

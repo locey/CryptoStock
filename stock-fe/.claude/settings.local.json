@@ -5,7 +5,9 @@
       "Read(//Users/lijinhai/Desktop/my_project/CryptoStock/CryptoStockContract/contracts/adapters/**)",
       "Read(//Users/lijinhai/Desktop/my_project/CryptoStock/CryptoStockContract/contracts/**)",
       "Read(//Users/lijinhai/Desktop/my_project/CryptoStock/**)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(npx tsc:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []

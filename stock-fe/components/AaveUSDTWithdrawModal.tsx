@@ -1,29 +1,29 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { X, DollarSign, TrendingUp, AlertCircle, Check, Wallet } from 'lucide-react'
+import { X, DollarSign, TrendingDown, AlertCircle, Check, Wallet, ArrowUp } from 'lucide-react'
 import { useAaveWithClients } from '@/lib/hooks/useAaveWithClients'
 
-interface AaveUSDTBuyModalProps {
+interface AaveUSDTWithdrawModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess?: () => void
 }
 
 /**
- * Aave USDT 买入（存入）弹窗
+ * Aave USDT 提取弹窗
  *
  * 功能：
  * 1. 连接钱包检查
- * 2. 余额查询和显示
+ * 2. aUSDT 余额查询和显示
  * 3. 授权状态检查
- * 4. USDT 存入到 Aave
+ * 4. USDT 从 Aave 提取
  * 5. 手续费计算和显示
  * 6. 交易状态反馈
  */
-export default function AaveUSDTBuyModal({ isOpen, onClose, onSuccess }: AaveUSDTBuyModalProps) {
+export default function AaveUSDTWithdrawModal({ isOpen, onClose, onSuccess }: AaveUSDTWithdrawModalProps) {
   const [amount, setAmount] = useState('')
-  const [step, setStep] = useState<'input' | 'approve' | 'supply' | 'success'>('input')
+  const [step, setStep] = useState<'input' | 'approve' | 'withdraw' | 'success'>('input')
   const [txHash, setTxHash] = useState<string>('')
 
   const {
@@ -37,8 +37,8 @@ export default function AaveUSDTBuyModal({ isOpen, onClose, onSuccess }: AaveUSD
     maxBalances,
     initializeAaveTrading,
     refreshUserBalance,
-    approveUSDT,
-    supplyUSDT,
+    approveAUSDT,
+    withdrawUSDT,
     clearErrors,
     poolInfo
   } = useAaveWithClients()
@@ -68,7 +68,7 @@ export default function AaveUSDTBuyModal({ isOpen, onClose, onSuccess }: AaveUSD
   // 输入验证
   const validateAmount = (value: string): boolean => {
     if (!value || parseFloat(value) <= 0) return false
-    const maxAmount = parseFloat(maxBalances.maxUSDTToSupply)
+    const maxAmount = parseFloat(maxBalances.maxUSDTToWithdraw)
     return parseFloat(value) <= maxAmount
   }
 
@@ -83,7 +83,7 @@ export default function AaveUSDTBuyModal({ isOpen, onClose, onSuccess }: AaveUSD
 
   // 设置最大金额
   const handleMaxAmount = () => {
-    setAmount(maxBalances.maxUSDTToSupply)
+    setAmount(maxBalances.maxUSDTToWithdraw)
   }
 
   // 计算手续费
@@ -94,12 +94,21 @@ export default function AaveUSDTBuyModal({ isOpen, onClose, onSuccess }: AaveUSD
     return fee.toFixed(6)
   }
 
-  // 计算实际存入金额
+  // 计算实际提取金额
   const calculateNetAmount = (): string => {
     if (!amount) return '0'
     const amountNum = parseFloat(amount)
     const feeNum = parseFloat(calculateFee())
     return Math.max(0, amountNum - feeNum).toFixed(6)
+  }
+
+  // 计算提取后余额
+  const calculateRemainingBalance = (): string => {
+    const currentBalance = parseFloat(formattedBalances.aUsdtBalance)
+    const withdrawAmount = parseFloat(amount) || 0
+    const feeNum = parseFloat(calculateFee())
+    const remaining = Math.max(0, currentBalance - withdrawAmount - feeNum)
+    return remaining.toFixed(2)
   }
 
   // 处理授权
@@ -108,33 +117,33 @@ export default function AaveUSDTBuyModal({ isOpen, onClose, onSuccess }: AaveUSD
 
     try {
       setStep('approve')
-      await approveUSDT(amount, address)
+      await approveAUSDT(amount)
 
       // 授权成功后刷新余额信息
-      await refreshUserBalance();
+      await refreshUserBalance()
 
-      // 自动进入存入步骤
-      setStep('supply')
+      // 自动进入提取步骤
+      setStep('withdraw')
 
-      // 自动执行存入逻辑
-      await handleSupply()
+      // 自动执行提取逻辑
+      await handleWithdraw()
     } catch (error) {
       console.error('授权失败:', error)
       setStep('input')
     }
   }
 
-  // 处理存入
-  const handleSupply = async () => {
+  // 处理提取
+  const handleWithdraw = async () => {
     if (!validateAmount(amount)) return
 
     try {
-      // 如果不是从授权步骤来的，设置步骤为 supply
-      if (step !== 'supply') {
-        setStep('supply')
+      // 如果不是从授权步骤来的，设置步骤为 withdraw
+      if (step !== 'withdraw') {
+        setStep('withdraw')
       }
 
-      const result = await supplyUSDT(amount)
+      const result = await withdrawUSDT(amount)
       setTxHash(result.hash)
       setStep('success')
 
@@ -146,7 +155,7 @@ export default function AaveUSDTBuyModal({ isOpen, onClose, onSuccess }: AaveUSD
         onSuccess()
       }
     } catch (error) {
-      console.error('存入失败:', error)
+      console.error('提取失败:', error)
       setStep('input')
     }
   }
@@ -155,11 +164,11 @@ export default function AaveUSDTBuyModal({ isOpen, onClose, onSuccess }: AaveUSD
   const handleConfirm = async () => {
     if (!isConnected) return
 
-    // 需要先授权 USDT
-    if (needsApproval.usdt) {
+    // 需要先授权 aUSDT
+    if (needsApproval.aUsdt) {
       await handleApprove()
     } else {
-      await handleSupply()
+      await handleWithdraw()
     }
   }
 
@@ -181,12 +190,12 @@ export default function AaveUSDTBuyModal({ isOpen, onClose, onSuccess }: AaveUSD
         {/* 标题 */}
         <div className="p-6 pb-4">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-white" />
+            <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-orange-600 rounded-xl flex items-center justify-center">
+              <ArrowUp className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">存入 USDT</h2>
-              <p className="text-sm text-gray-400">赚取利息收益</p>
+              <h2 className="text-xl font-bold text-white">提取 USDT</h2>
+              <p className="text-sm text-gray-400">从 Aave 协议提取</p>
             </div>
           </div>
 
@@ -213,16 +222,16 @@ export default function AaveUSDTBuyModal({ isOpen, onClose, onSuccess }: AaveUSD
           {/* 步骤指示器 */}
           <div className="flex items-center gap-2 mb-6">
             <div className={`flex-1 h-1 rounded-full transition-colors ${
-              step === 'input' ? 'bg-blue-500' :
+              step === 'input' ? 'bg-red-500' :
               step === 'approve' ? 'bg-yellow-500' :
-              step === 'supply' ? 'bg-purple-500' :
+              step === 'withdraw' ? 'bg-orange-500' :
               'bg-green-500'
             }`} />
             <div className={`flex-1 h-1 rounded-full transition-colors ${
-              step === 'approve' || step === 'supply' || step === 'success' ? 'bg-yellow-500' : 'bg-gray-700'
+              step === 'approve' || step === 'withdraw' || step === 'success' ? 'bg-yellow-500' : 'bg-gray-700'
             }`} />
             <div className={`flex-1 h-1 rounded-full transition-colors ${
-              step === 'supply' || step === 'success' ? 'bg-purple-500' : 'bg-gray-700'
+              step === 'withdraw' || step === 'success' ? 'bg-orange-500' : 'bg-gray-700'
             }`} />
             <div className={`flex-1 h-1 rounded-full transition-colors ${
               step === 'success' ? 'bg-green-500' : 'bg-gray-700'
@@ -232,12 +241,36 @@ export default function AaveUSDTBuyModal({ isOpen, onClose, onSuccess }: AaveUSD
           {/* 输入步骤 */}
           {step === 'input' && (
             <div className="space-y-4">
+              {/* 投资信息卡片 */}
+              <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl p-4 mb-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <p className="text-xs text-gray-400 mb-1">已投入金额</p>
+                    <p className="text-lg font-bold text-white">
+                      ${parseFloat(formattedBalances.depositedAmount).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs text-gray-400 mb-1">已赚取收益</p>
+                    <p className="text-lg font-bold text-green-400">
+                      +${parseFloat(formattedBalances.earnedInterest).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs text-gray-400 mb-1">提取后余额</p>
+                    <p className="text-lg font-bold text-blue-400">
+                      ${amount ? calculateRemainingBalance() : parseFloat(formattedBalances.aUsdtBalance).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               {/* 余额显示 */}
               <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-gray-400">可用余额</span>
+                  <span className="text-sm text-gray-400">可提取余额</span>
                   <span className="text-sm font-semibold text-white">
-                    {formattedBalances.usdtBalance} USDT
+                    {formattedBalances.aUsdtBalance} USDT
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -251,7 +284,7 @@ export default function AaveUSDTBuyModal({ isOpen, onClose, onSuccess }: AaveUSD
               {/* 输入框 */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  存入数量
+                  提取数量
                 </label>
                 <div className="relative">
                   <input
@@ -259,12 +292,12 @@ export default function AaveUSDTBuyModal({ isOpen, onClose, onSuccess }: AaveUSD
                     value={amount}
                     onChange={handleAmountChange}
                     placeholder="0.00"
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition-colors"
                     disabled={!isConnected || isLoading}
                   />
                   <button
                     onClick={handleMaxAmount}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs hover:bg-blue-500/30 transition-colors"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 bg-red-500/20 text-red-400 rounded text-xs hover:bg-red-500/30 transition-colors"
                     disabled={!isConnected}
                   >
                     MAX
@@ -279,7 +312,7 @@ export default function AaveUSDTBuyModal({ isOpen, onClose, onSuccess }: AaveUSD
               {amount && validateAmount(amount) && (
                 <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-3 space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">存入金额</span>
+                    <span className="text-gray-400">提取金额</span>
                     <span className="text-white">{amount} USDT</span>
                   </div>
                   <div className="flex justify-between text-sm">
@@ -288,7 +321,7 @@ export default function AaveUSDTBuyModal({ isOpen, onClose, onSuccess }: AaveUSD
                   </div>
                   <div className="border-t border-gray-700 pt-2">
                     <div className="flex justify-between">
-                      <span className="text-sm font-medium text-gray-300">实际存入</span>
+                      <span className="text-sm font-medium text-gray-300">实际到账</span>
                       <span className="text-sm font-bold text-white">{calculateNetAmount()} USDT</span>
                     </div>
                   </div>
@@ -299,7 +332,7 @@ export default function AaveUSDTBuyModal({ isOpen, onClose, onSuccess }: AaveUSD
               <button
                 onClick={handleConfirm}
                 disabled={!isConnected || !validateAmount(amount) || isOperating}
-                className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+                className="w-full py-3 bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
               >
                 {isOperating ? (
                   <>
@@ -308,7 +341,7 @@ export default function AaveUSDTBuyModal({ isOpen, onClose, onSuccess }: AaveUSD
                   </>
                 ) : (
                   <>
-                    {needsApproval.usdt ? '授权并存入' : '确认存入'}
+                    {needsApproval.aUsdt ? '授权并提取' : '确认提取'}
                   </>
                 )}
               </button>
@@ -324,22 +357,22 @@ export default function AaveUSDTBuyModal({ isOpen, onClose, onSuccess }: AaveUSD
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">授权中</h3>
                 <p className="text-sm text-gray-400">
-                  正在授权 {amount} USDT 给 DefiAggregator 合约
+                  正在授权 {amount} aUSDT 给 DefiAggregator 合约
                 </p>
               </div>
             </div>
           )}
 
-          {/* 存入步骤 */}
-          {step === 'supply' && (
+          {/* 提取步骤 */}
+          {step === 'withdraw' && (
             <div className="space-y-4">
               <div className="text-center py-8">
-                <div className="w-16 h-16 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                <div className="w-16 h-16 bg-orange-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
                 </div>
-                <h3 className="text-lg font-semibold text-white mb-2">存入中</h3>
+                <h3 className="text-lg font-semibold text-white mb-2">提取中</h3>
                 <p className="text-sm text-gray-400">
-                  正在存入 {amount} USDT 到 Aave 协议
+                  正在从 Aave 协议提取 {amount} USDT
                 </p>
               </div>
             </div>
@@ -352,9 +385,9 @@ export default function AaveUSDTBuyModal({ isOpen, onClose, onSuccess }: AaveUSD
                 <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Check className="w-8 h-8 text-green-500" />
                 </div>
-                <h3 className="text-lg font-semibold text-white mb-2">存入成功！</h3>
+                <h3 className="text-lg font-semibold text-white mb-2">提取成功！</h3>
                 <p className="text-sm text-gray-400 mb-4">
-                  成功存入 {amount} USDT 到 Aave
+                  成功提取 {amount} USDT 到您的钱包
                 </p>
 
                 {/* 交易哈希 */}

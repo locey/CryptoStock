@@ -2,8 +2,11 @@
 
 import { useState } from 'react'
 import { TrendingUp, TrendingDown, Wallet, Shield, Info, ChevronDown, Settings, Star, Plus, Minus, X, Check } from 'lucide-react'
+import AaveUSDTBuyModal from '@/components/AaveUSDTBuyModal'
+import AaveUSDTWithdrawModal from '@/components/AaveUSDTWithdrawModal'
+import AaveUSDTSellModal from '@/components/AaveUSDTSellModal'
 
-const markets = [
+const markets: Asset[] = [
   {
     symbol: 'WETH',
     name: '包装以太坊',
@@ -91,13 +94,35 @@ const markets = [
   }
 ]
 
+// 定义资产类型
+interface Asset {
+  symbol: string
+  name: string
+  totalSupply: number
+  totalBorrow: number
+  supplyApy: number
+  borrowApy: number
+  liquidity: number
+  collateralFactor: number
+  isActive: boolean
+  userSupply: number
+  userBorrow: number
+  icon: string
+  color: string
+  walletBalance: number
+  price: number
+}
+
 export default function AaveLendingPage() {
   const [activeView, setActiveView] = useState('markets')
-  const [selectedAsset, setSelectedAsset] = useState(null)
+  const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null)
   const [showDepositModal, setShowDepositModal] = useState(false)
   const [showWithdrawModal, setShowWithdrawModal] = useState(false)
   const [depositAmount, setDepositAmount] = useState('')
   const [withdrawAmount, setWithdrawAmount] = useState('')
+  const [showAaveBuyModal, setShowAaveBuyModal] = useState(false)
+  const [showAaveWithdrawModal, setShowAaveWithdrawModal] = useState(false)
+  const [showAaveSellModal, setShowAaveSellModal] = useState(false)
 
   const userStats = {
     totalSupply: 3000.50,
@@ -108,16 +133,16 @@ export default function AaveLendingPage() {
     borrowingPower: 2550.43
   }
 
-  const formatPercent = (value) => `${(value * 100).toFixed(2)}%`
-  const formatCurrency = (value) => `$${value.toLocaleString()}`
+  const formatPercent = (value: number) => `${(value * 100).toFixed(2)}%`
+  const formatCurrency = (value: number) => `$${value.toLocaleString()}`
 
-  const handleDeposit = (asset) => {
+  const handleDeposit = (asset: Asset) => {
     setSelectedAsset(asset)
     setDepositAmount('')
     setShowDepositModal(true)
   }
 
-  const handleWithdraw = (asset) => {
+  const handleWithdraw = (asset: Asset) => {
     setSelectedAsset(asset)
     setWithdrawAmount('')
     setShowWithdrawModal(true)
@@ -133,6 +158,24 @@ export default function AaveLendingPage() {
     if (selectedAsset) {
       setWithdrawAmount(selectedAsset.userSupply.toString())
     }
+  }
+
+  // USDT 专用处理函数
+  const handleAaveUSDTBuy = () => {
+    setShowAaveBuyModal(true)
+  }
+
+  const handleAaveUSDTWithdraw = () => {
+    setShowAaveWithdrawModal(true)
+  }
+
+  const handleAaveUSDTSell = () => {
+    setShowAaveSellModal(true)
+  }
+
+  const handleAaveTransactionSuccess = () => {
+    // 交易成功后可以刷新数据或执行其他操作
+    console.log('Aave transaction completed successfully')
   }
 
   return (
@@ -247,6 +290,85 @@ export default function AaveLendingPage() {
                 </button>
                 <button className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors">
                   比特币
+                </button>
+              </div>
+            </div>
+
+            {/* USDT 专用卡片 */}
+            <div className="group bg-gradient-to-br from-green-900/80 to-emerald-800/60 border border-green-700/50 rounded-2xl p-6 hover:border-green-500/50 hover:shadow-2xl hover:shadow-green-500/20 transition-all duration-300 transform hover:-translate-y-1">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                    <span className="text-xl font-bold">₮</span>
+                  </div>
+                  <div>
+                    <div className="font-bold text-xl">USDT</div>
+                    <div className="text-sm text-gray-300">Tether USD</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-gray-400">Aave 协议</div>
+                  <div className="font-bold text-lg">$1.00</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/40 rounded-xl p-4 hover:border-green-500/60 transition-colors">
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingUp className="w-4 h-4 text-green-400" />
+                    <span className="text-sm text-gray-300">存入APY</span>
+                  </div>
+                  <div className="text-2xl font-bold text-green-400">3.5%</div>
+                  <div className="text-xs text-gray-500 mt-1">稳定收益</div>
+                </div>
+                <div className="bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-500/40 rounded-xl p-4 hover:border-blue-500/60 transition-colors">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Shield className="w-4 h-4 text-blue-400" />
+                    <span className="text-sm text-gray-300">安全等级</span>
+                  </div>
+                  <div className="text-2xl font-bold text-blue-400">AAA</div>
+                  <div className="text-xs text-gray-500 mt-1">低风险</div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800/40 rounded-xl p-4 mb-6 space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400 text-sm">总供给</span>
+                  <span className="font-semibold">$2.5M+</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400 text-sm">流动性</span>
+                  <span className="font-semibold text-blue-400">$1.8M+</span>
+                </div>
+                <div className="flex justify-between items-center pt-2 border-t border-gray-700">
+                  <span className="text-gray-400 text-sm">24h 交易量</span>
+                  <span className="font-semibold text-purple-400">$450K</span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleAaveUSDTBuy}
+                    className="flex-1 py-3 bg-gradient-to-r from-green-500 via-green-600 to-emerald-600 hover:from-green-600 hover:via-green-700 hover:to-emerald-700 text-white font-bold rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-green-500/30 flex items-center justify-center gap-2"
+                  >
+                    <Plus className="w-5 h-5" />
+                    存入 USDT
+                  </button>
+                  <button
+                    onClick={handleAaveUSDTWithdraw}
+                    className="flex-1 py-3 bg-gradient-to-r from-red-500 via-red-600 to-orange-600 hover:from-red-600 hover:via-red-700 hover:to-orange-700 text-white font-bold rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-red-500/30 flex items-center justify-center gap-2"
+                  >
+                    <Minus className="w-5 h-5" />
+                    提取 USDT
+                  </button>
+                </div>
+                <button
+                  onClick={handleAaveUSDTSell}
+                  className="w-full py-3 bg-gradient-to-r from-purple-500 via-purple-600 to-pink-600 hover:from-purple-600 hover:via-purple-700 hover:to-pink-700 text-white font-bold rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-purple-500/30 flex items-center justify-center gap-2"
+                >
+                  <TrendingDown className="w-5 h-5" />
+                  卖出 USDT
                 </button>
               </div>
             </div>
@@ -658,7 +780,7 @@ export default function AaveLendingPage() {
                     <div>
                       <div className="text-sm text-gray-400 mb-1">年收益减少</div>
                       <div className="font-semibold text-red-400">
-                        -${(parseFloat(withdrawAmount) || 0) * selectedAsset.supplyApy.toFixed(2)}
+                        -${((parseFloat(withdrawAmount) || 0) * parseFloat(selectedAsset.supplyApy.toFixed(2))).toFixed(2)}
                       </div>
                     </div>
                   </div>
@@ -697,6 +819,23 @@ export default function AaveLendingPage() {
             </div>
           </div>
         )}
+
+        {/* Aave USDT 弹窗组件 */}
+        <AaveUSDTBuyModal
+          isOpen={showAaveBuyModal}
+          onClose={() => setShowAaveBuyModal(false)}
+          onSuccess={handleAaveTransactionSuccess}
+        />
+        <AaveUSDTWithdrawModal
+          isOpen={showAaveWithdrawModal}
+          onClose={() => setShowAaveWithdrawModal(false)}
+          onSuccess={handleAaveTransactionSuccess}
+        />
+        <AaveUSDTSellModal
+          isOpen={showAaveSellModal}
+          onClose={() => setShowAaveSellModal(false)}
+          onSuccess={handleAaveTransactionSuccess}
+        />
       </div>
     </div>
   )

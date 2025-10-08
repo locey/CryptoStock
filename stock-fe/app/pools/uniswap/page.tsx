@@ -50,8 +50,8 @@ export default function UniswapPoolPage() {
   const [showCreatePool, setShowCreatePool] = useState(false)
   const [showNewPosition, setShowNewPosition] = useState(false)
 
-  const formatPercent = (value) => `${value.toFixed(2)}%`
-  const formatCurrency = (value) => `$${value.toLocaleString()}`
+  const formatPercent = (value: number) => `${value.toFixed(2)}%`
+  const formatCurrency = (value: number) => `$${value.toLocaleString()}`
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black text-white">

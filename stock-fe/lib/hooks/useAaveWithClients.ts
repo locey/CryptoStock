@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { Address, formatUnits, parseUnits, PublicClient, WalletClient, Chain } from 'viem';
 import { useWallet } from 'ycdirectory-ui';
 import { usePublicClient, useWalletClient } from 'ycdirectory-hooks';
+import { createPublicClient, http } from 'viem';
 import useAaveStore, {
   AaveOperationType,
   AaveTransactionResult,
@@ -9,6 +10,11 @@ import useAaveStore, {
   UserBalanceInfo
 } from '../stores/useAaveStore';
 import AaveDeploymentInfo from '@/lib/abi/deployments-aave-adapter-sepolia.json';
+
+// 类型别名，避免复杂类型推导问题
+type SafePublicClient = PublicClient;
+type SafeWalletClient = WalletClient;
+type SafeChain = Chain;
 
 /**
  * Aave Hook with Clients
@@ -49,46 +55,46 @@ export const useAaveWithClients = () => {
     if (!publicClient) {
       throw new Error('PublicClient 未初始化');
     }
-    return store.fetchPoolInfo(publicClient);
+    return store.fetchPoolInfo(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs });
   }, [publicClient, store.fetchPoolInfo]);
 
   const fetchUserBalance = useCallback(async () => {
     if (!publicClient || !address) {
       throw new Error('PublicClient 未初始化或钱包未连接');
     }
-    return store.fetchUserBalance(publicClient, address);
+    return store.fetchUserBalance(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
   }, [publicClient, store.fetchUserBalance, address]);
 
   const fetchUserUSDTBalance = useCallback(async () => {
     if (!publicClient || !address) {
       throw new Error('PublicClient 未初始化或钱包未连接');
     }
-    return store.fetchUserUSDTBalance(publicClient, address);
+    return store.fetchUserUSDTBalance(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
   }, [publicClient, store.fetchUserUSDTBalance, address]);
 
   const fetchUserAUSDTBalance = useCallback(async () => {
     if (!publicClient || !address) {
       throw new Error('PublicClient 未初始化或钱包未连接');
     }
-    return store.fetchUserAUSDTBalance(publicClient, address);
+    return store.fetchUserAUSDTBalance(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
   }, [publicClient, store.fetchUserAUSDTBalance, address]);
 
   const fetchAllowances = useCallback(async () => {
     if (!publicClient || !address) {
       throw new Error('PublicClient 未初始化或钱包未连接');
     }
-    return store.fetchAllowances(publicClient, address);
+    return store.fetchAllowances(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
   }, [publicClient, store.fetchAllowances, address]);
 
   const fetchFeeRate = useCallback(async () => {
     if (!publicClient) {
       throw new Error('PublicClient 未初始化');
     }
-    return store.fetchFeeRate(publicClient);
+    return store.fetchFeeRate(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs });
   }, [publicClient, store.fetchFeeRate]);
 
   // 包装写入方法
-  const approveUSDT = useCallback(async (amount: string) => {
+  const approveUSDT = useCallback(async (amount: string, userAddress?: Address) => {
     if (!isConnected || !address) {
       throw new Error('请先连接钱包');
     }
@@ -108,7 +114,27 @@ export const useAaveWithClients = () => {
 
     const amountBigInt = parseUnits(amount, 6); // USDT 是 6 位小数
 
-    return store.approveUSDT(publicClient, wc, chain, amountBigInt, address);
+    // 自定义 gas 设置以提高成功率 (EIP-1559 兼容)
+    const gasConfig: {
+      gas?: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    } = {
+      gas: 8000000n, // 增加到 8M gas limit (bigint)
+      maxFeePerGas: 100000000000n, // 100 Gwei
+      maxPriorityFeePerGas: 5000000000n, // 5 Gwei
+      // 移除 gasPrice 以支持 EIP-1559
+    };
+
+    return store.approveUSDT(
+      publicClient as PublicClient & { getLogs: typeof publicClient.getLogs },
+      wc as WalletClient,
+      chain,
+      amountBigInt,
+      address,
+      userAddress || address,
+      gasConfig
+    );
   }, [isConnected, address, publicClient, chain, getWalletClient, store.approveUSDT]);
 
   const approveAUSDT = useCallback(async (amount: string) => {
@@ -131,7 +157,26 @@ export const useAaveWithClients = () => {
 
     const amountBigInt = parseUnits(amount, 6); // aUSDT 也是 6 位小数
 
-    return store.approveAUSDT(publicClient, wc, chain, amountBigInt, address);
+    // 自定义 gas 设置以提高成功率 (EIP-1559 兼容)
+    const gasConfig: {
+      gas?: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    } = {
+      gas: 8000000n, // 增加到 8M gas limit (bigint)
+      maxFeePerGas: 100000000000n, // 100 Gwei
+      maxPriorityFeePerGas: 5000000000n, // 5 Gwei
+      // 移除 gasPrice 以支持 EIP-1559
+    };
+
+    return store.approveAUSDT(
+      publicClient as PublicClient & { getLogs: typeof publicClient.getLogs },
+      wc as WalletClient,
+      chain,
+      amountBigInt,
+      address,
+      gasConfig
+    );
   }, [isConnected, address, publicClient, chain, getWalletClient, store.approveAUSDT]);
 
   const supplyUSDT = useCallback(async (amount: string): Promise<AaveTransactionResult> => {
@@ -154,7 +199,26 @@ export const useAaveWithClients = () => {
 
     const amountBigInt = parseUnits(amount, 6); // USDT 是 6 位小数
 
-    return store.supplyUSDT(publicClient, wc, chain, amountBigInt, address);
+    // 自定义 gas 设置以提高成功率 (EIP-1559 兼容)
+    const gasConfig: {
+      gas?: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    } = {
+      gas: 8000000n, // 增加到 8M gas limit (bigint)
+      maxFeePerGas: 100000000000n, // 100 Gwei
+      maxPriorityFeePerGas: 5000000000n, // 5 Gwei
+      // 移除 gasPrice 以支持 EIP-1559
+    };
+
+    return store.supplyUSDT(
+      publicClient as PublicClient & { getLogs: typeof publicClient.getLogs },
+      wc as WalletClient,
+      chain,
+      amountBigInt,
+      address,
+      gasConfig
+    );
   }, [isConnected, address, publicClient, chain, getWalletClient, store.supplyUSDT]);
 
   const withdrawUSDT = useCallback(async (amount: string): Promise<AaveTransactionResult> => {
@@ -177,8 +241,69 @@ export const useAaveWithClients = () => {
 
     const amountBigInt = parseUnits(amount, 6); // USDT 是 6 位小数
 
-    return store.withdrawUSDT(publicClient, wc, chain, amountBigInt, address);
+    // 自定义 gas 设置以提高成功率 (EIP-1559 兼容)
+    const gasConfig: {
+      gas?: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    } = {
+      gas: 8000000n, // 增加到 8M gas limit (bigint)
+      maxFeePerGas: 100000000000n, // 100 Gwei
+      maxPriorityFeePerGas: 5000000000n, // 5 Gwei
+      // 移除 gasPrice 以支持 EIP-1559
+    };
+
+    return store.withdrawUSDT(
+      publicClient as PublicClient & { getLogs: typeof publicClient.getLogs },
+      wc as WalletClient,
+      chain,
+      amountBigInt,
+      address,
+      gasConfig
+    );
   }, [isConnected, address, publicClient, chain, getWalletClient, store.withdrawUSDT]);
+
+  const sellUSDT = useCallback(async (amount: string): Promise<AaveTransactionResult> => {
+    if (!isConnected || !address) {
+      throw new Error('请先连接钱包');
+    }
+
+    if (!publicClient) {
+      throw new Error('PublicClient 未初始化');
+    }
+
+    if (!chain) {
+      throw new Error('Chain 未初始化');
+    }
+
+    const wc = await getWalletClient();
+    if (!wc) {
+      throw new Error('WalletClient 未初始化');
+    }
+
+    const amountBigInt = parseUnits(amount, 6); // USDT 是 6 位小数
+
+    // 自定义 gas 设置以提高成功率 (EIP-1559 兼容)
+    const gasConfig: {
+      gas?: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    } = {
+      gas: 8000000n, // 增加到 8M gas limit (bigint)
+      maxFeePerGas: 100000000000n, // 100 Gwei
+      maxPriorityFeePerGas: 5000000000n, // 5 Gwei
+      // 移除 gasPrice 以支持 EIP-1559
+    };
+
+    return store.sellUSDT(
+      publicClient as PublicClient & { getLogs: typeof publicClient.getLogs },
+      wc as WalletClient,
+      chain,
+      amountBigInt,
+      address,
+      gasConfig
+    );
+  }, [isConnected, address, publicClient, chain, getWalletClient, store.sellUSDT]);
 
   // 初始化 Aave 交易功能
   const initializeAaveTrading = useCallback(async () => {
@@ -333,6 +458,7 @@ export const useAaveWithClients = () => {
     // 交易方法
     supplyUSDT,
     withdrawUSDT,
+    sellUSDT,
 
     // 辅助方法
     setLoading: store.setLoading,

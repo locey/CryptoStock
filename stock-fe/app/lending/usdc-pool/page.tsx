@@ -40,7 +40,7 @@ export default function USDCPoolPage() {
     setWithdrawAmount(poolData.userInvested.toString())
   }
 
-  const formatCurrency = (value) => {
+  const formatCurrency = (value: number) => {
     if (value >= 1000000000) {
       return `$${(value / 1000000000).toFixed(1)}B`
     } else if (value >= 1000000) {

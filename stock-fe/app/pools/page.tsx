@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ArrowRight, TrendingUp, DollarSign, Shield, Droplets, Activity, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import AaveUSDTBuyModal from '@/components/AaveUSDTBuyModal'
+import AaveUSDTSellModal from '@/components/AaveUSDTSellModal'
 
 const poolCategories = [
   {
@@ -104,6 +105,7 @@ function formatLargeNumber(num: number): string {
 export default function PoolsPage() {
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [aaveBuyModalOpen, setAaveBuyModalOpen] = useState(false)
+  const [aaveSellModalOpen, setAaveSellModalOpen] = useState(false)
 
   const totalTVL = poolCategories.reduce((sum, category) => sum + category.tvl, 0)
   const totalVolume = poolCategories.reduce((sum, category) => sum + category.volume24h, 0)
@@ -241,7 +243,15 @@ export default function PoolsPage() {
                   >
                     买入
                   </Button>
-                  <Button variant="sell" size="trading">
+                  <Button
+                    variant="sell"
+                    size="trading"
+                    onClick={() => {
+                      if (category.id === 'aave') {
+                        setAaveSellModalOpen(true)
+                      }
+                    }}
+                  >
                     卖出
                   </Button>
                 </div>
@@ -331,6 +341,16 @@ export default function PoolsPage() {
         onSuccess={() => {
           console.log('Aave 存入成功')
           setAaveBuyModalOpen(false)
+        }}
+      />
+
+      {/* Aave USDT 卖出弹窗 */}
+      <AaveUSDTSellModal
+        isOpen={aaveSellModalOpen}
+        onClose={() => setAaveSellModalOpen(false)}
+        onSuccess={() => {
+          console.log('Aave 卖出成功')
+          setAaveSellModalOpen(false)
         }}
       />
     </div>

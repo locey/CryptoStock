@@ -19,7 +19,7 @@ import AaveDeploymentInfo from '@/lib/abi/deployments-aave-adapter-sepolia.json'
 import {getContractAddresses} from "@/app/pool/page"
 
 // 获取合约地址
-const { USDT_ADDRESS } = getContractAddresses();
+const { USDT_ADDRESS } = getContractAddresses() as { USDT_ADDRESS: Address };
 // ==================== 类型定义 ====================
 
 /**
@@ -152,7 +152,14 @@ interface AaveState {
     walletClient: WalletClient,
     chain: Chain,
     amount: bigint,
-    account: Address
+    account: Address,
+    userAddress: Address,
+    gasConfig?: {
+      gas?: bigint;
+      gasPrice?: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    }
   ) => Promise<TransactionReceipt>;
 
   /** 授权 aUSDT 给 DefiAggregator */
@@ -161,7 +168,13 @@ interface AaveState {
     walletClient: WalletClient,
     chain: Chain,
     amount: bigint,
-    account: Address
+    account: Address,
+    gasConfig?: {
+      gas?: bigint;
+      gasPrice?: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    }
   ) => Promise<TransactionReceipt>;
 
   /** 存入 USDT 到 Aave（基于测试用例逻辑） */
@@ -170,7 +183,13 @@ interface AaveState {
     walletClient: WalletClient,
     chain: Chain,
     amount: bigint,
-    account: Address
+    account: Address,
+    gasConfig?: {
+      gas?: bigint;
+      gasPrice?: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    }
   ) => Promise<AaveTransactionResult>;
 
   /** 从 Aave 提取 USDT（基于测试用例逻辑） */
@@ -179,7 +198,28 @@ interface AaveState {
     walletClient: WalletClient,
     chain: Chain,
     amount: bigint,
-    account: Address
+    account: Address,
+    gasConfig?: {
+      gas?: bigint;
+      gasPrice?: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    }
+  ) => Promise<AaveTransactionResult>;
+
+  /** 卖出 USDT（从 Aave 提取） */
+  sellUSDT: (
+    publicClient: PublicClient,
+    walletClient: WalletClient,
+    chain: Chain,
+    amount: bigint,
+    account: Address,
+    gasConfig?: {
+      gas?: bigint;
+      gasPrice?: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    }
   ) => Promise<AaveTransactionResult>;
 
   // ==================== 辅助方法 ====================
@@ -428,24 +468,24 @@ export const useAaveStore = create<AaveState>((set, get) => ({
    * @param userAddress 用户地址
    */
   fetchAllowances: async (publicClient: PublicClient, userAddress: Address): Promise<{ usdtAllowance: bigint; aUsdtAllowance: bigint }> => {
-    const { defiAggregatorAddress } = get();
-    if (!defiAggregatorAddress) {
-      throw new Error('DefiAggregator 合约地址未初始化');
+    const { aaveAdapterAddress } = get();
+    if (!aaveAdapterAddress) {
+      throw new Error('AaveAdapter 合约地址未初始化');
     }
 
     try {
       const [usdtAllowance, aUsdtAllowance] = await Promise.all([
         publicClient.readContract({
-          address: USDT_ADDRESS  as Address, 
+          address: USDT_ADDRESS  as Address,
           abi: typedMockERC20ABI,
           functionName: 'allowance',
-          args: [userAddress, defiAggregatorAddress],
+          args: [userAddress, aaveAdapterAddress],
         }),
         publicClient.readContract({
           address: AaveDeploymentInfo.contracts.MockAToken_aUSDT as Address, // 从部署文件读取
           abi: typedMockERC20ABI,
           functionName: 'allowance',
-          args: [userAddress, defiAggregatorAddress],
+          args: [userAddress, aaveAdapterAddress],
         }),
       ]);
 
@@ -502,30 +542,61 @@ export const useAaveStore = create<AaveState>((set, get) => ({
     walletClient: WalletClient,
     chain: Chain,
     amount: bigint,
-    account: Address
+    account: Address,
+    userAddress: Address,
+    gasConfig?: {
+      gas?: bigint;
+      gasPrice?: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    }
   ): Promise<TransactionReceipt> => {
-    const { defiAggregatorAddress } = get();
-    if (!defiAggregatorAddress) {
-      throw new Error('合约地址未初始化');
+    const { aaveAdapterAddress } = get();
+    if (!aaveAdapterAddress) {
+      throw new Error('AaveAdapter 合约地址未初始化');
     }
 
     try {
-      console.log('🔑 开始授权 USDT 给 DefiAggregator...');
+      console.log('🔑 开始授权 USDT 给 AaveAdapter...');
       console.log('参数:', { amount: amount.toString(), account });
 
-      const hash = await walletClient.writeContract({
+      // 构建交易参数，正确处理 gas 配置
+      const baseParams = {
         address: USDT_ADDRESS, // 使用动态获取的 USDT 地址
         abi: typedMockERC20ABI,
-        functionName: 'approve',
-        args: [defiAggregatorAddress, amount],
+        functionName: 'approve' as const,
+        args: [aaveAdapterAddress, amount] as [`0x${string}`, bigint],
         chain,
         account,
-      });
+      };
+
+      // 根据gas配置动态构建参数，避免类型冲突
+      const writeParams = { ...baseParams };
+
+      if (gasConfig?.maxFeePerGas && gasConfig?.maxPriorityFeePerGas) {
+        // EIP-1559 gas 配置
+        Object.assign(writeParams, {
+          ...(gasConfig?.gas && { gas: gasConfig.gas }),
+          maxFeePerGas: gasConfig.maxFeePerGas,
+          maxPriorityFeePerGas: gasConfig.maxPriorityFeePerGas,
+        });
+      } else {
+        // Legacy gas 配置或默认
+        Object.assign(writeParams, {
+          ...(gasConfig?.gas && { gas: gasConfig.gas }),
+          ...(gasConfig?.gasPrice && { gasPrice: gasConfig.gasPrice }),
+        });
+      }
+
+      const hash = await walletClient.writeContract(writeParams as Parameters<typeof walletClient.writeContract>[0]);
 
       console.log('📝 授权交易哈希:', hash);
 
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
       console.log('✅ USDT 授权完成');
+
+      // 授权成功后更新授权状态（从 store 中刷新）
+      await get().fetchAllowances(publicClient, userAddress);
 
       return receipt;
     } catch (error) {
@@ -548,25 +619,58 @@ export const useAaveStore = create<AaveState>((set, get) => ({
     walletClient: WalletClient,
     chain: Chain,
     amount: bigint,
-    account: Address
+    account: Address,
+    gasConfig?: {
+      gas?: bigint;
+      gasPrice?: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    }
   ): Promise<TransactionReceipt> => {
-    const { defiAggregatorAddress } = get();
-    if (!defiAggregatorAddress) {
-      throw new Error('合约地址未初始化');
+    const { aaveAdapterAddress } = get();
+    if (!aaveAdapterAddress) {
+      throw new Error('AaveAdapter 合约地址未初始化');
     }
 
     try {
-      console.log('🔑 开始授权 aUSDT 给 DefiAggregator...');
+      console.log('🔑 开始授权 aUSDT 给 AaveAdapter...');
       console.log('参数:', { amount: amount.toString(), account });
 
-      const hash = await walletClient.writeContract({
+      // 构建交易参数，正确处理 gas 配置
+      type AaveTokenWriteParams = {
+        address: Address;
+        abi: typeof typedMockERC20ABI;
+        functionName: 'approve';
+        args: [`0x${string}`, bigint];
+        chain: Chain;
+        account: Address;
+        gas?: bigint;
+        gasPrice?: bigint;
+        maxFeePerGas?: bigint;
+        maxPriorityFeePerGas?: bigint;
+      };
+
+      const txParams: AaveTokenWriteParams = {
         address: AaveDeploymentInfo.contracts.MockAToken_aUSDT as Address, // 从部署文件读取 aUSDT 地址
         abi: typedMockERC20ABI,
         functionName: 'approve',
-        args: [defiAggregatorAddress, amount],
+        args: [aaveAdapterAddress, amount] as [`0x${string}`, bigint],
         chain,
         account,
-      });
+      };
+
+      // 添加 gas 配置，避免 EIP-1559 和 legacy 同时存在
+      if (gasConfig?.gas) {
+        txParams.gas = gasConfig.gas;
+      }
+      if (gasConfig?.maxFeePerGas && gasConfig?.maxPriorityFeePerGas) {
+        txParams.maxFeePerGas = gasConfig.maxFeePerGas;
+        txParams.maxPriorityFeePerGas = gasConfig.maxPriorityFeePerGas;
+      } else if (gasConfig?.gasPrice) {
+        txParams.gasPrice = gasConfig.gasPrice;
+      }
+
+      const hash = await walletClient.writeContract(txParams as Parameters<typeof walletClient.writeContract>[0]);
 
       console.log('📝 授权交易哈希:', hash);
 
@@ -594,7 +698,13 @@ export const useAaveStore = create<AaveState>((set, get) => ({
     walletClient: WalletClient,
     chain: Chain,
     amount: bigint,
-    account: Address
+    account: Address,
+    gasConfig?: {
+      gas?: bigint;
+      gasPrice?: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    }
   ): Promise<AaveTransactionResult> => {
     const { defiAggregatorAddress } = get();
     if (!defiAggregatorAddress) {
@@ -616,13 +726,29 @@ export const useAaveStore = create<AaveState>((set, get) => ({
         extraData: '0x' as Hex, // 无额外数据
       };
 
-      console.log('📋 操作参数:', [
-          'aave', // 适配器名称
-          AaveOperationType.DEPOSIT, // 操作类型：0
-          operationParams
-        ]);
+      console.log('📋 操作参数:', operationParams);
+      console.log('📋 执行参数:', {
+        adapterName: 'aave', // 适配器名称
+        operationType: AaveOperationType.DEPOSIT, // 操作类型：0
+        operationParams,
+        gasConfig
+      });
 
-      const hash = await walletClient.writeContract({
+      // 构建交易参数，正确处理 gas 配置
+      type ExecuteOperationParams = {
+        address: Address;
+        abi: typeof typedDefiAggregatorABI;
+        functionName: 'executeOperation';
+        args: [string, number, AaveOperationParams];
+        chain: Chain;
+        account: Address;
+        gas?: bigint;
+        gasPrice?: bigint;
+        maxFeePerGas?: bigint;
+        maxPriorityFeePerGas?: bigint;
+      };
+
+      const txParams: ExecuteOperationParams = {
         address: defiAggregatorAddress,
         abi: typedDefiAggregatorABI,
         functionName: 'executeOperation',
@@ -630,10 +756,23 @@ export const useAaveStore = create<AaveState>((set, get) => ({
           'aave', // 适配器名称
           AaveOperationType.DEPOSIT, // 操作类型：0
           operationParams
-        ],
+        ] as [string, number, AaveOperationParams],
         chain,
         account,
-      });
+      };
+
+      // 添加 gas 配置，避免 EIP-1559 和 legacy 同时存在
+      if (gasConfig?.gas) {
+        txParams.gas = gasConfig.gas;
+      }
+      if (gasConfig?.maxFeePerGas && gasConfig?.maxPriorityFeePerGas) {
+        txParams.maxFeePerGas = gasConfig.maxFeePerGas;
+        txParams.maxPriorityFeePerGas = gasConfig.maxPriorityFeePerGas;
+      } else if (gasConfig?.gasPrice) {
+        txParams.gasPrice = gasConfig.gasPrice;
+      }
+
+      const hash = await walletClient.writeContract(txParams as Parameters<typeof walletClient.writeContract>[0]);
 
       console.log('📝 存款交易哈希:', hash);
 
@@ -650,12 +789,12 @@ export const useAaveStore = create<AaveState>((set, get) => ({
       };
 
       if (receipt.logs) {
-        for (const log of receipt.logs) {
+        for (const log of receipt.logs as Array<{ topics: readonly Hex[] } & typeof receipt.logs[0]>) {
           try {
             const event = viemDecodeEventLog({
               abi: typedDefiAggregatorABI,
               data: log.data,
-              topics: [...log.topics] as unknown as [signature: Hex, ...args: Hex[]],
+              topics: log.topics as [signature: Hex, ...args: Hex[]],
             });
 
             if (event && event.eventName === 'OperationExecuted') {
@@ -706,7 +845,13 @@ export const useAaveStore = create<AaveState>((set, get) => ({
     walletClient: WalletClient,
     chain: Chain,
     amount: bigint,
-    account: Address
+    account: Address,
+    gasConfig?: {
+      gas?: bigint;
+      gasPrice?: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    }
   ): Promise<AaveTransactionResult> => {
     const { defiAggregatorAddress } = get();
     if (!defiAggregatorAddress) {
@@ -729,19 +874,31 @@ export const useAaveStore = create<AaveState>((set, get) => ({
       };
 
       console.log('📋 取款操作参数:', operationParams);
+      console.log('📋 执行参数:', {
+        adapterName: 'aave', // 适配器名称
+        operationType: AaveOperationType.WITHDRAW, // 操作类型：1
+        operationParams,
+        gasConfig
+      });
 
       const hash = await walletClient.writeContract({
         address: defiAggregatorAddress,
         abi: typedDefiAggregatorABI,
         functionName: 'executeOperation',
         args: [
-          'aave', // 适配器名称
+          'aave', // ��配器名称
           AaveOperationType.WITHDRAW, // 操作类型：1
           operationParams
         ],
         chain,
         account,
-      });
+        ...(gasConfig?.gas && { gas: gasConfig.gas }),
+        ...(gasConfig?.maxFeePerGas && gasConfig?.maxPriorityFeePerGas && {
+          maxFeePerGas: gasConfig.maxFeePerGas,
+          maxPriorityFeePerGas: gasConfig.maxPriorityFeePerGas,
+        }),
+        ...(gasConfig?.gasPrice && { gasPrice: gasConfig.gasPrice }),
+      } as Parameters<typeof walletClient.writeContract>[0]);
 
       console.log('📝 取款交易哈希:', hash);
 
@@ -758,12 +915,12 @@ export const useAaveStore = create<AaveState>((set, get) => ({
       };
 
       if (receipt.logs) {
-        for (const log of receipt.logs) {
+        for (const log of receipt.logs as Array<{ topics: readonly Hex[] } & typeof receipt.logs[0]>) {
           try {
             const event = viemDecodeEventLog({
               abi: typedDefiAggregatorABI,
               data: log.data,
-              topics: [...log.topics] as unknown as [signature: Hex, ...args: Hex[]],
+              topics: log.topics as [signature: Hex, ...args: Hex[]],
             });
 
             if (event && event.eventName === 'OperationExecuted') {
@@ -797,6 +954,130 @@ export const useAaveStore = create<AaveState>((set, get) => ({
       const errorMsg = error instanceof Error ? error.message : '提取 USDT 失败';
       set({ error: errorMsg, isOperating: false });
       console.error('❌ 提取 USDT 失败:', errorMsg);
+      throw error;
+    }
+  },
+
+  /**
+   * 卖出 USDT（从 Aave 提取）
+   * 实际上是调用 withdrawUSDT 的简化版本
+   * @param publicClient 公共客户端
+   * @param walletClient 钱包客户端
+   * @param chain 链配置
+   * @param amount 提取数量
+   * @param account 用户地址
+   */
+  sellUSDT: async (
+    publicClient: PublicClient,
+    walletClient: WalletClient,
+    chain: Chain,
+    amount: bigint,
+    account: Address,
+    gasConfig?: {
+      gas?: bigint;
+      gasPrice?: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    }
+  ): Promise<AaveTransactionResult> => {
+    const { defiAggregatorAddress } = get();
+    if (!defiAggregatorAddress) {
+      throw new Error('合约地址未初始化');
+    }
+
+    try {
+      set({ isOperating: true, error: null });
+      console.log('💰 开始卖出 USDT（从 Aave 提取）...');
+      console.log('参数:', {
+        amount: amount.toString(),
+        account
+      });
+
+      // 构造操作参数（提取操作）
+      const operationParams: AaveOperationParams = {
+        tokens: [USDT_ADDRESS], // 使用动态获取的 USDT 地址
+        amounts: [amount], // 提取的 USDT 数量
+        recipient: account,
+        deadline: Math.floor(Date.now() / 1000) + 3600, // 1小时后过期
+        tokenId: 0, // Aave 不使用 NFT，设为 0
+        extraData: '0x' as Hex, // 无额外数据
+      };
+
+      console.log('📋 卖出（提取）操作参数:', operationParams);
+
+      const hash = await walletClient.writeContract({
+        address: defiAggregatorAddress,
+        abi: typedDefiAggregatorABI,
+        functionName: 'executeOperation',
+        args: [
+          'aave', // 适配器名称
+          AaveOperationType.WITHDRAW, // 操作类型：WITHDRAW (1)
+          operationParams
+        ],
+        chain,
+        account,
+        ...(gasConfig?.gas && { gas: gasConfig.gas }),
+        ...(gasConfig?.maxFeePerGas && gasConfig?.maxPriorityFeePerGas && {
+          maxFeePerGas: gasConfig.maxFeePerGas,
+          maxPriorityFeePerGas: gasConfig.maxPriorityFeePerGas,
+        }),
+        ...(gasConfig?.gasPrice && { gasPrice: gasConfig.gasPrice }),
+      } as Parameters<typeof walletClient.writeContract>[0]);
+
+      console.log('📝 卖出（提取）交易哈希:', hash);
+
+      console.log('⏳ 等待交易确认...');
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      console.log('✅ 交易已确认');
+
+      // 解析操作结果（从事件日志中）
+      let operationResult: AaveOperationResult = {
+        success: false,
+        outputAmounts: [],
+        returnData: '0x' as Hex,
+        message: '无法解析操作结果',
+      };
+
+      if (receipt.logs) {
+        for (const log of receipt.logs as Array<{ topics: readonly Hex[] } & typeof receipt.logs[0]>) {
+          try {
+            const event = viemDecodeEventLog({
+              abi: typedDefiAggregatorABI,
+              data: log.data,
+              topics: log.topics as [signature: Hex, ...args: Hex[]],
+            });
+
+            if (event && event.eventName === 'OperationExecuted') {
+              const operationEvent = event as unknown as DecodedOperationExecutedEvent;
+              operationResult = {
+                success: true,
+                outputAmounts: operationEvent.args.amounts,
+                returnData: operationEvent.args.returnData,
+                message: '卖出（提取）操作成功',
+              };
+              console.log('✅ 解析到 OperationExecuted 事件:', operationEvent);
+              break;
+            }
+          } catch (e) {
+            console.warn('解码事件日志失败:', e);
+          }
+        }
+      }
+
+      set({ isOperating: false });
+
+      const result: AaveTransactionResult = {
+        hash,
+        receipt,
+        result: operationResult,
+      };
+
+      console.log('✅ USDT 卖出（提取）操作完成');
+      return result;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : '卖出 USDT 失败';
+      set({ error: errorMsg, isOperating: false });
+      console.error('❌ 卖出 USDT 失败:', errorMsg);
       throw error;
     }
   },
