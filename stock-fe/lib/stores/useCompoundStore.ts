@@ -629,8 +629,8 @@ export const useCompoundStore = create<CompoundStore>((set, get) => ({
         cUsdtToken: cUsdtToken,
         compoundAdapterAddress,
         account,
-        cUsdtBalance: cUsdtBalance.toString(),
-        cUsdtBalanceFormatted: formatUnits(cUsdtBalance, 8)
+        cUsdtBalance: (cUsdtBalance as bigint).toString(),
+        cUsdtBalanceFormatted: formatUnits(cUsdtBalance as bigint, 8)
       });
 
       // 构建交易参数，正确处理 gas 配置
