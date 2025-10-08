@@ -122,7 +122,7 @@ export const useAaveWithClients = () => {
       // 移除 gasPrice 以支持 EIP-1559
     };
 
-    return store.approveUSDT(publicClient, wc, chain, amountBigInt, address, userAddress || address, gasConfig);
+    return store.approveUSDT(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs }, wc, chain, amountBigInt, address, userAddress || address, gasConfig);
   }, [isConnected, address, publicClient, chain, getWalletClient, store.approveUSDT]);
 
   const approveAUSDT = useCallback(async (amount: string) => {
@@ -153,7 +153,7 @@ export const useAaveWithClients = () => {
       // 移除 gasPrice 以支持 EIP-1559
     };
 
-    return store.approveAUSDT(publicClient, wc, chain, amountBigInt, address, gasConfig);
+    return store.approveAUSDT(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs }, wc, chain, amountBigInt, address, gasConfig);
   }, [isConnected, address, publicClient, chain, getWalletClient, store.approveAUSDT]);
 
   const supplyUSDT = useCallback(async (amount: string): Promise<AaveTransactionResult> => {
@@ -184,7 +184,7 @@ export const useAaveWithClients = () => {
       // 移除 gasPrice 以支持 EIP-1559
     };
 
-    return store.supplyUSDT(publicClient, wc, chain, amountBigInt, address, gasConfig);
+    return store.supplyUSDT(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs }, wc, chain, amountBigInt, address, gasConfig);
   }, [isConnected, address, publicClient, chain, getWalletClient, store.supplyUSDT]);
 
   const withdrawUSDT = useCallback(async (amount: string): Promise<AaveTransactionResult> => {
@@ -215,7 +215,7 @@ export const useAaveWithClients = () => {
       // 移除 gasPrice 以支持 EIP-1559
     };
 
-    return store.withdrawUSDT(publicClient, wc, chain, amountBigInt, address, gasConfig);
+    return store.withdrawUSDT(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs }, wc, chain, amountBigInt, address, gasConfig);
   }, [isConnected, address, publicClient, chain, getWalletClient, store.withdrawUSDT]);
 
   const sellUSDT = useCallback(async (amount: string): Promise<AaveTransactionResult> => {
@@ -246,7 +246,7 @@ export const useAaveWithClients = () => {
       // 移除 gasPrice 以支持 EIP-1559
     };
 
-    return store.sellUSDT(publicClient, wc, chain, amountBigInt, address, gasConfig);
+    return store.sellUSDT(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs }, wc, chain, amountBigInt, address, gasConfig);
   }, [isConnected, address, publicClient, chain, getWalletClient, store.sellUSDT]);
 
   // 初始化 Aave 交易功能
