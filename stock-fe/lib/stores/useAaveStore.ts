@@ -560,14 +560,25 @@ export const useAaveStore = create<AaveState>((set, get) => ({
       console.log('🔑 开始授权 USDT 给 AaveAdapter...');
       console.log('参数:', { amount: amount.toString(), account });
 
-      const hash = await walletClient.writeContract({
+      // 构建交易参数，正确处理 gas 配置
+      const baseTxParams = {
         address: USDT_ADDRESS, // 使用动态获取的 USDT 地址
         abi: typedMockERC20ABI,
-        functionName: 'approve',
-        args: [aaveAdapterAddress, amount],
+        functionName: 'approve' as const,
+        args: [aaveAdapterAddress, amount] as [`0x${string}`, bigint],
         chain,
         account,
-        ...gasConfig, // 应用自定义 gas 配置
+      };
+
+      // 添加 gas 配置，避免 EIP-1559 和 legacy 同时存在
+      const hash = await walletClient.writeContract({
+        ...baseTxParams,
+        ...(gasConfig?.gas && { gas: gasConfig.gas }),
+        ...(gasConfig?.maxFeePerGas && gasConfig?.maxPriorityFeePerGas && {
+          maxFeePerGas: gasConfig.maxFeePerGas,
+          maxPriorityFeePerGas: gasConfig.maxPriorityFeePerGas,
+        }),
+        ...(gasConfig?.gasPrice && { gasPrice: gasConfig.gasPrice }),
       });
 
       console.log('📝 授权交易哈希:', hash);
@@ -616,14 +627,20 @@ export const useAaveStore = create<AaveState>((set, get) => ({
       console.log('🔑 开始授权 aUSDT 给 AaveAdapter...');
       console.log('参数:', { amount: amount.toString(), account });
 
+      // 构建交易参数，正确处理 gas 配置
       const hash = await walletClient.writeContract({
         address: AaveDeploymentInfo.contracts.MockAToken_aUSDT as Address, // 从部署文件读取 aUSDT 地址
         abi: typedMockERC20ABI,
-        functionName: 'approve',
-        args: [aaveAdapterAddress, amount],
+        functionName: 'approve' as const,
+        args: [aaveAdapterAddress, amount] as [`0x${string}`, bigint],
         chain,
         account,
-        ...gasConfig, // 应用自定义 gas 配置
+        ...(gasConfig?.gas && { gas: gasConfig.gas }),
+        ...(gasConfig?.maxFeePerGas && gasConfig?.maxPriorityFeePerGas && {
+          maxFeePerGas: gasConfig.maxFeePerGas,
+          maxPriorityFeePerGas: gasConfig.maxPriorityFeePerGas,
+        }),
+        ...(gasConfig?.gasPrice && { gasPrice: gasConfig.gasPrice }),
       });
 
       console.log('📝 授权交易哈希:', hash);
