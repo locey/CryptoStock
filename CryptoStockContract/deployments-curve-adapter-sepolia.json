@@ -2,20 +2,20 @@
   "network": "sepolia",
   "chainId": "11155111",
   "deployer": "0x46b43ad9F6C20c400aC17a282022E578417F796A",
-  "timestamp": "2025-10-07T08:58:17.024Z",
+  "timestamp": "2025-10-08T02:06:03.392Z",
   "feeRateBps": 30,
   "basedOn": "deployments-defi-infrastructure-sepolia.json",
   "contracts": {
-    "DefiAggregator": "0x43C83cE19346e2148A18aE44315f03de20203ff3",
-    "MockERC20_USDT": "0x01C8918bd02437C52ab0034A73c6Fecc448e2B5f",
-    "MockCurve": "0x1f1207f5A7EAC3EE1E5189ed7e97ae272b845cc1",
-    "MockCurvePool": "0x1f1207f5A7EAC3EE1E5189ed7e97ae272b845cc1",
-    "MockCurveToken": "0x1f1207f5A7EAC3EE1E5189ed7e97ae272b845cc1",
-    "CurveAdapter": "0x57A7875E46775a906D0366eD050240656BCD42f6",
+    "DefiAggregator": "0xEf3bB3e03251533cE0609530f742F1FFA3766EBB",
+    "MockERC20_USDT": "0xd7C597Cf30fb56162AEDAe8a52927B7CE4076e5B",
+    "MockCurve": "0x6a3070E5b9Df82A9b9aA5708546633211EBdaB1B",
+    "MockCurvePool": "0x6a3070E5b9Df82A9b9aA5708546633211EBdaB1B",
+    "MockCurveToken": "0x6a3070E5b9Df82A9b9aA5708546633211EBdaB1B",
+    "CurveAdapter": "0x33b5398556Ba3A4FB3D4FBB62Aed28831A40b866",
     "CurveAdapter_Implementation": "0x6CbDCC295937D775bf2B47D3FC305210cE054779"
   },
   "adapterRegistrations": {
-    "curve": "0x57A7875E46775a906D0366eD050240656BCD42f6"
+    "curve": "0x33b5398556Ba3A4FB3D4FBB62Aed28831A40b866"
   },
   "notes": {
     "description": "Curve适配器部署，复用了基础设施合约",

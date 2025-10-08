@@ -43,9 +43,14 @@ module.exports = {
         process.env.PRIVATE_KEY_4
       ].filter(key => key !== undefined), // 过滤掉未定义的私钥
       chainId: 11155111,
-      gas: 5000000, // 5M gas limit (正常水平)
-      gasPrice: 2000000000, // 2 Gwei (正常水平，Sepolia测试网)
-      timeout: 300000, // 5分钟超时
+      gas: 8000000, // 增加到 8M gas limit
+      gasPrice: 20000000000, // 固定 20 Gwei (而不是 auto)
+      gasMultiplier: 2.5, // 增加 gas 价格乘数到 2.5
+      timeout: 600000, // 增加到 10分钟超时
+      confirmations: 3, // 增加到 3个区块确认
+      // 添加 EIP-1559 支持
+      maxFeePerGas: 100000000000, // 100 Gwei
+      maxPriorityFeePerGas: 5000000000, // 5 Gwei
     }
   },
 

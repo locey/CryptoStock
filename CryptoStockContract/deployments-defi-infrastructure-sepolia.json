@@ -2,15 +2,19 @@
   "network": "sepolia",
   "chainId": "11155111",
   "deployer": "0x46b43ad9F6C20c400aC17a282022E578417F796A",
-  "timestamp": "2025-10-07T08:25:36.741Z",
+  "timestamp": "2025-10-08T01:57:19.518Z",
   "feeRateBps": 30,
   "contracts": {
-    "MockERC20_USDT": "0x01C8918bd02437C52ab0034A73c6Fecc448e2B5f",
-    "DefiAggregator": "0x43C83cE19346e2148A18aE44315f03de20203ff3",
+    "MockERC20_USDT": "0xd7C597Cf30fb56162AEDAe8a52927B7CE4076e5B",
+    "DefiAggregator": "0xEf3bB3e03251533cE0609530f742F1FFA3766EBB",
     "DefiAggregator_Implementation": "0x06Ad019B6cA644DeA23245523c3E3f9E2176763a"
   },
+  "reusedContracts": {
+    "USDT": "0xd7C597Cf30fb56162AEDAe8a52927B7CE4076e5B",
+    "sourceDeployment": "deployments-uups-sepolia.json"
+  },
   "notes": {
-    "description": "DeFi基础设施部署，包含DefiAggregator和MockERC20 USDT",
+    "description": "DeFi基础设施部署，包含DefiAggregator，复用已部署的USDT",
     "usage": "其他适配器脚本可以复用这些合约地址",
     "nextSteps": [
       "运行适配器部署脚本 (deploy-aave-adapter.js, deploy-compound-adapter.js 等)",
