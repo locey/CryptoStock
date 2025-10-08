@@ -6,6 +6,8 @@ import { ArrowRight, TrendingUp, DollarSign, Shield, Droplets, Activity, Plus } 
 import { Button } from '@/components/ui/button'
 import AaveUSDTBuyModal from '@/components/AaveUSDTBuyModal'
 import AaveUSDTSellModal from '@/components/AaveUSDTSellModal'
+import CompoundUSDTBuyModal from '@/components/CompoundUSDTBuyModal'
+import CompoundUSDTSellModal from '@/components/CompoundUSDTSellModal'
 
 const poolCategories = [
   {
@@ -106,6 +108,8 @@ export default function PoolsPage() {
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [aaveBuyModalOpen, setAaveBuyModalOpen] = useState(false)
   const [aaveSellModalOpen, setAaveSellModalOpen] = useState(false)
+  const [compoundBuyModalOpen, setCompoundBuyModalOpen] = useState(false)
+  const [compoundSellModalOpen, setCompoundSellModalOpen] = useState(false)
 
   const totalTVL = poolCategories.reduce((sum, category) => sum + category.tvl, 0)
   const totalVolume = poolCategories.reduce((sum, category) => sum + category.volume24h, 0)
@@ -238,6 +242,8 @@ export default function PoolsPage() {
                     onClick={() => {
                       if (category.id === 'aave') {
                         setAaveBuyModalOpen(true)
+                      } else if (category.id === 'compound') {
+                        setCompoundBuyModalOpen(true)
                       }
                     }}
                   >
@@ -249,6 +255,8 @@ export default function PoolsPage() {
                     onClick={() => {
                       if (category.id === 'aave') {
                         setAaveSellModalOpen(true)
+                      } else if (category.id === 'compound') {
+                        setCompoundSellModalOpen(true)
                       }
                     }}
                   >
@@ -351,6 +359,26 @@ export default function PoolsPage() {
         onSuccess={() => {
           console.log('Aave 卖出成功')
           setAaveSellModalOpen(false)
+        }}
+      />
+
+      {/* Compound USDT 买入弹窗 */}
+      <CompoundUSDTBuyModal
+        isOpen={compoundBuyModalOpen}
+        onClose={() => setCompoundBuyModalOpen(false)}
+        onSuccess={() => {
+          console.log('Compound 存入成功')
+          setCompoundBuyModalOpen(false)
+        }}
+      />
+
+      {/* Compound USDT 卖出弹窗 */}
+      <CompoundUSDTSellModal
+        isOpen={compoundSellModalOpen}
+        onClose={() => setCompoundSellModalOpen(false)}
+        onSuccess={() => {
+          console.log('Compound 卖出成功')
+          setCompoundSellModalOpen(false)
         }}
       />
     </div>

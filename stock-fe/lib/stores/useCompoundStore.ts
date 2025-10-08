@@ -15,11 +15,8 @@ import MockERC20ABI from '@/lib/abi/MockERC20.json';
 import CompoundAdapterABI from '@/lib/abi/CompoundAdapter.json';
 import CompoundDeploymentInfo from '@/lib/abi/deployments-compound-adapter-sepolia.json';
 
-// usdt 地址
-import {getContractAddresses} from "@/app/pool/page"
-
-// 获取合约地址
-const { USDT_ADDRESS } = getContractAddresses() as { USDT_ADDRESS: Address };
+// USDT 地址从 Compound 部署文件获取
+const USDT_ADDRESS = CompoundDeploymentInfo.contracts.MockERC20_USDT as Address;
 
 // ==================== 类型定义 ====================
 
@@ -35,6 +32,7 @@ export enum CompoundOperationType {
  * Compound 操作参数类型
  */
 export interface CompoundOperationParams {
+  tokens: Address[];
   amounts: bigint[];
   recipient: Address;
   deadline: number;
@@ -66,6 +64,8 @@ export interface CompoundUserBalance {
   usdtAllowance: bigint;
   formattedUsdtBalance: string;
   formattedCUsdtBalance: string;
+  depositedAmount?: bigint;
+  earnedInterest?: bigint;
 }
 
 /**
@@ -102,6 +102,8 @@ interface CompoundStore {
   fetchUserBalance: (publicClient: PublicClient, userAddress: Address) => Promise<void>;
   fetchUserUSDTBalance: (publicClient: PublicClient, userAddress: Address) => Promise<bigint>;
   fetchUserCUSDTBalance: (publicClient: PublicClient, userAddress: Address) => Promise<bigint>;
+  fetchUserUSDTAllowance: (publicClient: PublicClient, userAddress: Address, spenderAddress: Address) => Promise<bigint>;
+  fetchUserCUSDTAllowance: (publicClient: PublicClient, userAddress: Address, spenderAddress: Address) => Promise<bigint>;
   fetchAllowances: (publicClient: PublicClient, userAddress: Address) => Promise<void>;
   fetchFeeRate: (publicClient: PublicClient) => Promise<bigint>;
   fetchCurrentAPY: (publicClient: PublicClient) => Promise<bigint>;
@@ -151,7 +153,7 @@ interface CompoundStore {
       maxFeePerGas?: bigint;
       maxPriorityFeePerGas?: bigint;
     }
-  ) => Promise<TransactionReceipt>;
+  ) => Promise<CompoundTransactionResult>;
 
   approveUSDT: (
     publicClient: PublicClient,
@@ -385,14 +387,27 @@ export const useCompoundStore = create<CompoundStore>((set, get) => ({
   },
 
   fetchAllowances: async (publicClient: PublicClient, userAddress: Address): Promise<void> => {
-    const { compoundAdapterAddress } = get();
-    if (!compoundAdapterAddress) return;
+    const { compoundAdapterAddress, defiAggregatorAddress } = get();
+    if (!compoundAdapterAddress || !defiAggregatorAddress) return;
 
     try {
+      console.log('🔍 获取 Compound 授权额度...', {
+        compoundAdapterAddress,
+        userAddress
+      });
+
+      // USDT 和 cUSDT 都需要授权给 CompoundAdapter
       const [usdtAllowance, cUsdtAllowance] = await Promise.all([
         get().fetchUserUSDTAllowance(publicClient, userAddress, compoundAdapterAddress),
         get().fetchUserCUSDTAllowance(publicClient, userAddress, compoundAdapterAddress),
       ]);
+
+      console.log('🔍 Compound 授权额度获取结果:', {
+        usdtAllowance: usdtAllowance.toString(),
+        cUsdtAllowance: cUsdtAllowance.toString(),
+        usdtAllowanceFormatted: formatUnits(usdtAllowance, 6),
+        cUsdtAllowanceFormatted: formatUnits(cUsdtAllowance, 8)
+      });
 
       set((state) => ({
         userBalance: state.userBalance ? {
@@ -436,7 +451,7 @@ export const useCompoundStore = create<CompoundStore>((set, get) => ({
         address: cUsdtToken as Address,
         abi: typedMockERC20ABI,
         functionName: 'allowance',
-        args: [userAddress, spenderAddress],
+        args: [userAddress, spenderAddress], // spenderAddress 应该是 DefiAggregator
       });
       return allowance as bigint;
     } catch (error) {
@@ -513,7 +528,7 @@ export const useCompoundStore = create<CompoundStore>((set, get) => ({
   ): Promise<TransactionReceipt> => {
     const { compoundAdapterAddress } = get();
     if (!compoundAdapterAddress) {
-      throw new Error('Compound 合约地址未初始化');
+      throw new Error('CompoundAdapter 合约地址未初始化');
     }
 
     try {
@@ -525,30 +540,32 @@ export const useCompoundStore = create<CompoundStore>((set, get) => ({
         address: USDT_ADDRESS,
         abi: typedMockERC20ABI,
         functionName: 'approve' as const,
-        args: [compoundAdapterAddress, amount] as [`0x${string}`, bigint],
+        args: [compoundAdapterAddress, amount] as [`0x${string}`, bigint], // 授权给 CompoundAdapter
         chain,
         account,
       };
 
       // 根据gas配置动态构建参数，避免类型冲突
-      const writeParams = { ...baseParams };
+      const writeParams: any = { ...baseParams };
 
       if (gasConfig?.maxFeePerGas && gasConfig?.maxPriorityFeePerGas) {
         // EIP-1559 gas 配置
-        Object.assign(writeParams, {
-          ...(gasConfig?.gas && { gas: gasConfig.gas }),
-          maxFeePerGas: gasConfig.maxFeePerGas,
-          maxPriorityFeePerGas: gasConfig.maxPriorityFeePerGas,
-        });
+        writeParams.maxFeePerGas = gasConfig.maxFeePerGas;
+        writeParams.maxPriorityFeePerGas = gasConfig.maxPriorityFeePerGas;
+        if (gasConfig?.gas) {
+          writeParams.gas = gasConfig.gas;
+        }
       } else {
         // Legacy gas 配置或默认
-        Object.assign(writeParams, {
-          ...(gasConfig?.gas && { gas: gasConfig.gas }),
-          ...(gasConfig?.gasPrice && { gasPrice: gasConfig.gasPrice }),
-        });
+        if (gasConfig?.gasPrice) {
+          writeParams.gasPrice = gasConfig.gasPrice;
+        }
+        if (gasConfig?.gas) {
+          writeParams.gas = gasConfig.gas;
+        }
       }
 
-      const hash = await walletClient.writeContract(writeParams as Parameters<typeof walletClient.writeContract>[0]);
+      const hash = await walletClient.writeContract(writeParams);
 
       console.log('📝 授权交易哈希:', hash);
 
@@ -582,7 +599,7 @@ export const useCompoundStore = create<CompoundStore>((set, get) => ({
   ): Promise<TransactionReceipt> => {
     const { compoundAdapterAddress } = get();
     if (!compoundAdapterAddress) {
-      throw new Error('Compound 合约地址未初始化');
+      throw new Error('CompoundAdapter 合约地址未初始化');
     }
 
     try {
@@ -596,21 +613,55 @@ export const useCompoundStore = create<CompoundStore>((set, get) => ({
         functionName: 'cUsdtToken',
       });
 
+      console.log('🔍 cUSDT 代币地址:', cUsdtToken);
+
+      // 获取用户当前的 cUSDT 余额，直接授权所有余额
+      // 参考测试文件逻辑：授权所有 cToken，让适配器自己计算需要多少
+      const cUsdtBalance = await publicClient.readContract({
+        address: compoundAdapterAddress,
+        abi: typedCompoundAdapterABI,
+        functionName: 'getUserCTokenBalance',
+        args: [account],
+      });
+
+      console.log('🔄 cUSDT 授权参数:', {
+        usdtAmount: amount.toString(),
+        cUsdtToken: cUsdtToken,
+        compoundAdapterAddress,
+        account,
+        cUsdtBalance: cUsdtBalance.toString(),
+        cUsdtBalanceFormatted: formatUnits(cUsdtBalance, 8)
+      });
+
       // 构建交易参数，正确处理 gas 配置
-      const hash = await walletClient.writeContract({
+      const writeContractParams: any = {
         address: cUsdtToken as Address, // 从合约读取 cUSDT 地址
         abi: typedMockERC20ABI,
         functionName: 'approve' as const,
-        args: [compoundAdapterAddress, amount] as [`0x${string}`, bigint],
+        args: [compoundAdapterAddress, cUsdtBalance] as [`0x${string}`, bigint], // 授权所有 cUSDT 给 CompoundAdapter
         chain,
         account,
-        ...(gasConfig?.gas && { gas: gasConfig.gas }),
-        ...(gasConfig?.maxFeePerGas && gasConfig?.maxPriorityFeePerGas && {
-          maxFeePerGas: gasConfig.maxFeePerGas,
-          maxPriorityFeePerGas: gasConfig.maxPriorityFeePerGas,
-        }),
-        ...(gasConfig?.gasPrice && { gasPrice: gasConfig.gasPrice }),
-      } as Parameters<typeof walletClient.writeContract>[0];
+      };
+
+      // 添加 gas 配置，避免 EIP-1559 和 legacy 同时存在
+      if (gasConfig?.maxFeePerGas && gasConfig?.maxPriorityFeePerGas) {
+        // EIP-1559 gas 配置
+        writeContractParams.maxFeePerGas = gasConfig.maxFeePerGas;
+        writeContractParams.maxPriorityFeePerGas = gasConfig.maxPriorityFeePerGas;
+        if (gasConfig?.gas) {
+          writeContractParams.gas = gasConfig.gas;
+        }
+      } else {
+        // Legacy gas 配置
+        if (gasConfig?.gasPrice) {
+          writeContractParams.gasPrice = gasConfig.gasPrice;
+        }
+        if (gasConfig?.gas) {
+          writeContractParams.gas = gasConfig.gas;
+        }
+      }
+
+      const hash = await walletClient.writeContract(writeContractParams);
 
       console.log('📝 授权交易哈希:', hash);
 
@@ -653,6 +704,7 @@ export const useCompoundStore = create<CompoundStore>((set, get) => ({
       console.log('参数:', { amount: amount.toString(), account });
 
       const operationParams: CompoundOperationParams = {
+        tokens: [USDT_ADDRESS], // USDT 代币地址
         amounts: [amount], // 存入的 USDT 数量
         recipient: account,
         deadline: Math.floor(Date.now() / 1000) + 3600, // 1小时后过期
@@ -669,20 +721,7 @@ export const useCompoundStore = create<CompoundStore>((set, get) => ({
       });
 
       // 构建交易参数，正确处理 gas 配置
-      type ExecuteOperationParams = {
-        address: Address;
-        abi: typeof typedDefiAggregatorABI;
-        functionName: 'executeOperation';
-        args: [string, number, CompoundOperationParams];
-        chain: Chain;
-        account: Address;
-        gas?: bigint;
-        gasPrice?: bigint;
-        maxFeePerGas?: bigint;
-        maxPriorityFeePerGas?: bigint;
-      };
-
-      const txParams: ExecuteOperationParams = {
+      const txParams: any = {
         address: defiAggregatorAddress,
         abi: typedDefiAggregatorABI,
         functionName: 'executeOperation',
@@ -696,17 +735,24 @@ export const useCompoundStore = create<CompoundStore>((set, get) => ({
       };
 
       // 添加 gas 配置，避免 EIP-1559 和 legacy 同时存在
-      if (gasConfig?.gas) {
-        txParams.gas = gasConfig.gas;
-      }
       if (gasConfig?.maxFeePerGas && gasConfig?.maxPriorityFeePerGas) {
+        // EIP-1559 gas 配置
         txParams.maxFeePerGas = gasConfig.maxFeePerGas;
         txParams.maxPriorityFeePerGas = gasConfig.maxPriorityFeePerGas;
-      } else if (gasConfig?.gasPrice) {
-        txParams.gasPrice = gasConfig.gasPrice;
+        if (gasConfig?.gas) {
+          txParams.gas = gasConfig.gas;
+        }
+      } else {
+        // Legacy gas 配置
+        if (gasConfig?.gasPrice) {
+          txParams.gasPrice = gasConfig.gasPrice;
+        }
+        if (gasConfig?.gas) {
+          txParams.gas = gasConfig.gas;
+        }
       }
 
-      const hash = await walletClient.writeContract(txParams as Parameters<typeof walletClient.writeContract>[0]);
+      const hash = await walletClient.writeContract(txParams);
 
       console.log('📝 存款交易哈希:', hash);
 
@@ -776,8 +822,16 @@ export const useCompoundStore = create<CompoundStore>((set, get) => ({
       console.log('💰 开始从 Compound 提取 USDT...');
       console.log('参数:', { amount: amount.toString(), account });
 
+      // 参考测试文件逻辑：amounts 参数直接使用 USDT 金额
+      // CompoundAdapter 会自己计算需要多少 cUSDT
+      console.log('🔄 提取参数:', {
+        usdtAmount: amount.toString(),
+        usdtAmountFormatted: formatUnits(amount, 6)
+      });
+
       const operationParams: CompoundOperationParams = {
-        amounts: [amount], // 要提取的 USDT 数量
+        tokens: [USDT_ADDRESS], // USDT 代币地址
+        amounts: [amount], // 直接使用 USDT 金额
         recipient: account,
         deadline: Math.floor(Date.now() / 1000) + 3600, // 1小时后过期
         tokenId: 0, // Compound 不使用 NFT，设为 0
@@ -792,7 +846,7 @@ export const useCompoundStore = create<CompoundStore>((set, get) => ({
         gasConfig
       });
 
-      const hash = await walletClient.writeContract({
+      const writeParams: any = {
         address: defiAggregatorAddress,
         abi: typedDefiAggregatorABI,
         functionName: 'executeOperation',
@@ -803,13 +857,27 @@ export const useCompoundStore = create<CompoundStore>((set, get) => ({
         ] as [string, number, CompoundOperationParams],
         chain,
         account,
-        ...(gasConfig?.gas && { gas: gasConfig.gas }),
-        ...(gasConfig?.maxFeePerGas && gasConfig?.maxPriorityFeePerGas && {
-          maxFeePerGas: gasConfig.maxFeePerGas,
-          maxPriorityFeePerGas: gasConfig.maxPriorityFeePerGas,
-        }),
-        ...(gasConfig?.gasPrice && { gasPrice: gasConfig.gasPrice }),
-      } as Parameters<typeof walletClient.writeContract>[0];
+      };
+
+      // 添加 gas 配置，避免 EIP-1559 和 legacy 同时存在
+      if (gasConfig?.maxFeePerGas && gasConfig?.maxPriorityFeePerGas) {
+        // EIP-1559 gas 配置
+        writeParams.maxFeePerGas = gasConfig.maxFeePerGas;
+        writeParams.maxPriorityFeePerGas = gasConfig.maxPriorityFeePerGas;
+        if (gasConfig?.gas) {
+          writeParams.gas = gasConfig.gas;
+        }
+      } else {
+        // Legacy gas 配置
+        if (gasConfig?.gasPrice) {
+          writeParams.gasPrice = gasConfig.gasPrice;
+        }
+        if (gasConfig?.gas) {
+          writeParams.gas = gasConfig.gas;
+        }
+      }
+
+      const hash = await walletClient.writeContract(writeParams);
 
       console.log('📝 提款交易哈希:', hash);
 
@@ -844,9 +912,19 @@ export const useCompoundStore = create<CompoundStore>((set, get) => ({
       maxFeePerGas?: bigint;
       maxPriorityFeePerGas?: bigint;
     }
-  ): Promise<TransactionReceipt> => {
+  ): Promise<CompoundTransactionResult> => {
     // 卖出操作等同于提取操作
-    return get().redeemUSDT(publicClient, walletClient, chain, amount, account, userAddress, gasConfig);
+    const receipt = await get().redeemUSDT(publicClient, walletClient, chain, amount, account, userAddress, gasConfig);
+
+    return {
+      success: true,
+      outputAmounts: [amount],
+      returnData: '0x' as Hex,
+      message: 'Compound 卖出成功',
+      transactionHash: receipt.transactionHash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed,
+    };
   },
 
   // ==================== 状态管理 ====================
