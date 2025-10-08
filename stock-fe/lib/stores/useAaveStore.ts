@@ -561,40 +561,34 @@ export const useAaveStore = create<AaveState>((set, get) => ({
       console.log('参数:', { amount: amount.toString(), account });
 
       // 构建交易参数，正确处理 gas 配置
-      type WriteContractParams = {
-        address: Address;
-        abi: typeof typedMockERC20ABI;
-        functionName: 'approve';
-        args: [`0x${string}`, bigint];
-        chain: Chain;
-        account: Address;
-        gas?: bigint;
-        gasPrice?: bigint;
-        maxFeePerGas?: bigint;
-        maxPriorityFeePerGas?: bigint;
-      };
-
-      const txParams: WriteContractParams = {
+      const baseParams = {
         address: USDT_ADDRESS, // 使用动态获取的 USDT 地址
         abi: typedMockERC20ABI,
-        functionName: 'approve',
+        functionName: 'approve' as const,
         args: [aaveAdapterAddress, amount] as [`0x${string}`, bigint],
         chain,
         account,
       };
 
-      // 添加 gas 配置，避免 EIP-1559 和 legacy 同时存在
-      if (gasConfig?.gas) {
-        txParams.gas = gasConfig.gas;
-      }
+      // 根据gas配置动态构建参数，避免类型冲突
+      const writeParams = { ...baseParams };
+
       if (gasConfig?.maxFeePerGas && gasConfig?.maxPriorityFeePerGas) {
-        txParams.maxFeePerGas = gasConfig.maxFeePerGas;
-        txParams.maxPriorityFeePerGas = gasConfig.maxPriorityFeePerGas;
-      } else if (gasConfig?.gasPrice) {
-        txParams.gasPrice = gasConfig.gasPrice;
+        // EIP-1559 gas 配置
+        Object.assign(writeParams, {
+          ...(gasConfig?.gas && { gas: gasConfig.gas }),
+          maxFeePerGas: gasConfig.maxFeePerGas,
+          maxPriorityFeePerGas: gasConfig.maxPriorityFeePerGas,
+        });
+      } else {
+        // Legacy gas 配置或默认
+        Object.assign(writeParams, {
+          ...(gasConfig?.gas && { gas: gasConfig.gas }),
+          ...(gasConfig?.gasPrice && { gasPrice: gasConfig.gasPrice }),
+        });
       }
 
-      const hash = await walletClient.writeContract(txParams);
+      const hash = await walletClient.writeContract(writeParams as Parameters<typeof walletClient.writeContract>[0]);
 
       console.log('📝 授权交易哈希:', hash);
 
@@ -676,7 +670,7 @@ export const useAaveStore = create<AaveState>((set, get) => ({
         txParams.gasPrice = gasConfig.gasPrice;
       }
 
-      const hash = await walletClient.writeContract(txParams);
+      const hash = await walletClient.writeContract(txParams as Parameters<typeof walletClient.writeContract>[0]);
 
       console.log('📝 授权交易哈希:', hash);
 
@@ -778,7 +772,7 @@ export const useAaveStore = create<AaveState>((set, get) => ({
         txParams.gasPrice = gasConfig.gasPrice;
       }
 
-      const hash = await walletClient.writeContract(txParams);
+      const hash = await walletClient.writeContract(txParams as Parameters<typeof walletClient.writeContract>[0]);
 
       console.log('📝 存款交易哈希:', hash);
 
@@ -904,7 +898,7 @@ export const useAaveStore = create<AaveState>((set, get) => ({
           maxPriorityFeePerGas: gasConfig.maxPriorityFeePerGas,
         }),
         ...(gasConfig?.gasPrice && { gasPrice: gasConfig.gasPrice }),
-      });
+      } as Parameters<typeof walletClient.writeContract>[0]);
 
       console.log('📝 取款交易哈希:', hash);
 
@@ -1028,7 +1022,7 @@ export const useAaveStore = create<AaveState>((set, get) => ({
           maxPriorityFeePerGas: gasConfig.maxPriorityFeePerGas,
         }),
         ...(gasConfig?.gasPrice && { gasPrice: gasConfig.gasPrice }),
-      });
+      } as Parameters<typeof walletClient.writeContract>[0]);
 
       console.log('📝 卖出（提取）交易哈希:', hash);
 
