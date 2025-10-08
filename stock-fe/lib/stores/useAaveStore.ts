@@ -717,12 +717,12 @@ export const useAaveStore = create<AaveState>((set, get) => ({
       };
 
       if (receipt.logs) {
-        for (const log of receipt.logs) {
+        for (const log of receipt.logs as Array<{ topics: readonly Hex[] } & typeof receipt.logs[0]>) {
           try {
             const event = viemDecodeEventLog({
               abi: typedDefiAggregatorABI,
               data: log.data,
-              topics: [...log.topics] as unknown as [signature: Hex, ...args: Hex[]],
+              topics: log.topics as [signature: Hex, ...args: Hex[]],
             });
 
             if (event && event.eventName === 'OperationExecuted') {
@@ -838,12 +838,12 @@ export const useAaveStore = create<AaveState>((set, get) => ({
       };
 
       if (receipt.logs) {
-        for (const log of receipt.logs) {
+        for (const log of receipt.logs as Array<{ topics: readonly Hex[] } & typeof receipt.logs[0]>) {
           try {
             const event = viemDecodeEventLog({
               abi: typedDefiAggregatorABI,
               data: log.data,
-              topics: [...log.topics] as unknown as [signature: Hex, ...args: Hex[]],
+              topics: log.topics as [signature: Hex, ...args: Hex[]],
             });
 
             if (event && event.eventName === 'OperationExecuted') {
@@ -957,12 +957,12 @@ export const useAaveStore = create<AaveState>((set, get) => ({
       };
 
       if (receipt.logs) {
-        for (const log of receipt.logs) {
+        for (const log of receipt.logs as Array<{ topics: readonly Hex[] } & typeof receipt.logs[0]>) {
           try {
             const event = viemDecodeEventLog({
               abi: typedDefiAggregatorABI,
               data: log.data,
-              topics: [...log.topics] as unknown as [signature: Hex, ...args: Hex[]],
+              topics: log.topics as [signature: Hex, ...args: Hex[]],
             });
 
             if (event && event.eventName === 'OperationExecuted') {

@@ -1,7 +1,8 @@
 import { useCallback, useMemo } from 'react';
-import { Address, formatUnits, parseUnits, PublicClient, WalletClient, Chain, GetLogsReturnType } from 'viem';
+import { Address, formatUnits, parseUnits, PublicClient, WalletClient, Chain } from 'viem';
 import { useWallet } from 'ycdirectory-ui';
 import { usePublicClient, useWalletClient } from 'ycdirectory-hooks';
+import { createPublicClient, http } from 'viem';
 import useAaveStore, {
   AaveOperationType,
   AaveTransactionResult,
@@ -54,42 +55,42 @@ export const useAaveWithClients = () => {
     if (!publicClient) {
       throw new Error('PublicClient 未初始化');
     }
-    return store.fetchPoolInfo(publicClient as Parameters<typeof store.fetchPoolInfo>[0]);
+    return store.fetchPoolInfo(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs });
   }, [publicClient, store.fetchPoolInfo]);
 
   const fetchUserBalance = useCallback(async () => {
     if (!publicClient || !address) {
       throw new Error('PublicClient 未初始化或钱包未连接');
     }
-    return store.fetchUserBalance(publicClient as Parameters<typeof store.fetchUserBalance>[0], address);
+    return store.fetchUserBalance(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
   }, [publicClient, store.fetchUserBalance, address]);
 
   const fetchUserUSDTBalance = useCallback(async () => {
     if (!publicClient || !address) {
       throw new Error('PublicClient 未初始化或钱包未连接');
     }
-    return store.fetchUserUSDTBalance(publicClient as Parameters<typeof store.fetchUserUSDTBalance>[0], address);
+    return store.fetchUserUSDTBalance(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
   }, [publicClient, store.fetchUserUSDTBalance, address]);
 
   const fetchUserAUSDTBalance = useCallback(async () => {
     if (!publicClient || !address) {
       throw new Error('PublicClient 未初始化或钱包未连接');
     }
-    return store.fetchUserAUSDTBalance(publicClient as Parameters<typeof store.fetchUserAUSDTBalance>[0], address);
+    return store.fetchUserAUSDTBalance(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
   }, [publicClient, store.fetchUserAUSDTBalance, address]);
 
   const fetchAllowances = useCallback(async () => {
     if (!publicClient || !address) {
       throw new Error('PublicClient 未初始化或钱包未连接');
     }
-    return store.fetchAllowances(publicClient as Parameters<typeof store.fetchAllowances>[0], address);
+    return store.fetchAllowances(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
   }, [publicClient, store.fetchAllowances, address]);
 
   const fetchFeeRate = useCallback(async () => {
     if (!publicClient) {
       throw new Error('PublicClient 未初始化');
     }
-    return store.fetchFeeRate(publicClient as Parameters<typeof store.fetchFeeRate>[0]);
+    return store.fetchFeeRate(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs });
   }, [publicClient, store.fetchFeeRate]);
 
   // 包装写入方法
