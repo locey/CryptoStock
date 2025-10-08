@@ -124,6 +124,8 @@ contract CurveAdapter is
         uint24 feeRateBps
     ) external override nonReentrant returns (OperationResult memory) {
         require(curve3Pool != address(0), "3Pool not set");
+        require(params.recipient != address(0), "Invalid recipient address");
+        require(feeRateBps <= 10000, "Fee rate too high"); // 最大100%
         
         if (operationType == OperationType.ADD_LIQUIDITY) {
             return _handleAddLiquidity(params, feeRateBps);
@@ -176,6 +178,7 @@ contract CurveAdapter is
     ) internal returns (OperationResult memory) {
         require(params.tokens.length == 3, "Curve 3Pool requires exactly 3 tokens");
         require(params.amounts.length >= 4, "Invalid amounts array"); // [amount0, amount1, amount2, minLpTokens]
+        require(params.recipient != address(0), "Invalid recipient address");
         
         ICurve pool = ICurve(curve3Pool);
         
@@ -186,9 +189,28 @@ contract CurveAdapter is
         amounts[2] = params.amounts[2];
         uint256 minLpTokens = params.amounts[3];
         
+        // 验证输入参数
+        require(amounts[0] > 0 || amounts[1] > 0 || amounts[2] > 0, "At least one token amount must be greater than 0");
+        
         // 计算总投入价值（简化为总金额）
         uint256 totalValue = amounts[0] + amounts[1] + amounts[2];
         require(totalValue > 0, "No tokens provided");
+        
+        // 验证每个代币的余额和授权
+        for (uint i = 0; i < 3; i++) {
+            if (amounts[i] > 0) {
+                address token = params.tokens[i];
+                require(token != address(0), string(abi.encodePacked("Token ", i, " address is zero")));
+                
+                // 检查用户余额
+                uint256 userBalance = IERC20(token).balanceOf(params.recipient);
+                require(userBalance >= amounts[i], string(abi.encodePacked("Insufficient balance for token ", i)));
+                
+                // 检查用户对本合约的授权
+                uint256 allowance = IERC20(token).allowance(params.recipient, address(this));
+                require(allowance >= amounts[i], string(abi.encodePacked("Insufficient allowance for token ", i)));
+            }
+        }
         
         // 转入代币到合约并授权给池子
         for (uint i = 0; i < 3; i++) {

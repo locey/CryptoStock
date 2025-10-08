@@ -2,11 +2,13 @@
   "network": "sepolia",
   "chainId": "11155111",
   "deployer": "0x46b43ad9F6C20c400aC17a282022E578417F796A",
-  "timestamp": "2025-10-08T01:57:19.518Z",
+  "timestamp": "2025-10-08T07:17:45.567Z",
   "feeRateBps": 30,
   "contracts": {
     "MockERC20_USDT": "0xd7C597Cf30fb56162AEDAe8a52927B7CE4076e5B",
-    "DefiAggregator": "0xEf3bB3e03251533cE0609530f742F1FFA3766EBB",
+    "MockERC20_USDC": "0x148bD0f2F091c94e3395Dc92db9B3aD4236fF4F1",
+    "MockERC20_DAI": "0xD3488e4dc3414eFC848f4C298f4e91211D3ECE8e",
+    "DefiAggregator": "0xD93D27d031FdF461288c904688Dd78D6902eA315",
     "DefiAggregator_Implementation": "0x06Ad019B6cA644DeA23245523c3E3f9E2176763a"
   },
   "reusedContracts": {
@@ -14,11 +16,17 @@
     "sourceDeployment": "deployments-uups-sepolia.json"
   },
   "notes": {
-    "description": "DeFi基础设施部署，包含DefiAggregator，复用已部署的USDT",
+    "description": "DeFi基础设施部署，包含DefiAggregator，复用已部署的USDT，新部署USDC和DAI",
+    "tokenStrategy": {
+      "USDT": "复用股票系统已部署的合约",
+      "USDC": "新部署的Mock代币(6位精度)",
+      "DAI": "新部署的Mock代币(18位精度)"
+    },
     "usage": "其他适配器脚本可以复用这些合约地址",
     "nextSteps": [
-      "运行适配器部署脚本 (deploy-aave-adapter.js, deploy-compound-adapter.js 等)",
-      "使用 DefiAggregator 地址注册新的适配器"
+      "运行适配器部署脚本 (deploy-curve-adapter-only.js 等)",
+      "使用 DefiAggregator 地址注册新的适配器",
+      "三个代币(USDC、USDT、DAI)可用于构建多代币池子"
     ]
   }
 }

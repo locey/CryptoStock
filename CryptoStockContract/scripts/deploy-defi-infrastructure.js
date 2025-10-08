@@ -35,8 +35,10 @@ async function extractABIFiles() {
     'DefiAggregator'
   ];
 
-  // 不再提取MockERC20的ABI，因为我们复用现有的USDT
-  const mockContracts = [];
+  // 提取三个代币的 ABI
+  const mockContracts = [
+    'MockERC20'
+  ];
 
   // 创建abi输出目录
   const abiDir = path.join(__dirname, '..', 'abi');
@@ -147,22 +149,38 @@ async function main() {
     console.log("✅ 复用已部署的 USDT:", usdtAddress);
     deploymentAddresses.MockERC20_USDT = usdtAddress; // 统一使用 MockERC20_USDT 字段名
   } else {
-    console.log("⚠️  未找到已部署的 USDT，将部署新的 Mock USDT");
-    
-    // STEP 1: 部署 MockERC20 作为 USDT (仅在没有现有USDT时)
-    console.log("\n📄 [STEP 1] 部署 MockERC20 (USDT)...");
-    const MockERC20 = await ethers.getContractFactory("contracts/mock/MockERC20.sol:MockERC20");
-    const usdtToken = await MockERC20.deploy("USD Tether", "USDT", 6);
-    await usdtToken.waitForDeployment();
-    usdtAddress = await usdtToken.getAddress();
-    console.log("✅ MockERC20 (USDT) 部署完成:", usdtAddress);
-    deploymentAddresses.MockERC20_USDT = usdtAddress;
-    
-    // 等待网络确认 (如果是测试网络)
-    if (networkName !== "localhost" && networkName !== "hardhat") {
-      console.log("⏳ 等待网络确认...");
-      await new Promise(resolve => setTimeout(resolve, 3000));
-    }
+    throw new Error(`❌ 未找到已部署的 USDT 合约！\n请先部署股票系统或确保 deployments-uups-${networkName}.json 文件存在且包含 USDT 地址`);
+  }
+
+  // STEP 1: 部署 USDC 和 DAI 代币（总是部署新的）
+  console.log("\n📄 [STEP 1] 部署 USDC 和 DAI 代币...");
+  const MockERC20 = await ethers.getContractFactory("contracts/mock/MockERC20.sol:MockERC20");
+  
+  // 部署 USDC (6位精度，和真实 USDC 一致)
+  console.log("   正在部署 USDC...");
+  const usdcToken = await MockERC20.deploy("USD Coin", "USDC", 6);
+  await usdcToken.waitForDeployment();
+  const usdcAddress = await usdcToken.getAddress();
+  console.log("✅ MockERC20 (USDC) 部署完成:", usdcAddress);
+  deploymentAddresses.MockERC20_USDC = usdcAddress;
+  
+  // 部署 DAI (18位精度，和真实 DAI 一致)
+  console.log("   正在部署 DAI...");
+  const daiToken = await MockERC20.deploy("Dai Stablecoin", "DAI", 18);
+  await daiToken.waitForDeployment();
+  const daiAddress = await daiToken.getAddress();
+  console.log("✅ MockERC20 (DAI) 部署完成:", daiAddress);
+  deploymentAddresses.MockERC20_DAI = daiAddress;
+  
+  console.log("\n📊 代币配置完成:");
+  console.log("   - USDC (6 decimals):", usdcAddress, "(新部署)");
+  console.log("   - USDT (6 decimals):", usdtAddress, "(复用已有)");
+  console.log("   - DAI (18 decimals):", daiAddress, "(新部署)");
+  
+  // 等待网络确认 (如果是测试网络)
+  if (networkName !== "localhost" && networkName !== "hardhat") {
+    console.log("⏳ 等待网络确认...");
+    await new Promise(resolve => setTimeout(resolve, 5000)); // 增加等待时间
   }
   
   try {
@@ -209,54 +227,58 @@ async function main() {
     console.log("   - Fee Rate BPS:", feeRate.toString(), feeRate.toString() === FEE_RATE_BPS.toString() ? "✅" : "❌");
     console.log("   - Owner:", owner, owner === deployer.address ? "✅" : "❌");
     
-    // STEP 4: 验证 USDT 合约连接性（如果复用现有合约）
-    console.log("\n📄 [STEP 4] 验证 USDT 合约连接性...");
+    // STEP 4: 验证合约连接性
+    console.log("\n📄 [STEP 4] 验证合约连接性...");
     
-    if (existingDeployments && existingDeployments.USDT) {
-      // 验证复用的USDT合约
-      try {
-        const MockERC20 = await ethers.getContractFactory("contracts/mock/MockERC20.sol:MockERC20");
-        const usdtContract = MockERC20.attach(usdtAddress);
-        
-        const name = await usdtContract.name();
-        const symbol = await usdtContract.symbol();
-        const decimals = await usdtContract.decimals();
-        
-        console.log("   复用 USDT 合约信息:");
-        console.log("   - Name:", name);
-        console.log("   - Symbol:", symbol);
-        console.log("   - Decimals:", decimals.toString());
-        console.log("   ✅ USDT 合约连接验证成功");
-      } catch (error) {
-        console.log("   ❌ USDT 合约连接验证失败:", error.message);
-        throw new Error("复用的USDT合约无法连接，请检查部署文件");
-      }
-    } else {
-      // 给新部署的 USDT 合约提供初始流动性
-      console.log("   给新部署的 USDT 合约提供初始供应量...");
+    // 验证复用的 USDT 合约（现在总是复用）
+    try {
+      const MockERC20 = await ethers.getContractFactory("contracts/mock/MockERC20.sol:MockERC20");
+      const usdtContract = MockERC20.attach(usdtAddress);
       
-      try {
-        const MockERC20 = await ethers.getContractFactory("contracts/mock/MockERC20.sol:MockERC20");
-        const usdtToken = MockERC20.attach(usdtAddress);
-        
-        // 给部署者铸造一些 USDT 用于测试
-        const initialSupply = ethers.parseUnits("1000000", 6); // 1M USDT
-        const mintTx = await usdtToken.mint(deployer.address, initialSupply);
-        
-        if (networkName !== "localhost" && networkName !== "hardhat") {
-          console.log("⏳ 等待铸造交易确认...");
-          await mintTx.wait(2); // 等待2个区块确认
-        } else {
-          await mintTx.wait();
-        }
-        
-        console.log("✅ 向部署者铸造 1,000,000 USDT");
-        
-        const balance = await usdtToken.balanceOf(deployer.address);
-        console.log("   部署者 USDT 余额:", ethers.formatUnits(balance, 6), "USDT");
-      } catch (error) {
-        console.log("⚠️  USDT 铸造遇到问题，跳过此步骤:", error.message);
-      }
+      const name = await usdtContract.name();
+      const symbol = await usdtContract.symbol();
+      const decimals = await usdtContract.decimals();
+      
+      console.log("   复用 USDT 合约信息:");
+      console.log("   - Name:", name);
+      console.log("   - Symbol:", symbol);
+      console.log("   - Decimals:", decimals.toString());
+      console.log("   ✅ USDT 合约连接验证成功");
+    } catch (error) {
+      console.log("   ❌ USDT 合约连接验证失败:", error.message);
+      throw new Error("复用的USDT合约无法连接，请检查部署文件");
+    }
+    
+    // 验证新部署的 USDC 合约
+    try {
+      const usdcContract = await ethers.getContractAt("MockERC20", deploymentAddresses.MockERC20_USDC);
+      const usdcName = await usdcContract.name();
+      const usdcSymbol = await usdcContract.symbol();
+      const usdcDecimals = await usdcContract.decimals();
+      
+      console.log("   新部署 USDC 合约信息:");
+      console.log("   - Name:", usdcName);
+      console.log("   - Symbol:", usdcSymbol);
+      console.log("   - Decimals:", usdcDecimals.toString());
+      console.log("   ✅ USDC 合约验证成功");
+    } catch (error) {
+      console.log("   ❌ USDC 合约验证失败:", error.message);
+    }
+    
+    // 验证新部署的 DAI 合约
+    try {
+      const daiContract = await ethers.getContractAt("MockERC20", deploymentAddresses.MockERC20_DAI);
+      const daiName = await daiContract.name();
+      const daiSymbol = await daiContract.symbol();
+      const daiDecimals = await daiContract.decimals();
+      
+      console.log("   新部署 DAI 合约信息:");
+      console.log("   - Name:", daiName);
+      console.log("   - Symbol:", daiSymbol);
+      console.log("   - Decimals:", daiDecimals.toString());
+      console.log("   ✅ DAI 合约验证成功");
+    } catch (error) {
+      console.log("   ❌ DAI 合约验证失败:", error.message);
     }
     
     // STEP 5: 保存部署结果
@@ -271,16 +293,22 @@ async function main() {
       timestamp: new Date().toISOString(),
       feeRateBps: FEE_RATE_BPS,
       contracts: deploymentAddresses,
-      reusedContracts: existingDeployments ? {
+      reusedContracts: {
         USDT: existingDeployments.USDT,
         sourceDeployment: `deployments-uups-${networkName}.json`
-      } : null,
+      },
       notes: {
-        description: "DeFi基础设施部署，包含DefiAggregator" + (existingDeployments ? "，复用已部署的USDT" : "和新部署的USDT"),
+        description: "DeFi基础设施部署，包含DefiAggregator，复用已部署的USDT，新部署USDC和DAI",
+        tokenStrategy: {
+          USDT: "复用股票系统已部署的合约",
+          USDC: "新部署的Mock代币(6位精度)",
+          DAI: "新部署的Mock代币(18位精度)"
+        },
         usage: "其他适配器脚本可以复用这些合约地址",
         nextSteps: [
-          "运行适配器部署脚本 (deploy-aave-adapter.js, deploy-compound-adapter.js 等)",
-          "使用 DefiAggregator 地址注册新的适配器"
+          "运行适配器部署脚本 (deploy-curve-adapter-only.js 等)",
+          "使用 DefiAggregator 地址注册新的适配器",
+          "三个代币(USDC、USDT、DAI)可用于构建多代币池子"
         ]
       }
     };
