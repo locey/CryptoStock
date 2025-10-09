@@ -34,15 +34,33 @@ describe("08-uniswap-sepolia.test.js - Uniswap V3 Adapter Sepolia Test", functio
         console.log("✅ 使用新的拆分部署结构 (uniswap-adapter + infrastructure)");
         
         // 连接到已部署的合约
-        const token0 = await ethers.getContractAt("MockERC20", deployments.contracts.MockERC20_USDT);
-        const token1 = await ethers.getContractAt("MockERC20", deployments.contracts.MockWethToken);
+        const usdtToken = await ethers.getContractAt("MockERC20", deployments.contracts.MockERC20_USDT);
+        const wethToken = await ethers.getContractAt("MockERC20", deployments.contracts.MockWethToken);
+        
+        // 根据地址大小正确排序 token0 和 token1 (Uniswap V3 要求)
+        const usdtAddress = deployments.contracts.MockERC20_USDT;
+        const wethAddress = deployments.contracts.MockWethToken;
+        let token0, token1;
+        
+        if (usdtAddress.toLowerCase() < wethAddress.toLowerCase()) {
+            token0 = usdtToken;  // USDT 是 token0
+            token1 = wethToken;  // WETH 是 token1
+            console.log("📊 代币排序: USDT(token0) < WETH(token1)");
+        } else {
+            token0 = wethToken;  // WETH 是 token0
+            token1 = usdtToken;  // USDT 是 token1
+            console.log("📊 代币排序: WETH(token0) < USDT(token1)");
+        }
         const nftManager = await ethers.getContractAt("MockNonfungiblePositionManager", deployments.contracts.MockPositionManager);
         const defiAggregator = await ethers.getContractAt("DefiAggregator", deployments.contracts.DefiAggregator);
         const uniswapAdapter = await ethers.getContractAt("UniswapV3Adapter", deployments.contracts.UniswapV3Adapter);
         
         console.log("✅ 已连接到 Sepolia 上的合约:");
-        console.log("   Token0 (USDT):", deployments.contracts.MockERC20_USDT);
-        console.log("   Token1 (WETH):", deployments.contracts.MockWethToken);
+        console.log("   USDT Token:", deployments.contracts.MockERC20_USDT);
+        console.log("   WETH Token:", deployments.contracts.MockWethToken);
+        console.log("   Token0:", await token0.getAddress());
+        console.log("   Token1:", await token1.getAddress());
+        console.log("   NFT Manager:", deployments.contracts.MockPositionManager);
         console.log("   NFT Manager:", deployments.contracts.MockPositionManager);
         console.log("   DefiAggregator:", deployments.contracts.DefiAggregator);
         console.log("   UniswapV3Adapter:", deployments.contracts.UniswapV3Adapter);
@@ -63,7 +81,8 @@ describe("08-uniswap-sepolia.test.js - Uniswap V3 Adapter Sepolia Test", functio
             token1,
             nftManager,
             defiAggregator,
-            uniswapAdapter
+            uniswapAdapter,
+            deployments // 添加deployments信息
         };
     }
 
@@ -75,7 +94,7 @@ describe("08-uniswap-sepolia.test.js - Uniswap V3 Adapter Sepolia Test", functio
             console.log("⏰ 已设置 Sepolia 网络专用超时时间: 2分钟");
             
             // 获取已部署的合约
-            const { user, token0, token1, nftManager, defiAggregator, uniswapAdapter } = await deployContractsFixture();
+            const { user, token0, token1, nftManager, defiAggregator, uniswapAdapter, deployments } = await deployContractsFixture();
             
             // === 准备阶段 ===
             
@@ -83,10 +102,35 @@ describe("08-uniswap-sepolia.test.js - Uniswap V3 Adapter Sepolia Test", functio
             const actualFeeRate = await defiAggregator.feeRateBps();
             console.log("📊 实际手续费率:", actualFeeRate.toString(), "BPS");
             
+            // 确定哪个是USDT，哪个是WETH，以及它们对应的数量和精度
+            const token0Address = await token0.getAddress();
+            const token1Address = await token1.getAddress();
+            const usdtAddress = deployments.contracts.MockERC20_USDT;
+            const wethAddress = deployments.contracts.MockWethToken;
+            
+            let usdtIsToken0 = token0Address.toLowerCase() === usdtAddress.toLowerCase();
+            let token0Amount, token1Amount, token0Decimals, token1Decimals;
+            
+            if (usdtIsToken0) {
+                // token0 = USDT, token1 = WETH
+                token0Amount = LIQUIDITY_AMOUNT_USDT;
+                token1Amount = LIQUIDITY_AMOUNT_TOKEN;
+                token0Decimals = 6;
+                token1Decimals = 18;
+                console.log("📊 代币映射: Token0=USDT, Token1=WETH");
+            } else {
+                // token0 = WETH, token1 = USDT
+                token0Amount = LIQUIDITY_AMOUNT_TOKEN;
+                token1Amount = LIQUIDITY_AMOUNT_USDT;
+                token0Decimals = 18;
+                token1Decimals = 6;
+                console.log("📊 代币映射: Token0=WETH, Token1=USDT");
+            }
+            
             // 给用户铸造足够的测试代币
             console.log("🏭 给用户铸造测试代币...");
-            const mintTx0 = await token0.mint(user.address, LIQUIDITY_AMOUNT_USDT * 2n); // 铸造2倍所需的USDT
-            const mintTx1 = await token1.mint(user.address, LIQUIDITY_AMOUNT_TOKEN * 2n); // 铸造2倍所需的WETH
+            const mintTx0 = await token0.mint(user.address, token0Amount * 2n); // 铸造2倍所需数量
+            const mintTx1 = await token1.mint(user.address, token1Amount * 2n); // 铸造2倍所需数量
             
             console.log("⏳ 等待 Sepolia 网络铸币交易确认...");
             await mintTx0.wait(2);
@@ -98,14 +142,14 @@ describe("08-uniswap-sepolia.test.js - Uniswap V3 Adapter Sepolia Test", functio
             // 检查用户初始代币余额
             const userToken0Balance = await token0.balanceOf(user.address);
             const userToken1Balance = await token1.balanceOf(user.address);
-            console.log("💰 用户初始 Token0 (USDT) 余额:", ethers.formatUnits(userToken0Balance, 6));
-            console.log("💰 用户初始 Token1 (WETH) 余额:", ethers.formatUnits(userToken1Balance, 18));
+            console.log(`💰 用户初始 Token0 余额: ${ethers.formatUnits(userToken0Balance, token0Decimals)} (${usdtIsToken0 ? 'USDT' : 'WETH'})`);
+            console.log(`💰 用户初始 Token1 余额: ${ethers.formatUnits(userToken1Balance, token1Decimals)} (${usdtIsToken0 ? 'WETH' : 'USDT'})`);
             
             // 如果用户没有足够的代币，跳过测试
-            if (userToken0Balance < LIQUIDITY_AMOUNT_USDT || userToken1Balance < LIQUIDITY_AMOUNT_TOKEN) {
+            if (userToken0Balance < token0Amount || userToken1Balance < token1Amount) {
                 console.log("⚠️  用户代币余额不足，跳过测试");
-                console.log(`   需要 Token0: ${ethers.formatUnits(LIQUIDITY_AMOUNT_USDT, 6)} USDT`);
-                console.log(`   需要 Token1: ${ethers.formatUnits(LIQUIDITY_AMOUNT_TOKEN, 18)} WETH`);
+                console.log(`   需要 Token0: ${ethers.formatUnits(token0Amount, token0Decimals)} (${usdtIsToken0 ? 'USDT' : 'WETH'})`);
+                console.log(`   需要 Token1: ${ethers.formatUnits(token1Amount, token1Decimals)} (${usdtIsToken0 ? 'WETH' : 'USDT'})`);
                 console.log("   请确保用户是合约所有者或已有足够余额");
                 this.skip();
             }
@@ -114,8 +158,8 @@ describe("08-uniswap-sepolia.test.js - Uniswap V3 Adapter Sepolia Test", functio
             console.log("🔑 授权 UniswapV3Adapter 使用代币...");
             const uniswapAdapterAddress = await uniswapAdapter.getAddress();
             
-            const approveToken0Tx = await token0.connect(user).approve(uniswapAdapterAddress, LIQUIDITY_AMOUNT_USDT);  // Token0 是 USDT
-            const approveToken1Tx = await token1.connect(user).approve(uniswapAdapterAddress, LIQUIDITY_AMOUNT_TOKEN); // Token1 是 WETH
+            const approveToken0Tx = await token0.connect(user).approve(uniswapAdapterAddress, token0Amount);
+            const approveToken1Tx = await token1.connect(user).approve(uniswapAdapterAddress, token1Amount);
             
             console.log("⏳ 等待 Sepolia 网络授权交易确认...");
             await approveToken0Tx.wait(2);
@@ -127,8 +171,8 @@ describe("08-uniswap-sepolia.test.js - Uniswap V3 Adapter Sepolia Test", functio
             // 验证授权
             const allowance0 = await token0.allowance(user.address, uniswapAdapterAddress);
             const allowance1 = await token1.allowance(user.address, uniswapAdapterAddress);
-            console.log("📋 Token0 授权金额:", ethers.formatUnits(allowance0, 6));  // Token0=USDT(6 decimals)
-            console.log("📋 Token1 授权金额:", ethers.formatUnits(allowance1, 18)); // Token1=WETH(18 decimals)
+            console.log(`📋 Token0 授权金额: ${ethers.formatUnits(allowance0, token0Decimals)} (${usdtIsToken0 ? 'USDT' : 'WETH'})`);
+            console.log(`📋 Token1 授权金额: ${ethers.formatUnits(allowance1, token1Decimals)} (${usdtIsToken0 ? 'WETH' : 'USDT'})`);
             
             // 检查适配器是否已注册
             const hasAdapter = await defiAggregator.hasAdapter("uniswapv3");
@@ -136,26 +180,41 @@ describe("08-uniswap-sepolia.test.js - Uniswap V3 Adapter Sepolia Test", functio
             
             // === 执行添加流动性操作 ===
             
+            // 设置自定义价格区间 (tick范围)
+            const tickLower = -6000;  // 自定义下限tick
+            const tickUpper = 6000;   // 自定义上限tick
+            console.log("📊 使用自定义价格区间:");
+            console.log("   Tick Lower:", tickLower);
+            console.log("   Tick Upper:", tickUpper);
+            
+            // 编码tick参数到extraData
+            const extraData = ethers.AbiCoder.defaultAbiCoder().encode(
+                ['int24', 'int24'],
+                [tickLower, tickUpper]
+            );
+            console.log("🔧 编码的 extraData:", extraData);
+            
             // 构造操作参数
             const operationParams = {
                 tokens: [await token0.getAddress(), await token1.getAddress()],
-                amounts: [LIQUIDITY_AMOUNT_USDT, LIQUIDITY_AMOUNT_TOKEN, 0, 0], // [usdtAmount, wethAmount, usdtMin, wethMin]
+                amounts: [token0Amount, token1Amount, 0, 0], // [token0Amount, token1Amount, token0Min, token1Min]
                 recipient: user.address, // 明确指定受益者为用户
                 deadline: Math.floor(Date.now() / 1000) + 3600, // 1 hour
                 tokenId: 0, // 新的流动性位置，设为 0
-                extraData: "0x" // 使用简单格式，与本地测试保持一致
+                extraData: extraData // 传递自定义tick范围
             };
             
             console.log("🚀 执行添加流动性操作...");
             console.log("   适配器名称: uniswapv3");
             console.log("   操作类型: 2 (ADD_LIQUIDITY)");
-            console.log("   Token0 (USDT):", await token0.getAddress());
-            console.log("   Token1 (WETH):", await token1.getAddress());
-            console.log("   Token0 金额:", ethers.formatUnits(LIQUIDITY_AMOUNT_USDT, 6), "USDT");
-            console.log("   Token1 金额:", ethers.formatUnits(LIQUIDITY_AMOUNT_TOKEN, 18), "WETH");
+            console.log("   Token0:", await token0.getAddress(), `(${usdtIsToken0 ? 'USDT' : 'WETH'})`);
+            console.log("   Token1:", await token1.getAddress(), `(${usdtIsToken0 ? 'WETH' : 'USDT'})`);
+            console.log(`   Token0 金额: ${ethers.formatUnits(token0Amount, token0Decimals)} (${usdtIsToken0 ? 'USDT' : 'WETH'})`);
+            console.log(`   Token1 金额: ${ethers.formatUnits(token1Amount, token1Decimals)} (${usdtIsToken0 ? 'WETH' : 'USDT'})`);
             
             // 执行添加流动性操作
             let tx;
+            let actualTokenId = null; // 移到外部定义
             try {
                 tx = await defiAggregator.connect(user).executeOperation(
                     "uniswapv3",    // adapter name
@@ -169,7 +228,6 @@ describe("08-uniswap-sepolia.test.js - Uniswap V3 Adapter Sepolia Test", functio
                 console.log("💰 Gas 使用量:", receipt.gasUsed.toString());
                 
                 // 从适配器的 OperationExecuted 事件的 returnData 中获取 tokenId
-                let actualTokenId = null;
                 console.log("🔍 在交易回执中查找 tokenId...");
                 
                 // 解析适配器的 OperationExecuted 事件
@@ -223,20 +281,20 @@ describe("08-uniswap-sepolia.test.js - Uniswap V3 Adapter Sepolia Test", functio
             // 1. 检查用户代币余额减少（参考本地测试的精确计算方式）
             const userFinalToken0Balance = await token0.balanceOf(user.address);
             const userFinalToken1Balance = await token1.balanceOf(user.address);
-            console.log("💰 用户最终 Token0 (USDT) 余额:", ethers.formatUnits(userFinalToken0Balance, 6));
-            console.log("💰 用户最终 Token1 (WETH) 余额:", ethers.formatUnits(userFinalToken1Balance, 18));
+            console.log(`💰 用户最终 Token0 余额: ${ethers.formatUnits(userFinalToken0Balance, token0Decimals)} (${usdtIsToken0 ? 'USDT' : 'WETH'})`);
+            console.log(`💰 用户最终 Token1 余额: ${ethers.formatUnits(userFinalToken1Balance, token1Decimals)} (${usdtIsToken0 ? 'WETH' : 'USDT'})`);
             
             // 计算实际消耗的代币数量
             const consumedToken0 = userToken0Balance - userFinalToken0Balance;
             const consumedToken1 = userToken1Balance - userFinalToken1Balance;
-            console.log("💸 实际消耗 Token0 (USDT):", ethers.formatUnits(consumedToken0, 6));
-            console.log("💸 实际消耗 Token1 (WETH):", ethers.formatUnits(consumedToken1, 18));
+            console.log(`💸 实际消耗 Token0: ${ethers.formatUnits(consumedToken0, token0Decimals)} (${usdtIsToken0 ? 'USDT' : 'WETH'})`);
+            console.log(`💸 实际消耗 Token1: ${ethers.formatUnits(consumedToken1, token1Decimals)} (${usdtIsToken0 ? 'WETH' : 'USDT'})`);
             
             // 验证消耗的代币数量在合理范围内（应该等于或接近投入金额）
-            expect(consumedToken0).to.be.gte(LIQUIDITY_AMOUNT_USDT * 99n / 100n); // 至少消耗99%（扣除最大1%手续费）
-            expect(consumedToken0).to.be.lte(LIQUIDITY_AMOUNT_USDT); // 最多消耗100%
-            expect(consumedToken1).to.be.gte(LIQUIDITY_AMOUNT_TOKEN * 99n / 100n); // 至少消耗99%
-            expect(consumedToken1).to.be.lte(LIQUIDITY_AMOUNT_TOKEN); // 最多消耗100%
+            expect(consumedToken0).to.be.gte(token0Amount * 99n / 100n); // 至少消耗99%（扣除最大1%手续费）
+            expect(consumedToken0).to.be.lte(token0Amount); // 最多消耗100%
+            expect(consumedToken1).to.be.gte(token1Amount * 99n / 100n); // 至少消耗99%
+            expect(consumedToken1).to.be.lte(token1Amount); // 最多消耗100%
             
             // 2. 验证用户收到 NFT (流动性位置)
             const userNFTBalance = await nftManager.balanceOf(user.address);
@@ -245,10 +303,29 @@ describe("08-uniswap-sepolia.test.js - Uniswap V3 Adapter Sepolia Test", functio
             // 检查用户至少获得了一个 NFT
             expect(userNFTBalance).to.be.gt(0);
             
+            // 3. 验证价格区间设置正确
+            if (actualTokenId) {
+                const position = await nftManager.positions(actualTokenId);
+                console.log("📍 NFT Position 价格区间信息:");
+                console.log("   Token ID:", actualTokenId.toString());
+                console.log("   设置的 Tick Lower:", tickLower);
+                console.log("   设置的 Tick Upper:", tickUpper);
+                console.log("   实际的 Tick Lower:", position.tickLower.toString());
+                console.log("   实际的 Tick Upper:", position.tickUpper.toString());
+                console.log("   Liquidity:", position.liquidity.toString());
+                
+                // 验证 tick 范围是否正确设置
+                expect(position.tickLower).to.equal(tickLower);
+                expect(position.tickUpper).to.equal(tickUpper);
+                expect(position.liquidity).to.be.gt(0);
+                console.log("✅ 价格区间设置验证通过！");
+            }
+            
             console.log("✅ 添加流动性测试通过！");
-            console.log(`💰 使用 Token0: ${ethers.formatUnits(userToken0Balance - userFinalToken0Balance, 6)}`);  // Token0=USDT(6 decimals)
-            console.log(`💰 使用 Token1: ${ethers.formatUnits(userToken1Balance - userFinalToken1Balance, 18)}`); // Token1=WETH(18 decimals)
+            console.log(`💰 使用 Token0: ${ethers.formatUnits(userToken0Balance - userFinalToken0Balance, token0Decimals)} (${usdtIsToken0 ? 'USDT' : 'WETH'})`);
+            console.log(`💰 使用 Token1: ${ethers.formatUnits(userToken1Balance - userFinalToken1Balance, token1Decimals)} (${usdtIsToken0 ? 'WETH' : 'USDT'})`);
             console.log(`🎫 获得 NFT 数量: ${userNFTBalance.toString()}`);
+            console.log(`📊 价格区间: [${tickLower}, ${tickUpper}]`);
         });
     });
 

@@ -139,40 +139,69 @@ contract UniswapV3Adapter is
     /**
      * @dev 处理添加流动性操作 - 整合所有子函数避免 stack too deep
      * params.amounts[0] = USDT amount, params.amounts[1] = WETH amount
+     * params.amounts[2] = USDT min amount, params.amounts[3] = WETH min amount
+     * params.extraData = abi.encode(tickLower, tickUpper) - 可选的 tick 范围参数
+     * 
+     * 使用示例:
+     * // 使用默认 tick 范围 (-887220, 887220)
+     * params.extraData = "0x"
+     * 
+     * // 使用自定义 tick 范围
+     * int24 tickLower = -60000;
+     * int24 tickUpper = 60000;
+     * params.extraData = abi.encode(tickLower, tickUpper);
      */
     function _handleAddLiquidity(
         OperationParams calldata params,
         uint24 feeRateBps
     ) internal returns (OperationResult memory result) {
         require(params.tokens.length == 2, "Add liquidity requires 2 tokens");
-        require(params.amounts.length == 4, "Amount array should contain [usdtAmount, wethAmount, usdtMin, wethMin]");
-        require(params.tokens[0] == usdtToken, "Token 0 must be USDT");
-        require(params.tokens[1] == wethToken, "Token 1 must be WETH");
+        require(params.amounts.length == 4, "Amount array should contain [token0Amount, token1Amount, token0Min, token1Min]");
         require(params.recipient != address(0), "Recipient address must be specified");
         
-        // 转入 USDT 和 WETH
-        IERC20(usdtToken).safeTransferFrom(params.recipient, address(this), params.amounts[0]);
-        IERC20(wethToken).safeTransferFrom(params.recipient, address(this), params.amounts[1]);
+        // 检验代币是否为支持的代币对
+        bool isUsdtToken0 = params.tokens[0] == usdtToken && params.tokens[1] == wethToken;
+        bool isWethToken0 = params.tokens[0] == wethToken && params.tokens[1] == usdtToken;
+        require(isUsdtToken0 || isWethToken0, "Unsupported token pair");
         
-        // 计算净金额
-        uint256 netUsdt = params.amounts[0] - (params.amounts[0] * feeRateBps) / 10000;
-        uint256 netWeth = params.amounts[1] - (params.amounts[1] * feeRateBps) / 10000;
+        // 转入代币
+        IERC20(params.tokens[0]).safeTransferFrom(params.recipient, address(this), params.amounts[0]);
+        IERC20(params.tokens[1]).safeTransferFrom(params.recipient, address(this), params.amounts[1]);
+        
+        // 计算净金额并直接在mint参数中使用
+        uint256 netAmount0 = params.amounts[0] - (params.amounts[0] * feeRateBps) / 10000;
+        uint256 netAmount1 = params.amounts[1] - (params.amounts[1] * feeRateBps) / 10000;
+        
+        // 解析 tick 范围参数
+        int24 tickLower = -887220; // 默认值
+        int24 tickUpper = 887220;  // 默认值
+        
+        if (params.extraData.length > 0) {
+            // 从 extraData 中解析 tick 参数
+            // extraData 格式: abi.encode(tickLower, tickUpper)
+            try this.decodeTicks(params.extraData) returns (int24 _tickLower, int24 _tickUpper) {
+                tickLower = _tickLower;
+                tickUpper = _tickUpper;
+            } catch {
+                // 如果解析失败，使用默认值
+            }
+        }
         
         // 批准代币
-        IERC20(usdtToken).approve(positionManager, netUsdt);
-        IERC20(wethToken).approve(positionManager, netWeth);
+        IERC20(params.tokens[0]).approve(positionManager, netAmount0);
+        IERC20(params.tokens[1]).approve(positionManager, netAmount1);
         
         // 构建 mint 参数
         INonfungiblePositionManager.MintParams memory mintParams = INonfungiblePositionManager.MintParams({
-            token0: usdtToken,
-            token1: wethToken,
+            token0: params.tokens[0],
+            token1: params.tokens[1],
             fee: feeRateBps,
-            tickLower: -887220,
-            tickUpper: 887220,
-            amount0Desired: netUsdt,
-            amount1Desired: netWeth,
-            amount0Min: params.amounts[2], // 用户设置的 USDT 最小金额
-            amount1Min: params.amounts[3], // 用户设置的 WETH 最小金额
+            tickLower: tickLower,
+            tickUpper: tickUpper,
+            amount0Desired: netAmount0,
+            amount1Desired: netAmount1,
+            amount0Min: params.amounts[2], // 用户设置的 token0 最小金额
+            amount1Min: params.amounts[3], // 用户设置的 token1 最小金额
             recipient: params.recipient, // NFT 直接发放给用户
             deadline: params.deadline
         });
@@ -185,10 +214,7 @@ contract UniswapV3Adapter is
         result.outputAmounts[0] = tokenId;
         result.message = "Add liquidity successful";
         
-        // 将 tokenId 编码到 returnData 中
-        bytes memory returnData = abi.encode(tokenId);
-        
-        emit OperationExecuted(params.recipient, OperationType.ADD_LIQUIDITY, params.tokens, params.amounts, returnData);
+        emit OperationExecuted(params.recipient, OperationType.ADD_LIQUIDITY, params.tokens, params.amounts, abi.encode(tokenId));
         
         return result;
     }
@@ -220,8 +246,8 @@ contract UniswapV3Adapter is
             INonfungiblePositionManager.DecreaseLiquidityParams memory decreaseParams = INonfungiblePositionManager.DecreaseLiquidityParams({
                 tokenId: tokenId,
                 liquidity: liquidity,
-                amount0Min: params.amounts[0], // 用户设置的 USDT 最小金额
-                amount1Min: params.amounts[1], // 用户设置的 WETH 最小金额
+                amount0Min: params.amounts[0], // 用户设置的 token0 最小金额
+                amount1Min: params.amounts[1], // 用户设置的 token1 最小金额
                 deadline: params.deadline
             });
             INonfungiblePositionManager(positionManager).decreaseLiquidity(decreaseParams);
@@ -231,15 +257,15 @@ contract UniswapV3Adapter is
         INonfungiblePositionManager.CollectParams memory collectParams = INonfungiblePositionManager.CollectParams({
             tokenId: tokenId,
             recipient: params.recipient, // 直接转给用户
-            amount0Max: type(uint128).max, // 收集所有可用的 USDT (包括本金 + 手续费)
-            amount1Max: type(uint128).max  // 收集所有可用的 WETH (包括本金 + 手续费)
+            amount0Max: type(uint128).max, // 收集所有可用的 token0 (包括本金 + 手续费)
+            amount1Max: type(uint128).max  // 收集所有可用的 token1 (包括本金 + 手续费)
         });
         (uint256 amount0, uint256 amount1) = INonfungiblePositionManager(positionManager).collect(collectParams);
         
         result.success = true;
         result.outputAmounts = new uint256[](2);
-        result.outputAmounts[0] = amount0; // USDT
-        result.outputAmounts[1] = amount1; // WETH
+        result.outputAmounts[0] = amount0; // token0
+        result.outputAmounts[1] = amount1; // token1
         result.message = "Remove liquidity successful";
         
         emit OperationExecuted(params.recipient, OperationType.REMOVE_LIQUIDITY, params.tokens, params.amounts, "");
@@ -303,6 +329,16 @@ contract UniswapV3Adapter is
     );
     
     // ===== 辅助函数 =====
+
+    /**
+     * @dev 从 extraData 中解码 tick 参数
+     * @param data 编码的数据 (abi.encode(tickLower, tickUpper))
+     * @return tickLower 下限 tick
+     * @return tickUpper 上限 tick
+     */
+    function decodeTicks(bytes calldata data) external pure returns (int24 tickLower, int24 tickUpper) {
+        (tickLower, tickUpper) = abi.decode(data, (int24, int24));
+    }
 
     // ===== UUPS 升级功能 =====
     
