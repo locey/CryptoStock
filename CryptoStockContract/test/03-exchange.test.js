@@ -1047,8 +1047,7 @@ describe("Exchange - 股票交易所功能测试", function () {
         // 理论上正常的滑点应该能成功交易
         let slippageTestSuccess = false;
         try {
-          const 
-           = { 
+          const overrides = { 
             value: fee,
             gasLimit: isLocalNetwork ? 200000 : 300000,
             gasPrice: isLocalNetwork ? ethers.parseUnits("20", "gwei") : ethers.parseUnits("30", "gwei")
