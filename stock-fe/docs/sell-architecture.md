@@ -1018,8 +1018,8 @@ export const useSellActions = () => {
 import { useInterpret } from '@xstate/react';
 import { sellMachine } from '../machines/sellMachine';
 import { useSellStore, useSellActions } from '../stores/sellStore';
-import { useWallet } from 'ycdirectory-ui';
-import { useWeb3Clients } from 'ycdirectory-ui';
+import { useWallet } from 'yc-sdk-ui';
+import { useWeb3Clients } from 'yc-sdk-ui';
 
 interface UseSellTradingProps {
   token: TokenInfo;

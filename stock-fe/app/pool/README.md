@@ -176,7 +176,7 @@ interface TokenData {
 ### 配置说明
 - 合约地址通过 `deployments-uups-sepolia.json` 配置
 - 网络配置支持多链切换
-- 钱包集成使用 `ycdirectory-ui`
+- 钱包集成使用 `yc-sdk-ui`
 
 ## 故障排除
 

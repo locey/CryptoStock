@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider } from "wagmi";
 import { config } from "@/lib/wagmi";
 import { ReactNode, useState } from "react";
-import { WalletProvider } from "ycdirectory-ui";
+import { WalletProvider } from "yc-sdk-ui";
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -33,13 +33,13 @@ export function Providers({ children }: { children: ReactNode }) {
                 nativeCurrency: {
                   name: "Ether",
                   symbol: "ETH",
-                  decimals: 18
+                  decimals: 18,
                 },
                 rpcUrls: {
                   default: {
-                    http: ["https://eth.public-rpc.com"]
-                  }
-                }
+                    http: ["https://eth.public-rpc.com"],
+                  },
+                },
               },
               {
                 id: 137,
@@ -48,13 +48,13 @@ export function Providers({ children }: { children: ReactNode }) {
                 nativeCurrency: {
                   name: "MATIC",
                   symbol: "MATIC",
-                  decimals: 18
+                  decimals: 18,
                 },
                 rpcUrls: {
                   default: {
-                    http: ["https://polygon-rpc.com"]
-                  }
-                }
+                    http: ["https://polygon-rpc.com"],
+                  },
+                },
               },
               {
                 id: 42161,
@@ -63,13 +63,13 @@ export function Providers({ children }: { children: ReactNode }) {
                 nativeCurrency: {
                   name: "Ether",
                   symbol: "ETH",
-                  decimals: 18
+                  decimals: 18,
                 },
                 rpcUrls: {
                   default: {
-                    http: ["https://arb1.arbitrum.io/rpc"]
-                  }
-                }
+                    http: ["https://arb1.arbitrum.io/rpc"],
+                  },
+                },
               },
               {
                 id: 11155111,
@@ -78,16 +78,19 @@ export function Providers({ children }: { children: ReactNode }) {
                 nativeCurrency: {
                   name: "Sepolia Ether",
                   symbol: "ETH",
-                  decimals: 18
+                  decimals: 18,
                 },
                 rpcUrls: {
                   default: {
-                    http: ["https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161"]
-                  }
-                }
-              }
+                    http: [
+                      "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161",
+                    ],
+                  },
+                },
+              },
             ],
-            storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+            storage:
+              typeof window !== "undefined" ? window.localStorage : undefined,
           }}
           autoConnect={true}
         >
