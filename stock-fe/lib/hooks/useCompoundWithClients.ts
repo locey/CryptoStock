@@ -1,13 +1,20 @@
 import { useCallback, useMemo } from 'react';
-import { Address, formatUnits, parseUnits, PublicClient, WalletClient, Chain } from 'viem';
+import { Address, formatUnits, parseUnits, PublicClient, WalletClient, Chain, Hex } from 'viem';
 import { useWallet } from 'ycdirectory-ui';
 import { usePublicClient, useWalletClient } from 'ycdirectory-hooks';
 import CompoundDeploymentInfo from '@/lib/abi/deployments-compound-adapter-sepolia.json';
-import useCompoundStore, {
+import {
+  useCompoundStore,
   CompoundOperationType,
   CompoundTransactionResult,
   CompoundPoolInfo,
 } from '@/lib/stores/useCompoundStore';
+
+interface TransactionResult {
+  hash: string;
+  blockNumber?: bigint;
+  gasUsed?: bigint;
+}
 
 // ==================== 导出 Hook ====================
 export const useCompoundWithClients = () => {
@@ -159,11 +166,12 @@ export const useCompoundWithClients = () => {
       chain,
       amountBigInt,
       address,
+      address, // userAddress is the same as account in this case
       gasConfig
     );
   }, [isConnected, address, publicClient, chain, getWalletClient, store.approveCUSDT]);
 
-  const supplyUSDT = useCallback(async (amount: string): Promise<CompoundTransactionResult> => {
+  const supplyUSDT = useCallback(async (amount: string): Promise<TransactionResult> => {
     if (!isConnected || !address) {
       throw new Error('钱包未连接');
     }
@@ -193,15 +201,12 @@ export const useCompoundWithClients = () => {
       chain,
       amountBigInt,
       address,
+      address, // userAddress is the same as account in this case
       gasConfig
     );
 
     return {
-      success: true,
-      outputAmounts: [amountBigInt],
-      returnData: '0x' as Hex,
-      message: 'Compound 存款成功',
-      transactionHash: receipt.transactionHash,
+      hash: receipt.transactionHash,
       blockNumber: receipt.blockNumber,
       gasUsed: receipt.gasUsed,
     };
@@ -237,6 +242,7 @@ export const useCompoundWithClients = () => {
       chain,
       amountBigInt,
       address,
+      address, // userAddress is the same as account in this case
       gasConfig
     );
 
@@ -281,6 +287,7 @@ export const useCompoundWithClients = () => {
       chain,
       amountBigInt,
       address,
+      address, // userAddress is the same as account in this case
       gasConfig
     );
 
@@ -315,69 +322,152 @@ export const useCompoundWithClients = () => {
     console.log('✅ Compound 交易功能初始化完成');
   }, [isConnected, address, initContracts, fetchPoolInfo, fetchUserBalance]);
 
-  // 格式化余额显示
-  const formattedUSDTBalance = useMemo(() => {
-    return store.userBalance?.formattedUsdtBalance || '0';
+  // 刷新用户余额
+  const refreshUserBalance = useCallback(async () => {
+    if (!isConnected || !address) {
+      throw new Error('钱包未连接');
+    }
+    await fetchUserBalance();
+  }, [isConnected, address, fetchUserBalance]);
+
+  // 计算属性：格式化的余额信息
+  const formattedBalances = useMemo(() => {
+    if (!store.userBalance) {
+      return {
+        usdtBalance: '0',
+        cUsdtBalance: '0',
+        usdtAllowance: '0',
+        cUsdtAllowance: '0',
+        depositedAmount: '0',
+        earnedInterest: '0',
+      };
+    }
+    return {
+      usdtBalance: formatUnits(store.userBalance.usdtBalance || 0n, 6),
+      cUsdtBalance: formatUnits(store.userBalance.cUsdtBalance || 0n, 6),
+      usdtAllowance: formatUnits(store.userBalance.usdtAllowance || 0n, 6),
+      cUsdtAllowance: formatUnits(store.userBalance.cUsdtAllowance || 0n, 6),
+      depositedAmount: formatUnits(store.userBalance.depositedAmount || 0n, 6),
+      earnedInterest: formatUnits(store.userBalance.earnedInterest || 0n, 6),
+    };
   }, [store.userBalance]);
 
-  const formattedCUSDTBalance = useMemo(() => {
-    return store.userBalance?.formattedCUsdtBalance || '0';
-  }, [store.userBalance]);
-
-  const currentAPY = useMemo(() => {
-    if (!store.poolInfo?.currentAPY) return '0';
-    return formatUnits(store.poolInfo.currentAPY, 18); // APY 通常是 18 位小数
+  // 计算属性：格式化的池信息
+  const poolInfo = useMemo(() => {
+    if (!store.poolInfo) {
+      return null;
+    }
+    return {
+      ...store.poolInfo,
+      feeRatePercent: `${store.poolInfo.feeRateBps / 100}%`,
+    };
   }, [store.poolInfo]);
 
-  const currentExchangeRate = useMemo(() => {
-    if (!store.poolInfo?.currentExchangeRate) return '0';
-    return formatUnits(store.poolInfo.currentExchangeRate, 18); // 汇率通常是 18 位小数
-  }, [store.poolInfo]);
-
-  // 检查授权状态
-  const needsUSDTApproval = useMemo(() => {
-    if (!store.userBalance?.usdtAllowance || !store.userBalance?.usdtBalance) {
-      return true;
+  // 检查是否需要授权（与 Aave 逻辑完全一致）
+  const needsApproval = useMemo(() => {
+    if (!store.userBalance) {
+      return { usdt: true, cUsdt: true };
     }
-    return store.userBalance.usdtAllowance < store.userBalance.usdtBalance;
+
+    return {
+      usdt: (store.userBalance.usdtAllowance || 0n) === BigInt(0),
+      cUsdt: (store.userBalance.cUsdtAllowance || 0n) === BigInt(0),
+    };
   }, [store.userBalance]);
 
-  const needsCUSDTApproval = useMemo(() => {
-    if (!store.userBalance?.cUsdtAllowance || !store.userBalance?.cUsdtBalance) {
+  // 检查特定金额是否需要授权
+  const checkApprovalForAmount = useCallback((amount: string, tokenType: 'usdt' | 'cUsdt'): boolean => {
+    if (!store.userBalance || !store.poolInfo) {
+      console.log('🔍 checkApprovalForAmount: 缺少数据', {
+        hasUserBalance: !!store.userBalance,
+        hasPoolInfo: !!store.poolInfo
+      });
       return true;
     }
-    return store.userBalance.cUsdtAllowance < store.userBalance.cUsdtBalance;
-  }, [store.userBalance]);
+
+    const amountBigInt = parseUnits(amount, 6); // USDT 精度
+
+    if (tokenType === 'usdt') {
+      const allowance = store.userBalance.usdtAllowance || 0n;
+      const needsApproval = allowance < amountBigInt;
+      console.log('🔍 USDT 授权检查:', {
+        amount: amountBigInt.toString(),
+        allowance: allowance.toString(),
+        needsApproval
+      });
+      return needsApproval;
+    } else {
+      // 对于 cUSDT，需要将 USDT 金额转换为 cUSDT 金额
+      const exchangeRate = store.poolInfo.currentExchangeRate || 1n;
+      const cUsdtAmount = (amountBigInt * 100n) / exchangeRate;
+      const allowance = store.userBalance.cUsdtAllowance || 0n;
+      const needsApproval = allowance < cUsdtAmount;
+      console.log('🔍 cUSDT 授权检查:', {
+        usdtAmount: amountBigInt.toString(),
+        exchangeRate: exchangeRate.toString(),
+        cUsdtAmount: cUsdtAmount.toString(),
+        allowance: allowance.toString(),
+        needsApproval
+      });
+      return needsApproval;
+    }
+  }, [store.userBalance, store.poolInfo]);
+
+  // 获取最大可用余额
+  const maxBalances = useMemo(() => {
+    if (!store.userBalance || !store.poolInfo) {
+      return {
+        maxUSDTToSupply: '0',
+        maxUSDTToWithdraw: '0',
+      };
+    }
+
+    // cUSDT 转 USDT 需要通过汇率转换
+    // cUSDT 精度是8位，USDT精度是6位
+    const exchangeRate = store.poolInfo.currentExchangeRate || 1n;
+    const cUsdtBalance = store.userBalance.cUsdtBalance || 0n;
+
+    // cUSDT 金额 * 汇率 = USDT 金额 (需要考虑精度差异)
+    const maxUSDTFromCUSDT = (cUsdtBalance * exchangeRate) / (10n ** 2n); // 8位精度转6位精度
+
+    return {
+      maxUSDTToSupply: formatUnits(store.userBalance.usdtBalance || 0n, 6), // 最大可存入的 USDT
+      maxUSDTToWithdraw: formatUnits(maxUSDTFromCUSDT, 6), // 最大可提取的 USDT（通过汇率转换）
+    };
+  }, [store.userBalance, store.poolInfo]);
 
   // 清理错误状态
-  const clearError = useCallback(() => {
+  const clearErrors = useCallback(() => {
     store.clearError();
   }, [store.clearError]);
 
+  // 自动初始化合约
+  if (store.defiAggregatorAddress === null || store.compoundAdapterAddress === null) {
+    initContracts();
+  }
+
   return {
-    // 状态
+    // 基础状态
     isConnected,
     address,
-    poolInfo: store.poolInfo,
-    userBalance: store.userBalance,
     isLoading: store.isLoading,
     isOperating: store.isOperating,
     error: store.error,
 
-    // 格式化数据
-    formattedUSDTBalance,
-    formattedCUSDTBalance,
-    currentAPY,
-    currentExchangeRate,
+    // 合约信息
+    defiAggregatorAddress: store.defiAggregatorAddress,
+    compoundAdapterAddress: store.compoundAdapterAddress,
+    poolInfo,
 
-    // 授权状态
-    needsUSDTApproval,
-    needsCUSDTApproval,
+    // 用户余额信息
+    userBalance: store.userBalance,
+    formattedBalances,
+    needsApproval,
+    maxBalances,
 
     // 初始化方法
-    initContracts,
-    setContractAddresses,
     initializeCompoundTrading,
+    refreshUserBalance,
 
     // 读取方法
     fetchPoolInfo,
@@ -396,8 +486,11 @@ export const useCompoundWithClients = () => {
     redeemUSDT,
     sellUSDT,
 
+    // 辅助方法
+    checkApprovalForAmount,
+
     // 状态管理
-    clearError,
+    clearErrors,
     reset: store.reset,
   };
 };
