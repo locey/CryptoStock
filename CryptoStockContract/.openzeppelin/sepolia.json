@@ -439,6 +439,26 @@
       "address": "0x9B745fBf1D72E81f65bD0b0Dbe0eB1F67d88EB4C",
       "txHash": "0xf829d5e726524eb8dc8a9ad25b77e50fb475701cf34e39f4cfcd4ee8f577f475",
       "kind": "uups"
+    },
+    {
+      "address": "0x80fCB4C54790BE282cf700399dF043FF315d3048",
+      "txHash": "0xad9d62d18e41f0c0ae3c0902b5414ff45864dc31fa0d144d030a26e6b5690f8e",
+      "kind": "uups"
+    },
+    {
+      "address": "0x46b6aB4DaEBb5F020AefB9218EeC8a89d2b4717E",
+      "txHash": "0x4c9a2354972509f65709d2f3d501b227bedc2b6f9d1ee8c1104a6478b202704a",
+      "kind": "uups"
+    },
+    {
+      "address": "0xfB1B6C641F5BBfB4d70fC852aE6Dbc99777324A1",
+      "txHash": "0xa77ed6c3e7defd816be85ad9e7646d32bda466b24b8505576bb37409d9497725",
+      "kind": "uups"
+    },
+    {
+      "address": "0xbe526796f8130F56dE156f5cAaE8F46C96059416",
+      "txHash": "0x2df665ab5aa841a4a59665c3128075201b79659c09bc55e411088aee7131dbec",
+      "kind": "uups"
     }
   ],
   "impls": {
@@ -4024,6 +4044,157 @@
           }
         },
         "namespaces": {
+          "erc7201:openzeppelin.storage.Ownable": [
+            {
+              "contract": "OwnableUpgradeable",
+              "label": "_owner",
+              "type": "t_address",
+              "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:24",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:69",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:73",
+              "offset": 8,
+              "slot": "0"
+            }
+          ]
+        }
+      }
+    },
+    "1a79722c9b07bdd63af8c57dff5d2b37a1f8669192f2fcddf6dc6ede8b851634": {
+      "address": "0x6D9F22043516e0B88648951F2AC9Aa30F2B78014",
+      "txHash": "0xd46ae3b487727956855643c9f55ebcaf5a22b7eab7bacd00db5bf04cfe20db2f",
+      "layout": {
+        "solcVersion": "0.8.22",
+        "storage": [
+          {
+            "label": "pancakeRouter",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_address",
+            "contract": "PancakeAdapter",
+            "src": "contracts/adapters/PancakeAdapter.sol:47"
+          },
+          {
+            "label": "supportedTokens",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_mapping(t_address,t_bool)",
+            "contract": "PancakeAdapter",
+            "src": "contracts/adapters/PancakeAdapter.sol:50"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_struct(InitializableStorage)73_storage": {
+            "label": "struct Initializable.InitializableStorage",
+            "members": [
+              {
+                "label": "_initialized",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_initializing",
+                "type": "t_bool",
+                "offset": 8,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(OwnableStorage)13_storage": {
+            "label": "struct OwnableUpgradeable.OwnableStorage",
+            "members": [
+              {
+                "label": "_owner",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(PausableStorage)224_storage": {
+            "label": "struct PausableUpgradeable.PausableStorage",
+            "members": [
+              {
+                "label": "_paused",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(ReentrancyGuardStorage)288_storage": {
+            "label": "struct ReentrancyGuardUpgradeable.ReentrancyGuardStorage",
+            "members": [
+              {
+                "label": "_status",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_mapping(t_address,t_bool)": {
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.ReentrancyGuard": [
+            {
+              "contract": "ReentrancyGuardUpgradeable",
+              "label": "_status",
+              "type": "t_uint256",
+              "src": "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol:43",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Pausable": [
+            {
+              "contract": "PausableUpgradeable",
+              "label": "_paused",
+              "type": "t_bool",
+              "src": "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol:21",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
           "erc7201:openzeppelin.storage.Ownable": [
             {
               "contract": "OwnableUpgradeable",
