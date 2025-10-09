@@ -2,18 +2,18 @@
   "network": "sepolia",
   "chainId": "11155111",
   "deployer": "0x46b43ad9F6C20c400aC17a282022E578417F796A",
-  "timestamp": "2025-10-08T02:15:18.591Z",
+  "timestamp": "2025-10-08T12:45:54.943Z",
   "feeRateBps": 30,
   "basedOn": "deployments-defi-infrastructure-sepolia.json",
   "contracts": {
-    "DefiAggregator": "0xEf3bB3e03251533cE0609530f742F1FFA3766EBB",
+    "DefiAggregator": "0xD93D27d031FdF461288c904688Dd78D6902eA315",
     "MockERC20_USDT": "0xd7C597Cf30fb56162AEDAe8a52927B7CE4076e5B",
-    "MockYearnV3Vault": "0xe376CC4f3D425DF380fE1D6bf6259d6aCA3a44AE",
-    "YearnV3Adapter": "0x1c05e8E2D9088abBe7062B3cc5C25d4Fb6E530D2",
-    "YearnV3Adapter_Implementation": "0x85fab6d733D13628CeaFCC6FDa0b478095f4eE12"
+    "MockYearnV3Vault": "0xDa0cBF744A1edb94D693869413fe45854bff0eA0",
+    "YearnV3Adapter": "0x7dFB5DA567637DD31a9225FD85d8dCbee4894f33",
+    "YearnV3Adapter_Implementation": "0x8111af1ff18914eCcEFA7E17C4b3eE8e1C721117"
   },
   "adapterRegistrations": {
-    "yearnv3": "0x1c05e8E2D9088abBe7062B3cc5C25d4Fb6E530D2"
+    "yearnv3": "0x7dFB5DA567637DD31a9225FD85d8dCbee4894f33"
   },
   "notes": {
     "description": "YearnV3适配器部署，复用了基础设施合约",

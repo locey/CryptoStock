@@ -419,6 +419,26 @@
       "address": "0x0Da05F4753534669dCE540C1Bfc348f6728Bedb3",
       "txHash": "0x57856f0d4cbfeb1fab0bdd2bafdb9823362415a5412a56bd5472ce2bea97073c",
       "kind": "uups"
+    },
+    {
+      "address": "0xC9AC3788202ECCBc5449869C9a3195eeB0990dC9",
+      "txHash": "0x8786e15bb0676b5c214e0a52621869a4a3f0447f9663bb38a6659561d9306a50",
+      "kind": "uups"
+    },
+    {
+      "address": "0x22F59114B635bD9bE6732C9aDE8B9c27C670Dcae",
+      "txHash": "0x57804b428b94fdfe8671ae0a30c017b58ef2e5b4323db6f7bc777e88fed81ab2",
+      "kind": "uups"
+    },
+    {
+      "address": "0xADAA9EC5Db53b29da8bF198Bd739F8aC6E1C6647",
+      "txHash": "0xcc6d5488cd201914366c4cdaf0c6523a4fac20085fc81142c54c20b02ab35d56",
+      "kind": "uups"
+    },
+    {
+      "address": "0x9B745fBf1D72E81f65bD0b0Dbe0eB1F67d88EB4C",
+      "txHash": "0xf829d5e726524eb8dc8a9ad25b77e50fb475701cf34e39f4cfcd4ee8f577f475",
+      "kind": "uups"
     }
   ],
   "impls": {
@@ -3873,6 +3893,137 @@
               "slot": "0"
             }
           ],
+          "erc7201:openzeppelin.storage.Ownable": [
+            {
+              "contract": "OwnableUpgradeable",
+              "label": "_owner",
+              "type": "t_address",
+              "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:24",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:69",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:73",
+              "offset": 8,
+              "slot": "0"
+            }
+          ]
+        }
+      }
+    },
+    "80fbe223f34379cc4ddfc327b4678156c0a8fd75f5e77a6f259d17ed72dbafed": {
+      "address": "0x2e2f798DE8Ed77843bB98C0b394a68064162C656",
+      "txHash": "0x75f1b756e00a695d0635b24af13bc2ddb3281938fe2e7bb82be314b798e79d6f",
+      "layout": {
+        "solcVersion": "0.8.22",
+        "storage": [
+          {
+            "label": "pyth",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_contract(IPyth)10456",
+            "contract": "OracleAggregator",
+            "src": "contracts/OracleAggregator.sol:11"
+          },
+          {
+            "label": "symbolToFeedId",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_mapping(t_string_memory_ptr,t_bytes32)",
+            "contract": "OracleAggregator",
+            "src": "contracts/OracleAggregator.sol:14"
+          },
+          {
+            "label": "supportedSymbols",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_array(t_string_storage)dyn_storage",
+            "contract": "OracleAggregator",
+            "src": "contracts/OracleAggregator.sol:17"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_struct(InitializableStorage)73_storage": {
+            "label": "struct Initializable.InitializableStorage",
+            "members": [
+              {
+                "label": "_initialized",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_initializing",
+                "type": "t_bool",
+                "offset": 8,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(OwnableStorage)13_storage": {
+            "label": "struct OwnableUpgradeable.OwnableStorage",
+            "members": [
+              {
+                "label": "_owner",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_array(t_string_storage)dyn_storage": {
+            "label": "string[]",
+            "numberOfBytes": "32"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_contract(IPyth)10456": {
+            "label": "contract IPyth",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_string_memory_ptr,t_bytes32)": {
+            "label": "mapping(string => bytes32)",
+            "numberOfBytes": "32"
+          },
+          "t_string_memory_ptr": {
+            "label": "string",
+            "numberOfBytes": "32"
+          },
+          "t_string_storage": {
+            "label": "string",
+            "numberOfBytes": "32"
+          }
+        },
+        "namespaces": {
           "erc7201:openzeppelin.storage.Ownable": [
             {
               "contract": "OwnableUpgradeable",

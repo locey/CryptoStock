@@ -271,7 +271,7 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": true,
+        "indexed": false,
         "internalType": "string",
         "name": "parameter",
         "type": "string"
@@ -315,7 +315,7 @@
         "type": "address"
       },
       {
-        "indexed": true,
+        "indexed": false,
         "internalType": "string",
         "name": "stockSymbol",
         "type": "string"
@@ -352,7 +352,7 @@
         "type": "address"
       },
       {
-        "indexed": true,
+        "indexed": false,
         "internalType": "string",
         "name": "stockSymbol",
         "type": "string"
