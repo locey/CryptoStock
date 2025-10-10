@@ -209,6 +209,14 @@ contract YearnV3Adapter is
         uint256 depositAmount = params.amounts[0];
         require(depositAmount > 0, "Deposit amount must be positive");
         
+        // 验证用户余额
+        uint256 userBalance = IERC20(underlyingToken).balanceOf(params.recipient);
+        require(userBalance >= depositAmount, "Insufficient user balance");
+        
+        // 验证用户授权
+        uint256 allowance = IERC20(underlyingToken).allowance(params.recipient, address(this));
+        require(allowance >= depositAmount, "Insufficient allowance");
+        
         IYearnV3Vault vault = IYearnV3Vault(yearnVault);
         
         // 转入代币到合约
@@ -263,12 +271,18 @@ contract YearnV3Adapter is
         
         // 检查用户份额余额
         uint256 userSharesBefore = vault.balanceOf(params.recipient);
+        require(userSharesBefore > 0, "No shares to withdraw");
+        
         uint256 sharesToTransfer;
         
         // 方案1：如果要取出全部价值，直接使用 redeem
         if (netAssetsToWithdraw >= vault.convertToAssets(userSharesBefore)) {
             // 完全取款：销毁所有份额
             sharesToTransfer = userSharesBefore;
+            
+            // 验证用户对份额代币的授权
+            uint256 shareAllowance = IERC20(yearnVault).allowance(params.recipient, address(this));
+            require(shareAllowance >= sharesToTransfer, "Insufficient share allowance");
             
             // 转入所有份额到合约
             IERC20(yearnVault).safeTransferFrom(params.recipient, address(this), sharesToTransfer);
@@ -280,6 +294,10 @@ contract YearnV3Adapter is
             // 部分取款：使用 withdraw 函数
             sharesToTransfer = vault.previewWithdraw(netAssetsToWithdraw);
             require(userSharesBefore >= sharesToTransfer, "Insufficient shares");
+            
+            // 验证用户对份额代币的授权
+            uint256 shareAllowance = IERC20(yearnVault).allowance(params.recipient, address(this));
+            require(shareAllowance >= sharesToTransfer, "Insufficient share allowance");
             
             // 转入需要的份额到合约
             IERC20(yearnVault).safeTransferFrom(params.recipient, address(this), sharesToTransfer);

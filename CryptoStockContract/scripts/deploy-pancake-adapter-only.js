@@ -183,23 +183,38 @@ async function main() {
       await new Promise(resolve => setTimeout(resolve, 3000));
     }
 
-    // STEP 4: 设置 Router 的交换比率
-    console.log("\n📄 [STEP 4] 设置 Router 的交换比率...");
+    // STEP 4: 设置 Router 的双向交换比率
+    console.log("\n📄 [STEP 4] 设置 Router 的双向交换比率...");
     try {
-      const setRateTx = await mockPancakeRouter.setExchangeRate(
+      // 设置 USDT -> CAKE 比率 (考虑小数位差异：USDT 6位，CAKE 18位)
+      const setUsdtToCakeTx = await mockPancakeRouter.setExchangeRate(
         usdtAddress,           // USDT
         mockCakeTokenAddress,  // CAKE
-        5000                   // 1 USDT = 0.5 CAKE (基于10000基点)
+        ethers.parseUnits("1", 12)  // 10^12 考虑小数位差异
       );
       
       if (networkName !== "localhost" && networkName !== "hardhat") {
-        console.log("⏳ 等待设置交易确认...");
-        await setRateTx.wait(2);
+        console.log("⏳ 等待设置 USDT->CAKE 交易确认...");
+        await setUsdtToCakeTx.wait(2);
       } else {
-        await setRateTx.wait();
+        await setUsdtToCakeTx.wait();
       }
       
-      console.log("✅ USDT <-> CAKE 交换比率已设置 (1 USDT = 0.5 CAKE)");
+      // 设置 CAKE -> USDT 比率 (考虑小数位差异：CAKE 18位，USDT 6位)
+      const setCakeToUsdtTx = await mockPancakeRouter.setExchangeRate(
+        mockCakeTokenAddress,  // CAKE
+        usdtAddress,           // USDT
+        ethers.parseUnits("1", 12)  // 10^12 考虑小数位差异
+      );
+      
+      if (networkName !== "localhost" && networkName !== "hardhat") {
+        console.log("⏳ 等待设置 CAKE->USDT 交易确认...");
+        await setCakeToUsdtTx.wait(2);
+      } else {
+        await setCakeToUsdtTx.wait();
+      }
+      
+      console.log("✅ USDT <-> CAKE 双向交换比率已设置 (考虑小数位差异的1:1)");
     } catch (error) {
       console.log("⚠️  设置交换比率遇到问题，跳过此步骤:", error.message);
     }
@@ -250,6 +265,20 @@ async function main() {
     console.log("   - Adapter Name:", adapterName);
     console.log("   - Adapter Version:", adapterVersion);
 
+    // 添加支持的代币
+    console.log("\n   添加支持的代币...");
+    try {
+      const addUsdtTx = await pancakeAdapter.addSupportedToken(usdtAddress);
+      await addUsdtTx.wait();
+      console.log("   ✅ USDT 已添加为支持的代币");
+      
+      const addCakeTx = await pancakeAdapter.addSupportedToken(mockCakeTokenAddress);
+      await addCakeTx.wait();
+      console.log("   ✅ CAKE 已添加为支持的代币");
+    } catch (error) {
+      console.log("   ⚠️  添加支持代币遇到问题:", error.message);
+    }
+
     // STEP 7: 注册适配器到 DefiAggregator
     console.log("\n📄 [STEP 7] 注册适配器到 DefiAggregator...");
     
@@ -295,7 +324,7 @@ async function main() {
     
     try {
       const liquidityAmount = ethers.parseUnits("10000", 6); // 10,000 USDT
-      const cakeAmount = ethers.parseUnits("5000", 18); // 5,000 CAKE (1 USDT = 0.5 CAKE)
+      const cakeAmount = ethers.parseUnits("10000", 18); // 10,000 CAKE (1:1 比例)
       
       // 给 Router 提供 USDT 和 CAKE 流动性
       const mintUsdtTx = await usdtToken.mint(mockPancakeRouterAddress, liquidityAmount);
@@ -310,7 +339,7 @@ async function main() {
         await mintCakeTx.wait();
       }
       
-      console.log("✅ 向 MockPancakeRouter 提供 10,000 USDT 和 5,000 CAKE 流动性");
+      console.log("✅ 向 MockPancakeRouter 提供 10,000 USDT 和 10,000 CAKE 流动性 (1:1)");
     } catch (error) {
       console.log("⚠️  流动性提供遇到问题，跳过此步骤:", error.message);
       console.log("   部署仍然成功，可以后续手动添加流动性");

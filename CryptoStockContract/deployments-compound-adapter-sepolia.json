@@ -2,18 +2,18 @@
   "network": "sepolia",
   "chainId": "11155111",
   "deployer": "0x46b43ad9F6C20c400aC17a282022E578417F796A",
-  "timestamp": "2025-10-08T02:03:41.061Z",
+  "timestamp": "2025-10-08T07:11:44.706Z",
   "feeRateBps": 30,
   "basedOn": "deployments-defi-infrastructure-sepolia.json",
   "contracts": {
-    "DefiAggregator": "0xEf3bB3e03251533cE0609530f742F1FFA3766EBB",
+    "DefiAggregator": "0xb85DB3EE843bc9B579c4979227Bb18ebb2976AfE",
     "MockERC20_USDT": "0xd7C597Cf30fb56162AEDAe8a52927B7CE4076e5B",
-    "MockCToken_cUSDT": "0x8f2268FDC9f53c379DDe1111ee778Bb3b5c79c43",
-    "CompoundAdapter": "0x7d3D948aBf92542EB5e505829b1B6EB8Cc11C397",
+    "MockCToken_cUSDT": "0x18fBc3a017cD1DA9d9813828b4F9Da53E994B67a",
+    "CompoundAdapter": "0x729A05f7a9C276A9A699E5E19D22455E4304133A",
     "CompoundAdapter_Implementation": "0x667D50692A6372A45C532B2Ae36b255349edB926"
   },
   "adapterRegistrations": {
-    "compound": "0x7d3D948aBf92542EB5e505829b1B6EB8Cc11C397"
+    "compound": "0x729A05f7a9C276A9A699E5E19D22455E4304133A"
   },
   "notes": {
     "description": "Compound适配器部署，复用了基础设施合约",

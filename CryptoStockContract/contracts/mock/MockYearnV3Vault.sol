@@ -233,7 +233,15 @@ contract MockYearnV3Vault is ERC20, IYearnV3Vault {
      */
     function previewWithdraw(uint256 assets) public view override returns (uint256 shares) {
         uint256 supply = totalSupply();
-        return supply == 0 ? assets : (assets * supply + totalAssets() - 1) / totalAssets();
+        if (supply == 0) return assets;
+        
+        // 使用实际资产余额而不是虚拟收益放大的 totalAssets()
+        // 这样可以避免收益计算导致的份额需求过大问题
+        uint256 actualAssets = _asset.balanceOf(address(this));
+        if (actualAssets == 0) return 0;
+        
+        // 简单的比例计算：需要的份额 = (要取的资产 * 总份额) / 实际资产
+        return (assets * supply + actualAssets - 1) / actualAssets;
     }
     
     /**

@@ -132,17 +132,38 @@ async function main() {
     const infrastructureData = JSON.parse(fs.readFileSync(infrastructureFile, 'utf8'));
     console.log("✅ 成功读取基础设施部署信息");
     console.log("   DefiAggregator:", infrastructureData.contracts.DefiAggregator);
+    
+    // 检查三个代币是否都已部署
+    if (!infrastructureData.contracts.MockERC20_USDC) {
+      throw new Error("基础设施中未找到 USDC 代币，请重新部署基础设施");
+    }
+    if (!infrastructureData.contracts.MockERC20_USDT) {
+      throw new Error("基础设施中未找到 USDT 代币，请重新部署基础设施");
+    }
+    if (!infrastructureData.contracts.MockERC20_DAI) {
+      throw new Error("基础设施中未找到 DAI 代币，请重新部署基础设施");
+    }
+    
+    console.log("   USDC Token:", infrastructureData.contracts.MockERC20_USDC);
     console.log("   USDT Token:", infrastructureData.contracts.MockERC20_USDT);
+    console.log("   DAI Token:", infrastructureData.contracts.MockERC20_DAI);
     
     // 连接到已部署的合约
     const defiAggregator = await ethers.getContractAt("DefiAggregator", infrastructureData.contracts.DefiAggregator);
+    const usdcToken = await ethers.getContractAt("MockERC20", infrastructureData.contracts.MockERC20_USDC);
     const usdtToken = await ethers.getContractAt("MockERC20", infrastructureData.contracts.MockERC20_USDT);
+    const daiToken = await ethers.getContractAt("MockERC20", infrastructureData.contracts.MockERC20_DAI);
     
+    const usdcAddress = infrastructureData.contracts.MockERC20_USDC;
     const usdtAddress = infrastructureData.contracts.MockERC20_USDT;
+    const daiAddress = infrastructureData.contracts.MockERC20_DAI;
+    
     const deploymentAddresses = {
       // 复用的合约
       DefiAggregator: infrastructureData.contracts.DefiAggregator,
+      MockERC20_USDC: infrastructureData.contracts.MockERC20_USDC,
       MockERC20_USDT: infrastructureData.contracts.MockERC20_USDT,
+      MockERC20_DAI: infrastructureData.contracts.MockERC20_DAI,
       // 新部署的合约将添加到这里
     };
 
@@ -151,7 +172,7 @@ async function main() {
     const MockCurve = await ethers.getContractFactory("contracts/mock/MockCurve.sol:MockCurve");
     const mockCurve = await MockCurve.deploy(
       deployer.address,                 // owner
-      [usdtAddress, usdtAddress, usdtAddress], // coins (使用USDT作为所有三个币)
+      [usdcAddress, usdtAddress, daiAddress], // coins (使用三种不同的稳定币: USDC, USDT, DAI)
       100,                             // A parameter
       4000000,                         // fee (0.4%)
       5000000000                       // admin_fee (50% of fee)
@@ -159,6 +180,10 @@ async function main() {
     await mockCurve.waitForDeployment();
     const mockCurveAddress = await mockCurve.getAddress();
     console.log("✅ MockCurve (池子+LP代币) 部署完成:", mockCurveAddress);
+    console.log("   池子代币配置:");
+    console.log("   - Token 0 (USDC):", usdcAddress);
+    console.log("   - Token 1 (USDT):", usdtAddress);
+    console.log("   - Token 2 (DAI):", daiAddress);
     deploymentAddresses.MockCurve = mockCurveAddress;
     
     // MockCurve既是池子也是LP代币
@@ -265,21 +290,55 @@ async function main() {
     console.log("   - Has Curve Adapter:", hasCurveAdapter ? "✅" : "❌");
     console.log("   - Curve Adapter Address:", curveAdapterFromAggregator, curveAdapterFromAggregator === curveAdapterAddress ? "✅" : "❌");
 
-    // STEP 7: 给 MockCurve 提供流动性
+    // STEP 7: 给 MockCurve 提供流动性 (三种代币，根据精度)
     console.log("\n📄 [STEP 7] 给 MockCurve 提供流动性...");
     
     try {
-      const liquidityAmount = ethers.parseUnits("10000", 6); // 10,000 USDT
-      const mintTx = await usdtToken.mint(mockCurveAddress, liquidityAmount);
+      // 获取各代币的精度
+      const usdcDecimals = await usdcToken.decimals();
+      const usdtDecimals = await usdtToken.decimals();
+      const daiDecimals = await daiToken.decimals();
+      
+      console.log("   代币精度信息:");
+      console.log("   - USDC:", usdcDecimals, "位精度");
+      console.log("   - USDT:", usdtDecimals, "位精度");
+      console.log("   - DAI:", daiDecimals, "位精度");
+      
+      // 根据精度设置流动性数量 (每种代币 10,000 个)
+      const usdcLiquidity = ethers.parseUnits("10000", usdcDecimals);  // 10,000 USDC
+      const usdtLiquidity = ethers.parseUnits("10000", usdtDecimals);  // 10,000 USDT
+      const daiLiquidity = ethers.parseUnits("10000", daiDecimals);    // 10,000 DAI
+      
+      console.log("   流动性数量:");
+      console.log("   - USDC:", ethers.formatUnits(usdcLiquidity, usdcDecimals), "USDC");
+      console.log("   - USDT:", ethers.formatUnits(usdtLiquidity, usdtDecimals), "USDT");
+      console.log("   - DAI:", ethers.formatUnits(daiLiquidity, daiDecimals), "DAI");
+      
+      // 为 MockCurve 铸造三种代币作为流动性
+      console.log("⏳ 向 MockCurve 提供 USDC 流动性...");
+      const usdcMintTx = await usdcToken.mint(mockCurveAddress, usdcLiquidity);
+      
+      console.log("⏳ 向 MockCurve 提供 USDT 流动性...");
+      const usdtMintTx = await usdtToken.mint(mockCurveAddress, usdtLiquidity);
+      
+      console.log("⏳ 向 MockCurve 提供 DAI 流动性...");
+      const daiMintTx = await daiToken.mint(mockCurveAddress, daiLiquidity);
       
       if (networkName !== "localhost" && networkName !== "hardhat") {
         console.log("⏳ 等待铸造交易确认...");
-        await mintTx.wait(2);
+        await usdcMintTx.wait(2);
+        await usdtMintTx.wait(2);
+        await daiMintTx.wait(2);
       } else {
-        await mintTx.wait();
+        await usdcMintTx.wait();
+        await usdtMintTx.wait();
+        await daiMintTx.wait();
       }
       
-      console.log("✅ 向 MockCurve 提供 10,000 USDT 流动性");
+      console.log("✅ 向 MockCurve 提供三种代币流动性:");
+      console.log("   - 10,000 USDC (6位精度)");
+      console.log("   - 10,000 USDT (6位精度)");
+      console.log("   - 10,000 DAI (18位精度)");
     } catch (error) {
       console.log("⚠️  流动性提供遇到问题，跳过此步骤:", error.message);
       console.log("   部署仍然成功，可以后续手动添加流动性");

@@ -2,19 +2,19 @@
   "network": "sepolia",
   "chainId": "11155111",
   "deployer": "0x46b43ad9F6C20c400aC17a282022E578417F796A",
-  "timestamp": "2025-10-08T02:08:58.766Z",
+  "timestamp": "2025-10-09T12:06:42.730Z",
   "feeRateBps": 30,
   "basedOn": "deployments-defi-infrastructure-sepolia.json",
   "contracts": {
-    "DefiAggregator": "0xEf3bB3e03251533cE0609530f742F1FFA3766EBB",
+    "DefiAggregator": "0xD93D27d031FdF461288c904688Dd78D6902eA315",
     "MockERC20_USDT": "0xd7C597Cf30fb56162AEDAe8a52927B7CE4076e5B",
-    "MockCakeToken": "0xa02a46362baDdAe8eb13f135dB7Ccc0fC306aa81",
-    "MockPancakeRouter": "0xDC67D63CBf03A17A90fe02cc58a5c15CF4129d3B",
-    "PancakeAdapter": "0xF8525554Ec63Ca09b27bFDA6De7f81326A6796B3",
-    "PancakeAdapter_Implementation": "0x013E609711fd42E0Cd8AaB5bc192F79f4A0D32e9"
+    "MockCakeToken": "0x0B68B66Cb0BfC7603ABa3F69881dCE171dED5122",
+    "MockPancakeRouter": "0x54dCef4E61aceC28B1623db9e063882ed17F8635",
+    "PancakeAdapter": "0xbe526796f8130F56dE156f5cAaE8F46C96059416",
+    "PancakeAdapter_Implementation": "0x6D9F22043516e0B88648951F2AC9Aa30F2B78014"
   },
   "adapterRegistrations": {
-    "pancake": "0xF8525554Ec63Ca09b27bFDA6De7f81326A6796B3"
+    "pancake": "0xbe526796f8130F56dE156f5cAaE8F46C96059416"
   },
   "notes": {
     "description": "PancakeSwap适配器部署，复用了基础设施合约",

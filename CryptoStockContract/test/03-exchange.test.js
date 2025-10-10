@@ -767,62 +767,33 @@ describe("Exchange - 股票交易所功能测试", function () {
 
   describe("3. 卖出功能（股票代币 → USDT）", function () {
     beforeEach(async function () {
-      // 检查用户A的AAPL代币余额，如果足够就跳过买入
+      // 直接检查用户A的AAPL代币余额
       const currentAaplBalance = await aaplToken.balanceOf(userA.address);
-      const requiredAaplBalance = ethers.parseEther("5"); // 需要至少5个AAPL用于卖出测试
       
-      if (currentAaplBalance >= requiredAaplBalance) {
-        console.log(`✅ UserA AAPL余额充足 (${ethers.formatEther(currentAaplBalance)} AAPL), 跳过买入操作`);
-        return;
+      console.log(`🪙 UserA 当前AAPL余额: ${ethers.formatEther(currentAaplBalance)} AAPL`);
+      
+      // 如果AAPL余额为零，直接报错
+      if (currentAaplBalance === 0n) {
+        throw new Error(`❌ UserA AAPL余额为零，无法进行卖出测试。请先运行买入测试或手动获取AAPL代币。`);
       }
       
-      console.log(`💰 UserA AAPL余额不足 (${ethers.formatEther(currentAaplBalance)} AAPL), 需要买入代币`);
-      
-      // 先让用户A买入一些代币用于卖出测试
-      const buyAmount = ethers.parseUnits("500", 6); // 500 USDT
-      const [estimatedTokens] = await aaplToken.getBuyEstimate(buyAmount);
-      
-      let updateData, updateFee;
-      if (isLocalNetwork) {
-        updateData = [];
-        updateFee = 0;
-      } else {
-        const updateData2 = await fetchUpdateData(["AAPL"]);
-        updateFee = await oracleAggregator.getUpdateFee(updateData2);
-        updateData = updateData2;
-      }
-      
-      // ethers v6修复：确保value被正确传递
-      const overrides = { 
-        value: updateFee,
-        gasLimit: isLocalNetwork ? 200000 : 300000,
-        gasPrice: isLocalNetwork ? ethers.parseUnits("20", "gwei") : ethers.parseUnits("30", "gwei")
-      };
-      
-      const tx = await aaplToken.connect(userA).buy(
-        buyAmount,
-        estimatedTokens * 95n / 100n,
-        updateData,
-        overrides
-      );
-      
-      // 等待买入交易确认
-      const receipt = await tx.wait();
-      console.log(`✅ beforeEach 买入交易已确认，区块号: ${receipt.blockNumber}, Gas 使用: ${receipt.gasUsed.toString()}`);
-      
-      // 等待区块确认
-      if (!isLocalNetwork) {
-        console.log("⏳ beforeEach 等待区块确认...");
-        await new Promise(resolve => setTimeout(resolve, 5000)); // 等待5秒
-      }
+      console.log(`✅ UserA AAPL余额充足 (${ethers.formatEther(currentAaplBalance)} AAPL), 可以进行卖出测试`);
     });
 
     it("正常卖出流程，用户A卖出AAPL换USDT，余额变化验证", async function () {
-      const sellAmount = ethers.parseEther("1"); // 卖出1个AAPL代币
-      
       // 获取初始余额
       const initialUsdtBalance = await usdtToken.balanceOf(userA.address);
       const initialTokenBalance = await aaplToken.balanceOf(userA.address);
+      
+      // 设置卖出金额为用户余额的一半（确保小于余额）
+      const sellAmount = initialTokenBalance / 2n;
+      
+      console.log(`🪙 用户当前AAPL余额: ${ethers.formatEther(initialTokenBalance)} AAPL`);
+      console.log(`📦 计划卖出金额: ${ethers.formatEther(sellAmount)} AAPL`);
+      
+      if (sellAmount === 0n) {
+        throw new Error("卖出金额为零，无法进行测试");
+      }
       
       let updateData, updateFee;
       if (isLocalNetwork) {
@@ -833,12 +804,12 @@ describe("Exchange - 股票交易所功能测试", function () {
         updateFee = await oracleAggregator.getUpdateFee(updateData);
       }
       
-      // // 先更新价格数据到预言机（仅在真实网络）
-      // if (!isLocalNetwork) {
-      //   const overrides = { value: updateFee };
-      //   await oracleAggregator.updatePriceFeeds(updateData, overrides);
-      //   console.log(`🔄 价格数据已更新到预言机`);
-      // }
+      // 先更新价格数据到预言机（仅在真实网络）
+      if (!isLocalNetwork) {
+        const overrides = { value: updateFee };
+        await oracleAggregator.updatePriceFeeds(updateData, overrides);
+        console.log(`🔄 价格数据已更新到预言机`);
+      }
       
       // 获取预估结果（此时使用的是最新价格）
       const [estimatedUsdt, estimatedFee] = await aaplToken.getSellEstimate(sellAmount);
@@ -846,15 +817,15 @@ describe("Exchange - 股票交易所功能测试", function () {
       console.log(`💡 预估手续费: ${ethers.formatUnits(estimatedFee, 6)} USDT`);
       
       // 获取新的价格更新数据用于实际交易
-      // let sellUpdateData, sellFee;
-      // if (isLocalNetwork) {
-      //   sellUpdateData = [];
-      //   sellFee = 0;
-      // } else {
-      //   sellUpdateData = await fetchUpdateData(["AAPL"]);
-      //   sellFee = await oracleAggregator.getUpdateFee(sellUpdateData);
-      //   console.log(`💡 卖出交易更新费用: ${sellFee.toString()} wei`);
-      // }
+      let sellUpdateData, sellFee;
+      if (isLocalNetwork) {
+        sellUpdateData = [];
+        sellFee = 0;
+      } else {
+        sellUpdateData = await fetchUpdateData(["AAPL"]);
+        sellFee = await oracleAggregator.getUpdateFee(sellUpdateData);
+        console.log(`💡 卖出交易更新费用: ${sellFee.toString()} wei`);
+      }
       
       // 执行卖出（使用网络相应的价格更新数据）
       // ethers v6修复：确保value被正确传递
@@ -1047,8 +1018,7 @@ describe("Exchange - 股票交易所功能测试", function () {
         // 理论上正常的滑点应该能成功交易
         let slippageTestSuccess = false;
         try {
-          const 
-           = { 
+          const overrides = { 
             value: fee,
             gasLimit: isLocalNetwork ? 200000 : 300000,
             gasPrice: isLocalNetwork ? ethers.parseUnits("20", "gwei") : ethers.parseUnits("30", "gwei")
