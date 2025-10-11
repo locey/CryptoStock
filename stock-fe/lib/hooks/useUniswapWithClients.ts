@@ -324,8 +324,6 @@ export const useUniswapWithClients = () => {
 
   const removeLiquidity = useCallback(async (params: {
     tokenId: bigint;
-    amount0Min?: string;
-    amount1Min?: string;
     recipient?: Address;
     deadline?: number;
   }): Promise<UniswapTransactionResult> => {
@@ -516,7 +514,7 @@ export const useUniswapWithClients = () => {
     }));
   }, [store.userPositions]);
 
-  // 检查是否需要授权
+  // 检查是否需要授权 - 修复：检查授权金额是否足够
   const needsApproval = useMemo(() => {
     if (!store.userBalance) {
       return { usdt: true, weth: true, nft: true };
@@ -578,16 +576,6 @@ export const useUniswapWithClients = () => {
     };
     forceRerender();
   }, [store.userPositions]);
-
-  // 调试日志：监控 store 状态
-  console.log('🔍 [DEBUG] useUniswapWithClients - store 状态:', {
-    userPositionsLength: store.userPositions.length,
-    userPositions: store.userPositions,
-    isLoading: store.isLoading,
-    isConnected,
-    address,
-    timestamp: new Date().toISOString()
-  });
 
   return {
     // 基础状态

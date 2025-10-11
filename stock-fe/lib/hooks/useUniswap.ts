@@ -10,15 +10,6 @@ import { UniswapOperationType } from '../stores/useUniswapStore';
 export const useUniswap = () => {
   const uniswapWithClients = useUniswapWithClients();
 
-  // 调试日志：监控 useUniswapWithClients 的数据
-  console.log('🔍 [DEBUG] useUniswap - from useUniswapWithClients:', {
-    userPositionsLength: uniswapWithClients.userPositions.length,
-    userPositions: uniswapWithClients.userPositions,
-    isConnected: uniswapWithClients.isConnected,
-    isLoading: uniswapWithClients.isLoading,
-    timestamp: new Date().toISOString()
-  });
-
   return {
     // 基础状态
     isConnected: uniswapWithClients.isConnected,
@@ -91,6 +82,7 @@ export const useUniswapTokens = () => {
     approveUSDT,
     approveWETH,
     approveAllNFT,
+    approveNFT,  // 添加这个
     fetchUserUSDTBalance,
     fetchUserWETHBalance,
     fetchAllowances,
@@ -104,6 +96,7 @@ export const useUniswapTokens = () => {
     approveUSDT,
     approveWETH,
     approveAllNFT,
+    approveNFT,  // 添加这个
     fetchUserUSDTBalance,
     fetchUserWETHBalance,
     fetchAllowances,
@@ -112,15 +105,6 @@ export const useUniswapTokens = () => {
 
 export const useUniswapPositions = () => {
   const uniswapData = useUniswap();
-
-  // 调试日志：监控 useUniswap 返回的完整数据
-  console.log('🔍 [DEBUG] useUniswapPositions - useUniswap 完整数据:', {
-    userPositionsLength: uniswapData.userPositions.length,
-    userPositions: uniswapData.userPositions,
-    isConnected: uniswapData.isConnected,
-    isLoading: uniswapData.isLoading,
-    timestamp: new Date().toISOString()
-  });
 
   const {
     userPositions,
