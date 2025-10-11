@@ -502,7 +502,7 @@
     "name": "oracleAggregator",
     "outputs": [
       {
-        "internalType": "contract OracleAggregator",
+        "internalType": "contract PriceAggregator",
         "name": "",
         "type": "address"
       }
