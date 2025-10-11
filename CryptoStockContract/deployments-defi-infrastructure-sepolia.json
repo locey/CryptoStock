@@ -2,17 +2,17 @@
   "network": "sepolia",
   "chainId": "11155111",
   "deployer": "0x46b43ad9F6C20c400aC17a282022E578417F796A",
-  "timestamp": "2025-10-08T07:17:45.567Z",
+  "timestamp": "2025-10-11T07:50:32.464Z",
   "feeRateBps": 30,
   "contracts": {
-    "MockERC20_USDT": "0xd7C597Cf30fb56162AEDAe8a52927B7CE4076e5B",
-    "MockERC20_USDC": "0x148bD0f2F091c94e3395Dc92db9B3aD4236fF4F1",
-    "MockERC20_DAI": "0xD3488e4dc3414eFC848f4C298f4e91211D3ECE8e",
-    "DefiAggregator": "0xD93D27d031FdF461288c904688Dd78D6902eA315",
+    "MockERC20_USDT": "0xd6faef0e3D03282fd38B22980000C3b2FF3e0565",
+    "MockERC20_USDC": "0x0156dB48c4f03b2bFCAAa7bE6c64881F841fE54f",
+    "MockERC20_DAI": "0x7D61814fCA8658D17F735DCee2C64e1298397Bb4",
+    "DefiAggregator": "0xd36d1FFB1d032Ed48f74A0944E194a132f70b6C2",
     "DefiAggregator_Implementation": "0x06Ad019B6cA644DeA23245523c3E3f9E2176763a"
   },
   "reusedContracts": {
-    "USDT": "0xd7C597Cf30fb56162AEDAe8a52927B7CE4076e5B",
+    "USDT": "0xd6faef0e3D03282fd38B22980000C3b2FF3e0565",
     "sourceDeployment": "deployments-uups-sepolia.json"
   },
   "notes": {
