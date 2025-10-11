@@ -17,14 +17,23 @@ const ERC20_ABI = [
  * 读取部署配置文件
  */
 function readDeploymentConfig() {
-    const deploymentPath = path.join(__dirname, "../deployments-uups-sepolia.json");
+    // 优先尝试读取股票系统部署文件
+    const stockDeploymentPath = path.join(__dirname, "../deployments-stock-sepolia.json");
+    const uupsDeploymentPath = path.join(__dirname, "../deployments-uups-sepolia.json");
     
-    if (!fs.existsSync(deploymentPath)) {
-        throw new Error(`Deployment file not found: ${deploymentPath}`);
+    let deploymentPath, deploymentData;
+    
+    if (fs.existsSync(stockDeploymentPath)) {
+        deploymentPath = stockDeploymentPath;
+        deploymentData = JSON.parse(fs.readFileSync(stockDeploymentPath, 'utf8'));
+        console.log(`📋 Loaded stock deployment config for network: ${deploymentData.network} (Chain ID: ${deploymentData.chainId})`);
+    } else if (fs.existsSync(uupsDeploymentPath)) {
+        deploymentPath = uupsDeploymentPath;
+        deploymentData = JSON.parse(fs.readFileSync(uupsDeploymentPath, 'utf8'));
+        console.log(`📋 Loaded UUPS deployment config for network: ${deploymentData.network} (Chain ID: ${deploymentData.chainId})`);
+    } else {
+        throw new Error(`Deployment file not found. Tried:\n  - ${stockDeploymentPath}\n  - ${uupsDeploymentPath}`);
     }
-    
-    const deploymentData = JSON.parse(fs.readFileSync(deploymentPath, 'utf8'));
-    console.log(`📋 Loaded deployment config for network: ${deploymentData.network} (Chain ID: ${deploymentData.chainId})`);
     
     return deploymentData;
 }

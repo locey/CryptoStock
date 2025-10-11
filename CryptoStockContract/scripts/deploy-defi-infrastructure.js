@@ -11,8 +11,11 @@ const path = require("path");
 
 // 读取之前部署的合约地址
 function loadExistingDeployments(networkName) {
-  const stockDeploymentFile = `deployments-uups-${networkName}.json`;
+  // 优先尝试读取股票系统部署文件
+  const stockDeploymentFile = `deployments-stock-${networkName}.json`;
+  const uupsDeploymentFile = `deployments-uups-${networkName}.json`;
   
+  // 首先检查股票系统部署文件
   if (fs.existsSync(stockDeploymentFile)) {
     console.log(`📁 找到股票系统部署文件: ${stockDeploymentFile}`);
     const stockDeployments = JSON.parse(fs.readFileSync(stockDeploymentFile, 'utf8'));
@@ -22,7 +25,18 @@ function loadExistingDeployments(networkName) {
     };
   }
   
+  // 如果没有股票系统文件，则检查旧的UUPS文件（向后兼容）
+  if (fs.existsSync(uupsDeploymentFile)) {
+    console.log(`📁 找到UUPS部署文件: ${uupsDeploymentFile}`);
+    const uupsDeployments = JSON.parse(fs.readFileSync(uupsDeploymentFile, 'utf8'));
+    return {
+      USDT: uupsDeployments.contracts.USDT,
+      deployer: uupsDeployments.deployer
+    };
+  }
+  
   console.log(`⚠️  未找到股票系统部署文件: ${stockDeploymentFile}`);
+  console.log(`⚠️  未找到UUPS部署文件: ${uupsDeploymentFile}`);
   return null;
 }
 
@@ -149,7 +163,7 @@ async function main() {
     console.log("✅ 复用已部署的 USDT:", usdtAddress);
     deploymentAddresses.MockERC20_USDT = usdtAddress; // 统一使用 MockERC20_USDT 字段名
   } else {
-    throw new Error(`❌ 未找到已部署的 USDT 合约！\n请先部署股票系统或确保 deployments-uups-${networkName}.json 文件存在且包含 USDT 地址`);
+    throw new Error(`❌ 未找到已部署的 USDT 合约！\n请先部署股票系统或确保 deployments-stock-${networkName}.json 文件存在且包含 USDT 地址`);
   }
 
   // STEP 1: 部署 USDC 和 DAI 代币（总是部署新的）
