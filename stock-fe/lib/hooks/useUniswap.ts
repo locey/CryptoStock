@@ -147,6 +147,8 @@ export const useUniswapOperations = () => {
     approveAllNFT,
     initializeUniswapTrading,
     refreshUserInfo,
+    setError,
+    clearErrors,
   } = useUniswap();
 
   return {
@@ -161,6 +163,8 @@ export const useUniswapOperations = () => {
     approveAllNFT,
     initializeUniswapTrading,
     refreshUserInfo,
+    setError,
+    clearErrors,
   };
 };
 

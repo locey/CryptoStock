@@ -109,8 +109,8 @@ export const UniswapLiquidityModal: React.FC<UniswapLiquidityModalProps> = ({
 
     const balanceKey0 = `${token0.symbol.toLowerCase()}Balance`;
     const balanceKey1 = `${token1.symbol.toLowerCase()}Balance`;
-    const balance0 = parseFloat(formattedBalances[balanceKey0] || '0');
-    const balance1 = parseFloat(formattedBalances[balanceKey1] || '0');
+    const balance0 = parseFloat(formattedBalances[balanceKey0 as keyof typeof formattedBalances] || '0');
+    const balance1 = parseFloat(formattedBalances[balanceKey1 as keyof typeof formattedBalances] || '0');
 
     const amount0Num = parseFloat(amount0);
     const amount1Num = parseFloat(amount1);
@@ -151,8 +151,8 @@ export const UniswapLiquidityModal: React.FC<UniswapLiquidityModalProps> = ({
 
     const balanceKey0 = `${token0.symbol.toLowerCase()}Balance`;
     const balanceKey1 = `${token1.symbol.toLowerCase()}Balance`;
-    const balance0 = parseFloat(formattedBalances[balanceKey0] || '0');
-    const balance1 = parseFloat(formattedBalances[balanceKey1] || '0');
+    const balance0 = parseFloat(formattedBalances[balanceKey0 as keyof typeof formattedBalances] || '0');
+    const balance1 = parseFloat(formattedBalances[balanceKey1 as keyof typeof formattedBalances] || '0');
 
     const amount0Num = parseFloat(amount0);
     const amount1Num = parseFloat(amount1);
@@ -394,8 +394,8 @@ export const UniswapLiquidityModal: React.FC<UniswapLiquidityModalProps> = ({
 
       // 添加流动性参数调试 - 按照测试用例格式
       const liquidityParams = {
-        token0: token0.address, // WETH 作为 token0
-        token1: token1.address, // USDT 作为 token1
+        token0: token0.address as `0x${string}`, // WETH 作为 token0
+        token1: token1.address as `0x${string}`, // USDT 作为 token1
         amount0, // 10 WETH
         amount1, // 10000 USDT
         amount0Min, // 滑点保护的最小值
@@ -504,7 +504,7 @@ export const UniswapLiquidityModal: React.FC<UniswapLiquidityModalProps> = ({
                   <div>
                     <div className="font-semibold text-white">{token0.symbol}</div>
                     <div className="text-sm text-gray-400">
-                      余额: {formattedBalances[`${token0.symbol.toLowerCase()}Balance`] || '0'}
+                      余额: {formattedBalances[`${token0.symbol.toLowerCase()}Balance` as keyof typeof formattedBalances] || '0'}
                     </div>
                   </div>
                 </div>
@@ -529,7 +529,7 @@ export const UniswapLiquidityModal: React.FC<UniswapLiquidityModalProps> = ({
                   <div>
                     <div className="font-semibold text-white">{token1.symbol}</div>
                     <div className="text-sm text-gray-400">
-                      余额: {formattedBalances[`${token1.symbol.toLowerCase()}Balance`] || '0'}
+                      余额: {formattedBalances[`${token1.symbol.toLowerCase()}Balance` as keyof typeof formattedBalances] || '0'}
                     </div>
                   </div>
                 </div>

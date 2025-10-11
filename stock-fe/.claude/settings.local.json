@@ -8,7 +8,9 @@
       "Bash(find:*)",
       "Bash(npx tsc:*)",
       "Bash(node:*)",
-      "Bash(npx hardhat run:*)"
+      "Bash(npx hardhat run:*)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm add:*)"
     ],
     "deny": [],
     "ask": []

@@ -68,7 +68,7 @@ export const FeeClaimModal: React.FC<FeeClaimModalProps> = ({
     setIsProcessing(true);
     try {
       const result = await collectFees({
-        tokenId: position.tokenId,
+        tokenId: tokenId,
       });
 
       console.log('✅ 手续费收取成功:', result.hash);

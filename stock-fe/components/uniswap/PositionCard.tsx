@@ -76,7 +76,22 @@ export const PositionCard: React.FC<PositionCardProps> = ({
 
   // 处理位置选择
   const handleSelect = () => {
-    selectPosition(position);
+    // 构造一个符合 UniswapPositionInfo 类型的对象
+    const fullPosition = {
+      ...position,
+      nonce: BigInt(0), // 添加缺失的属性
+      operator: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+      token0: position.token0 as `0x${string}`, // 类型转换
+      token1: position.token1 as `0x${string}`, // 类型转换
+      feeGrowthInside0LastX128: BigInt(0),
+      feeGrowthInside1LastX128: BigInt(0),
+      // 确保必需的格式化字段存在
+      formattedLiquidity: position.formattedLiquidity || '0',
+      formattedTokensOwed0: position.formattedTokensOwed0 || '0',
+      formattedTokensOwed1: position.formattedTokensOwed1 || '0',
+      totalFeesUSD: position.totalFeesUSD || 0,
+    };
+    selectPosition(fullPosition);
     onSelect?.(position);
   };
 

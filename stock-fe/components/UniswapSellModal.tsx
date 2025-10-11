@@ -110,8 +110,16 @@ export const UniswapSellModal: React.FC<UniswapSellModalProps> = ({
     });
 
     if (storeUserPositions.length > 0 && !selectedPosition) {
-      setSelectedPosition(storeUserPositions[0]);
-      console.log("🔍 [DEBUG] 自动选择第一个位置:", storeUserPositions[0]);
+      // 修复类型不匹配问题：确保 liquidity 字段是 string 类型
+      const firstPosition = storeUserPositions[0];
+      const compatiblePosition: UniswapPositionInfo = {
+        ...firstPosition,
+        liquidity: firstPosition.liquidity.toString(), // 转换为字符串
+        tokensOwed0: firstPosition.tokensOwed0.toString(), // 转换为字符串
+        tokensOwed1: firstPosition.tokensOwed1.toString(), // 转换为字符串
+      };
+      setSelectedPosition(compatiblePosition);
+      console.log("🔍 [DEBUG] 自动选择第一个位置:", compatiblePosition);
     }
   }, [storeUserPositions, selectedPosition, isConnected]);
 
@@ -504,7 +512,16 @@ export const UniswapSellModal: React.FC<UniswapSellModalProps> = ({
                 {storeUserPositions.map((position) => (
                   <button
                     key={position.tokenId.toString()}
-                    onClick={() => setSelectedPosition(position)}
+                    onClick={() => {
+                // 修复类型不匹配问题：确保类型一致
+                const compatiblePosition: UniswapPositionInfo = {
+                  ...position,
+                  liquidity: position.liquidity.toString(), // 转换为字符串
+                  tokensOwed0: position.tokensOwed0.toString(), // 转换为字符串
+                  tokensOwed1: position.tokensOwed1.toString(), // 转换为字符串
+                };
+                setSelectedPosition(compatiblePosition);
+              }}
                     className={`w-full p-4 rounded-lg border transition-all ${
                       selectedPosition?.tokenId === position.tokenId
                         ? "bg-blue-500/20 border-blue-500"
