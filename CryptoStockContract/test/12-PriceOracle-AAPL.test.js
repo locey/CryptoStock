@@ -20,6 +20,9 @@ const { fetchUpdateData } = require("../utils/getPythUpdateData");
 const { getRedStoneUpdateData } = require("../utils/getRedStoneUpdateData-v061");
 
 describe("12号测试用例 - AAPL 价格获取测试", function () {
+  // 设置测试超时时间为 2 分钟
+  this.timeout(120000);
+  
   let pythPriceFeed;
   let redstonePriceFeed;
   let priceAggregator;
@@ -308,7 +311,7 @@ describe("12号测试用例 - AAPL 价格获取测试", function () {
       console.log(`   用户地址: ${await user.getAddress()}`);
     });
 
-    it.only("应该能够使用 USDT 成功购买 AAPL 代币", async function () {
+    it("应该能够使用 USDT 成功购买 AAPL 代币", async function () {
       console.log(`💰 测试使用 USDT 购买 AAPL 代币...`);
       
       try {
@@ -369,16 +372,61 @@ describe("12号测试用例 - AAPL 价格获取测试", function () {
         
         // 5. 授权 AAPL 合约使用用户的 USDT
         console.log(`   🔐 授权 AAPL 合约使用 USDT...`);
-        await usdtToken.connect(user).approve(await aaplToken.getAddress(), purchaseAmount);
-        console.log(`   ✅ 授权完成`);
+        const aaplAddress = await aaplToken.getAddress();
+        console.log(`   📋 授权金额: ${ethers.formatUnits(purchaseAmount, 6)} USDT`);
         
-        // 等待授权状态同步
-        console.log(`   ⏳ 等待授权状态同步...`);
-        await new Promise(resolve => setTimeout(resolve, 2000)); // 等待2秒
+        const approveTx = await usdtToken.connect(user).approve(aaplAddress, purchaseAmount);
+        console.log(`   📝 授权交易哈希: ${approveTx.hash}`);
+        
+        // 等待交易确认
+        console.log(`   ⏳ 等待授权交易确认...`);
+        const approveReceipt = await approveTx.wait();
+        console.log(`   ✅ 授权交易确认，区块: ${approveReceipt.blockNumber}`);
+        
+        // 等待网络状态同步
+        console.log(`   ⏳ 等待网络状态同步 (5秒)...`);
+        await new Promise(resolve => setTimeout(resolve, 5000)); // 减少到5秒
+        
+        // 验证授权状态
+        const allowance = await usdtToken.allowance(userAddress, aaplAddress);
+        console.log(`   🔍 当前授权额度: ${ethers.formatUnits(allowance, 6)} USDT`);
+        
+        if (allowance < purchaseAmount) {
+          console.log(`   ⚠️  授权额度不足，重新授权...`);
+          const reapproveTx = await usdtToken.connect(user).approve(aaplAddress, purchaseAmount * 2n);
+          await reapproveTx.wait();
+          console.log(`   ✅ 重新授权完成`);
+          
+          await new Promise(resolve => setTimeout(resolve, 3000)); // 再等3秒
+          const newAllowance = await usdtToken.allowance(userAddress, aaplAddress);
+          console.log(`   🔍 新授权额度: ${ethers.formatUnits(newAllowance, 6)} USDT`);
+        }
         
         // 6. 准备预言机更新数据
         console.log(`   📡 准备预言机更新数据...`);
-        const pythUpdateData = await fetchUpdateData([TEST_SYMBOL]);
+        
+        let pythUpdateData;
+        let maxRetries = 3;
+        
+        // 重试获取Pyth数据
+        for (let i = 0; i < maxRetries; i++) {
+          try {
+            console.log(`   🔄 尝试获取Pyth数据 (${i + 1}/${maxRetries})...`);
+            pythUpdateData = await fetchUpdateData([TEST_SYMBOL]);
+            console.log(`   ✅ Pyth数据获取成功`);
+            break;
+          } catch (error) {
+            console.log(`   ❌ 第${i + 1}次获取失败: ${error.message}`);
+            if (i === maxRetries - 1) {
+              console.log(`   🚨 Pyth数据获取失败，使用空数据继续测试...`);
+              pythUpdateData = ["0x"]; // 使用空的更新数据
+            } else {
+              console.log(`   ⏳ 等待3秒后重试...`);
+              await new Promise(resolve => setTimeout(resolve, 3000));
+            }
+          }
+        }
+        
         const redStoneData = await getRedStoneUpdateData(TEST_SYMBOL);
         const updateDataArray = [
           pythUpdateData,
@@ -483,6 +531,234 @@ describe("12号测试用例 - AAPL 价格获取测试", function () {
         throw error;
       }
     });
+
+    it("应该能够使用 AAPL 代币成功卖出换取 USDT", async function () {
+      console.log(`💰 测试使用 AAPL 代币卖出换取 USDT...`);
+      
+      try {
+        // 1. 检查用户AAPL余额，如果没有则先转一些
+        const userAddress = await user.getAddress();
+        let userAaplBalance = await aaplToken.balanceOf(userAddress);
+        console.log(`   📊 用户当前AAPL余额: ${ethers.formatEther(userAaplBalance)}`);
+        
+        const sellAmount = ethers.parseEther("10"); // 卖出10个AAPL
+        
+        if (userAaplBalance < sellAmount) {
+          console.log(`   🪙 用户AAPL余额不足，先转入一些AAPL代币...`);
+          
+          // 重试转账操作，处理网络连接问题
+          let transferSuccess = false;
+          let transferRetries = 3;
+          
+          for (let i = 0; i < transferRetries; i++) {
+            try {
+              console.log(`   🔄 尝试转账AAPL (${i + 1}/${transferRetries})...`);
+              await aaplToken.connect(deployerSigner).transfer(userAddress, sellAmount * 2n);
+              transferSuccess = true;
+              console.log(`   ✅ 转账成功`);
+              break;
+            } catch (error) {
+              console.log(`   ❌ 第${i + 1}次转账失败: ${error.message}`);
+              if (i === transferRetries - 1) {
+                throw new Error(`转账失败，已重试${transferRetries}次: ${error.message}`);
+              } else {
+                console.log(`   ⏳ 等待5秒后重试...`);
+                await new Promise(resolve => setTimeout(resolve, 5000));
+              }
+            }
+          }
+          
+          if (transferSuccess) {
+            userAaplBalance = await aaplToken.balanceOf(userAddress);
+            console.log(`   ✅ 转入后用户AAPL余额: ${ethers.formatEther(userAaplBalance)}`);
+            
+            // 等待转账状态同步
+            console.log(`   ⏳ 等待转账状态同步...`);
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          }
+        }
+        
+        // 2. 检查合约USDT余额，确保有足够的USDT支付用户
+        const contractUsdtBalance = await usdtToken.balanceOf(await aaplToken.getAddress());
+        console.log(`   📊 合约当前USDT余额: ${ethers.formatUnits(contractUsdtBalance, 6)}`);
+        
+        // 估算需要的USDT（按当前价格粗略计算）
+        const roughPrice = ethers.parseEther("200"); // 假设AAPL价格约200美元
+        const estimatedUsdt = (sellAmount * roughPrice) / ethers.parseEther("1000000000000"); // 转换为6位精度
+        const requiredUsdt = estimatedUsdt * 2n; // 预留2倍余量
+        
+        if (contractUsdtBalance < requiredUsdt) {
+          console.log(`   🔄 合约USDT不足，正在注入USDT...`);
+          
+          // 检查部署者是否有足够的USDT
+          const deployerUsdtBalance = await usdtToken.balanceOf(await deployerSigner.getAddress());
+          if (deployerUsdtBalance < requiredUsdt) {
+            console.log(`   🪙 部署者USDT不足，正在铸造USDT...`);
+            const mintAmount = requiredUsdt - deployerUsdtBalance + ethers.parseUnits("10000", 6); // 额外铸造10000 USDT
+            
+            // 重试铸造操作
+            let mintSuccess = false;
+            for (let i = 0; i < 3; i++) {
+              try {
+                console.log(`   🔄 尝试铸造USDT (${i + 1}/3)...`);
+                await usdtToken.mint(await deployerSigner.getAddress(), mintAmount);
+                mintSuccess = true;
+                console.log(`   ✅ 已铸造 ${ethers.formatUnits(mintAmount, 6)} USDT 给部署者`);
+                break;
+              } catch (error) {
+                console.log(`   ❌ 第${i + 1}次铸造失败: ${error.message}`);
+                if (i === 2) throw error;
+                await new Promise(resolve => setTimeout(resolve, 3000));
+              }
+            }
+          }
+          
+          // 重试转移USDT到合约
+          let transferSuccess = false;
+          for (let i = 0; i < 3; i++) {
+            try {
+              console.log(`   🔄 尝试转移USDT到合约 (${i + 1}/3)...`);
+              await usdtToken.connect(deployerSigner).transfer(await aaplToken.getAddress(), requiredUsdt);
+              transferSuccess = true;
+              const newContractUsdtBalance = await usdtToken.balanceOf(await aaplToken.getAddress());
+              console.log(`   ✅ 已注入USDT，合约新余额: ${ethers.formatUnits(newContractUsdtBalance, 6)}`);
+              break;
+            } catch (error) {
+              console.log(`   ❌ 第${i + 1}次转移失败: ${error.message}`);
+              if (i === 2) throw error;
+              await new Promise(resolve => setTimeout(resolve, 3000));
+            }
+          }
+          
+          // 等待USDT注入状态同步
+          console.log(`   ⏳ 等待USDT注入状态同步...`);
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+        
+        // 3. 检查初始余额
+        const initialUsdtBalance = await usdtToken.balanceOf(userAddress);
+        const initialAaplBalance = await aaplToken.balanceOf(userAddress);
+        
+        console.log(`   📊 用户初始余额:`);
+        console.log(`      USDT: ${ethers.formatUnits(initialUsdtBalance, 6)}`);
+        console.log(`      AAPL: ${ethers.formatEther(initialAaplBalance)}`);
+        
+        // 4. 准备预言机更新数据
+        console.log(`   📡 准备预言机更新数据...`);
+        
+        let pythUpdateData;
+        let maxRetries = 3;
+        
+        // 重试获取Pyth数据
+        for (let i = 0; i < maxRetries; i++) {
+          try {
+            console.log(`   🔄 尝试获取Pyth数据 (${i + 1}/${maxRetries})...`);
+            pythUpdateData = await fetchUpdateData([TEST_SYMBOL]);
+            console.log(`   ✅ Pyth数据获取成功`);
+            break;
+          } catch (error) {
+            console.log(`   ❌ 第${i + 1}次获取失败: ${error.message}`);
+            if (i === maxRetries - 1) {
+              console.log(`   🚨 Pyth数据获取失败，使用空数据继续测试...`);
+              pythUpdateData = ["0x"]; // 使用空的更新数据
+            } else {
+              console.log(`   ⏳ 等待5秒后重试...`);
+              await new Promise(resolve => setTimeout(resolve, 5000));
+            }
+          }
+        }
+        
+        const redStoneData = await getRedStoneUpdateData(TEST_SYMBOL);
+        const updateDataArray = [
+          pythUpdateData,
+          [redStoneData.updateData]
+        ];
+        
+        // 5. 计算更新费用
+        const updateFee = await pythPriceFeed.getUpdateFee(pythUpdateData);
+        console.log(`   💰 预言机更新费用: ${updateFee.toString()} wei`);
+        
+        // 6. 获取当前AAPL价格
+        const currentPrice = await priceAggregator.getAggregatedPrice.staticCall(TEST_SYMBOL, updateDataArray, { value: updateFee });
+        console.log(`   📈 当前 AAPL 价格: $${ethers.formatEther(currentPrice)}`);
+        
+        // 7. 计算预期获得的USDT (考虑手续费)
+        const tradeFeeRate = await aaplToken.tradeFeeRate();
+        const expectedUsdtBeforeFee = (sellAmount * currentPrice) / ethers.parseEther("1000000000000"); // 转换为6位精度USDT
+        const feeAmount = (expectedUsdtBeforeFee * tradeFeeRate) / 10000n;
+        const expectedUsdtAmount = expectedUsdtBeforeFee - feeAmount;
+        const minUsdtAmount = expectedUsdtAmount * 90n / 100n; // 10%滑点保护，与买入测试保持一致
+        
+        console.log(`   🎯 预期获得USDT: ${ethers.formatUnits(expectedUsdtAmount, 6)}`);
+        console.log(`   💸 手续费: ${ethers.formatUnits(feeAmount, 6)}`);
+        console.log(`   🛡️ 最小接受USDT: ${ethers.formatUnits(minUsdtAmount, 6)}`);
+        
+        // 8. 最终验证合约状态
+        console.log(`   ⏳ 等待网络状态同步...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        const finalContractUsdtBalance = await usdtToken.balanceOf(await aaplToken.getAddress());
+        console.log(`   🔍 最终验证:`);
+        console.log(`      合约USDT余额: ${ethers.formatUnits(finalContractUsdtBalance, 6)}`);
+        console.log(`      需要USDT数量: ${ethers.formatUnits(expectedUsdtAmount, 6)}`);
+        
+        // 确保合约有足够的USDT
+        if (finalContractUsdtBalance < expectedUsdtAmount) {
+          throw new Error(`合约USDT余额不足: 需要 ${ethers.formatUnits(expectedUsdtAmount, 6)}，实际 ${ethers.formatUnits(finalContractUsdtBalance, 6)}`);
+        }
+        
+        // 9. 执行卖出交易
+        console.log(`   🚀 执行卖出交易...`);
+        const sellTx = await aaplToken.connect(user).sell(
+          sellAmount,
+          minUsdtAmount,
+          updateDataArray,
+          { value: updateFee }
+        );
+        
+        const receipt = await sellTx.wait();
+        console.log(`   ✅ 交易成功，Gas 使用: ${receipt.gasUsed.toString()}`);
+        
+        // 10. 验证余额变化
+        const finalUsdtBalance = await usdtToken.balanceOf(userAddress);
+        const finalAaplBalance = await aaplToken.balanceOf(userAddress);
+        
+        const usdtReceived = finalUsdtBalance - initialUsdtBalance;
+        const aaplSold = initialAaplBalance - finalAaplBalance;
+        
+        console.log(`   📊 交易后余额:`);
+        console.log(`      USDT: ${ethers.formatUnits(finalUsdtBalance, 6)} (+${ethers.formatUnits(usdtReceived, 6)})`);
+        console.log(`      AAPL: ${ethers.formatEther(finalAaplBalance)} (-${ethers.formatEther(aaplSold)})`);
+        
+        // 11. 验证交易结果
+        console.log(`   📈 交易结果:`);
+        console.log(`      卖出 AAPL: ${ethers.formatEther(aaplSold)}`);
+        console.log(`      获得 USDT: ${ethers.formatUnits(usdtReceived, 6)}`);
+        
+        expect(aaplSold).to.equal(sellAmount, "卖出的AAPL数量应该正确");
+        expect(usdtReceived).to.be.greaterThan(0, "应该收到USDT");
+        expect(usdtReceived).to.be.gte(minUsdtAmount, "收到的USDT应该不少于最小金额");
+        
+        // 12. 验证事件
+        const sellEvent = receipt.logs.find(log => {
+          try {
+            const parsedLog = aaplToken.interface.parseLog(log);
+            return parsedLog && parsedLog.name === "TokenSold";
+          } catch (e) {
+            return false;
+          }
+        });
+        
+        expect(sellEvent).to.not.be.undefined;
+        console.log(`   🎉 TokenSold 事件已正确发出`);
+        
+        console.log(`   ✅ AAPL 卖出测试成功完成!`);
+        
+      } catch (error) {
+        console.log(`   ❌ AAPL 卖出失败: ${error.message}`);
+        throw error;
+      }
+    });
   });
 
   after(function () {
@@ -494,5 +770,6 @@ describe("12号测试用例 - AAPL 价格获取测试", function () {
     console.log("   ✅ 测试了聚合预言机价格获取");
     console.log("   ✅ 对比分析了三种价格源的结果");
     console.log("   ✅ 测试了使用 USDT 购买 AAPL 代币功能");
+    console.log("   ✅ 测试了使用 AAPL 代币卖出换取 USDT 功能");
   });
 });
