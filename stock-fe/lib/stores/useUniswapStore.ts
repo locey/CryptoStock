@@ -788,11 +788,7 @@ export const useUniswapStore = create<UniswapState>()(
         });
       }
 
-      // 调试断点（开发时使用）
-      console.log('🐛 [DEBUG] 即将到达 debugger 断点');
-      console.log('🐛 [DEBUG] 最终 positions 数量:', positions.length);
-      console.log('🐛 [DEBUG] 当前时间:', new Date().toISOString());
-      debugger
+  
 
       // 更新 store 状态
       set({ userPositions: positions, isLoading: false });
