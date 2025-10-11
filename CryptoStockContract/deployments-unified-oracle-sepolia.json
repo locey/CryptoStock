@@ -1,0 +1,99 @@
+{
+  "metadata": {
+    "deployTime": "2025-10-11T02:41:16.258Z",
+    "network": "sepolia",
+    "chainId": "11155111",
+    "deployer": "0x46b43ad9F6C20c400aC17a282022E578417F796A",
+    "deployerBalance": "2.94614127667373406",
+    "scriptVersion": "unified-oracle-sepolia-v1.0",
+    "architecture": "简化统一预言机架构 (Sepolia 专用)"
+  },
+  "contracts": {
+    "pythPriceFeed": {
+      "address": "0x84212F2E62669f985De80C113656a8cf78CE816d",
+      "type": "PythPriceFeed",
+      "description": "Pyth 网络价格适配器",
+      "pythContract": "0xDd24F84d36BF92C65F92307595335bdFab5Bbd21",
+      "supportedSymbols": [
+        "AAPL"
+      ]
+    },
+    "mockRedStone": {
+      "address": "0x0723F7702aaa060003A8CAfd0E0538C49111b9C8",
+      "type": "MockRedStoneOracle",
+      "description": "Mock RedStone 预言机 (测试用)",
+      "basePrice": "18 位小数精度",
+      "volatility": "±1% 随机波动"
+    },
+    "redstonePriceFeed": {
+      "address": "0x66964de668dC741D5654F58124E5FBeAb92e4424",
+      "type": "RedstonePriceFeed",
+      "description": "RedStone 预言机适配器",
+      "oracleSource": "0x0723F7702aaa060003A8CAfd0E0538C49111b9C8"
+    },
+    "priceAggregator": {
+      "address": "0xF2f5231da4f8576A82017333883D16004d1AcA71",
+      "type": "PriceAggregator",
+      "description": "双预言机聚合器",
+      "oracleWeights": {
+        "PYTH": 60,
+        "REDSTONE": 40
+      },
+      "sources": [
+        "0x84212F2E62669f985De80C113656a8cf78CE816d",
+        "0x66964de668dC741D5654F58124E5FBeAb92e4424"
+      ]
+    }
+  },
+  "configuration": {
+    "pythFeedIds": {
+      "AAPL": "0x49f6b65cb1de6b10eaf75e7c03ca029c306d0357e91b5311b175084a5ad55688"
+    },
+    "oracleWeights": {
+      "PYTH": 60,
+      "REDSTONE": 40
+    },
+    "supportedSymbols": [
+      "AAPL"
+    ],
+    "priceFormat": "18 位小数精度 (Wei)",
+    "interfaceVersion": "IPriceFeed v2.0 (简化版)"
+  },
+  "testResults": {
+    "AAPL": {
+      "pyth": {
+        "price": "245.22767",
+        "success": true,
+        "error": null,
+        "updateFee": "1"
+      },
+      "redstone": {
+        "price": "257.0712",
+        "success": true,
+        "error": null,
+        "payloadLength": 450
+      },
+      "aggregated": {
+        "price": "257.0712",
+        "success": true,
+        "error": null,
+        "updateFee": "1",
+        "pythDataLength": 1,
+        "redstonePayloadLength": 450
+      }
+    }
+  },
+  "features": {
+    "统一接口": "IPriceFeed.getPrice(OperationParams) payable",
+    "简化参数": "OperationParams { symbol, updateData }",
+    "聚合支持": "PriceAggregator.getAggregatedPrice(symbol, bytes[][])",
+    "权重分配": "Pyth 60% + RedStone 40%",
+    "费用支持": "所有函数 payable (支持 Pyth ETH 费用)",
+    "错误处理": "所有价格调用返回结构体 { price, success, errorMessage }"
+  },
+  "usage": {
+    "pythExample": "pythPriceFeed.getPrice({ symbol: 'AAPL', updateData: '0x' })",
+    "redstoneExample": "redstonePriceFeed.getPrice({ symbol: 'AAPL', updateData: '0x' })",
+    "aggregatorExample": "priceAggregator.getAggregatedPrice('AAPL', [[], []])"
+  }
+}
