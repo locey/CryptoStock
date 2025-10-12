@@ -116,9 +116,9 @@ export const CONTRACT_ADDRESSES = {
 
 // ABI 定义
 export const CONTRACT_ABIS = {
-  uniswapV3Adapter: UniswapV3AdapterAbi.abi as Abi,
-  defiAggregator: DefiAggregatorAbi.abi as Abi,
-  mockERC20: MockERC20Abi.abi as Abi,
+  uniswapV3Adapter: UniswapV3AdapterAbi as Abi,
+  defiAggregator: DefiAggregatorAbi as Abi,
+  mockERC20: MockERC20Abi as Abi,
   // 注意: MockPositionManager 的 ABI 需要从对应文件导入
   mockPositionManager: [] as Abi, // 占位符，需要实际的 ABI
 };
