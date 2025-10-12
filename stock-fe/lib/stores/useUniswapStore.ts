@@ -1023,7 +1023,7 @@ export const useUniswapStore = create<UniswapState>()(
           gasUsed: BigInt(0),
           effectiveGasPrice: BigInt(0),
           logs: [],
-                    status: 'success',
+          status: 'success',
           type: 'legacy',
         };
         return mockReceipt;
@@ -1151,7 +1151,7 @@ export const useUniswapStore = create<UniswapState>()(
           gasUsed: BigInt(0),
           effectiveGasPrice: BigInt(0),
           logs: [],
-                    status: 'success',
+          status: 'success',
           type: 'legacy',
         };
         return mockReceipt;
