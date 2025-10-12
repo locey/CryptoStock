@@ -35,7 +35,7 @@ async function getRedStoneUpdateData(symbol: string = 'TSLA'): Promise<RedStoneU
     });
 
     // 获取 payload
-    const redstonePayload = await wrapper.getRedstonePayloadForManualUsage();
+    const redstonePayload = await wrapper.getRedstonePayloadForManualUsage([symbol]);
 
     console.log(`✅ ${symbol} RedStone payload 获取成功`);
     console.log(`📋 Payload 长度: ${redstonePayload.length} 字符`);
