@@ -51,7 +51,7 @@ export interface TradingState {
       confidence: string;
     };
   } | null;
-  updateData: `0x${string}`[] | null;
+  updateData: `0x${string}`[][] | null;
   updateFee: bigint;
 }
 
@@ -285,7 +285,7 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
       });
 
       return {
-        updateData: updateData as `0x${string}`[],
+        updateData: [updateData as `0x${string}`[], []], // Convert to nested array format
         updateFee: feeBigInt, // 返回原始预言机费用（不包括缓冲）
         totalFee: totalFee    // 返回总费用（包括缓冲）
       };
@@ -404,7 +404,7 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         console.log(`✅ 使用 ${token.symbol} 的缓存数据`);
         setTradingState(prev => ({
           ...prev,
-          updateData: cachedData as `0x${string}`[],
+          updateData: [cachedData as `0x${string}`[], []], // Convert to nested array format
           updateFee: 0n
         }));
         return;
@@ -420,7 +420,7 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         setPythData(token.symbol, updateData, 0n);
         setTradingState(prev => ({
           ...prev,
-          updateData: updateData as `0x${string}`[],
+          updateData: [updateData as `0x${string}`[], []], // Convert to nested array format
           updateFee: 0n
         }));
       } else {
