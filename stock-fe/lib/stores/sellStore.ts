@@ -44,7 +44,7 @@ function ensureAddress(address: string | Address): Address {
 }
 
 const usdtAddress = ensureAddress(delpolyConfig.contracts.USDT);
-const OracleAggregatorAddress = ensureAddress(delpolyConfig.contracts.PriceAggregator);
+const OracleAggregatorAddress = ensureAddress(delpolyConfig.contracts.OracleAggregator.proxy);
 const pythPriceFeedAddress = ensureAddress(UNIFIED_ORACLE_DEPLOYMENT.contracts.pythPriceFeed.address);
 
 // ==================== 类型化 ABI ====================

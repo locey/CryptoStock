@@ -141,7 +141,7 @@ export const useUniswapWithClients = () => {
       chain,
       amountBigInt,
       address,
-      userAddress || address,
+      userAddress || address, // userAddress parameter
       gasConfig
     );
   }, [isConnected, address, publicClient, chain, getWalletClient, store.approveUSDT]);
@@ -184,6 +184,7 @@ export const useUniswapWithClients = () => {
       chain,
       amountBigInt,
       address,
+      address, // userAddress should be the same as account
       gasConfig
     );
   }, [isConnected, address, publicClient, chain, getWalletClient, store.approveWETH]);
