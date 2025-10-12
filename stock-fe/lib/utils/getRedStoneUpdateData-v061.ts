@@ -1,6 +1,6 @@
 // RedStone 数据获取工具 - 使用成功验证的 0.6.1 版本配置
 import { DataServiceWrapper } from "@redstone-finance/evm-connector/dist/src/wrappers/DataServiceWrapper";
-import { utils } from "@redstone-finance/protocol";
+import { convertStringToBytes32 } from "@redstone-finance/protocol/dist/src/common/utils";
 import { hexToBytes, bytesToHex } from 'viem';
 
 // 定义接口
@@ -21,12 +21,14 @@ export interface DataServiceConfig {
  * @param symbol - 股票代码参数（忽略，强制使用 TSLA）
  * @returns Promise<RedStoneUpdateData>
  */
-async function getRedStoneUpdateData(symbol: string = 'TSLA'): Promise<RedStoneUpdateData> {
+async function getRedStoneUpdateData(symbol:string): Promise<RedStoneUpdateData> {
   try {
     // 强制使用 TSLA，因为这是唯一验证过能成功获取的符号
-    symbol = 'TSLA';
-    console.log(`🔍 获取 ${symbol} 的 RedStone 数据...`);
-
+    let symbol1  = symbol
+ symbol = 'TSLA';
+    
+    console.log(`🔍 获取 ${symbol} --${symbol1} 的 RedStone 数据...`);
+    debugger;
     // 使用成功验证的配置
     const wrapper = new DataServiceWrapper({
       dataServiceId: "redstone-main-demo",
@@ -34,14 +36,19 @@ async function getRedStoneUpdateData(symbol: string = 'TSLA'): Promise<RedStoneU
       uniqueSignersCount: 1,      // 必需参数
     });
 
-    // 获取 payload
-    const redstonePayload = await wrapper.getRedstonePayloadForManualUsage([symbol]);
+    // 获取 payload - 创建一个满足基本要求的对象
+  const contract = {
+    address: "0xE5aacD3C3D70Ba49Cc52d6479771A52B8a2287a7"
+  } as unknown; // 使用 unknown 类型断言
+
+    const redstonePayload = await wrapper.getRedstonePayloadForManualUsage(contract as never);
 
     console.log(`✅ ${symbol} RedStone payload 获取成功`);
     console.log(`📋 Payload 长度: ${redstonePayload.length} 字符`);
 
     // 验证和格式化 payload
     let formattedPayload = redstonePayload;
+
     if (redstonePayload && typeof redstonePayload === 'string') {
       // 确保以 0x 开头
       if (!redstonePayload.startsWith('0x')) {
@@ -52,8 +59,7 @@ async function getRedStoneUpdateData(symbol: string = 'TSLA'): Promise<RedStoneU
     }
 
     // 转换符号为 bytes32
-    const symbolBytes32Array = utils.convertStringToBytes32(symbol);
-    const symbolBytes32 = bytesToHex(symbolBytes32Array);
+    const symbolBytes32 = convertStringToBytes32(symbol) as unknown as string;
 
     return {
       updateData: formattedPayload,
@@ -68,8 +74,8 @@ async function getRedStoneUpdateData(symbol: string = 'TSLA'): Promise<RedStoneU
     console.log(`⚠️ 使用空的 RedStone 数据继续交易流程...`);
 
     try {
-      const emptySymbolBytes32Array = utils.convertStringToBytes32(symbol);
-      const emptySymbolBytes32 = bytesToHex(emptySymbolBytes32Array);
+      const emptySymbolBytes32 = convertStringToBytes32(symbol) as unknown as string;
+
       return {
         updateData: "0x",
         symbolBytes32: emptySymbolBytes32,
@@ -114,8 +120,7 @@ async function getMultipleRedStoneData(symbols: string[] = ['TSLA']): Promise<Re
  * @returns bytes32 格式的字符串
  */
 function convertStringToBytes32Wrapper(str: string): string {
-  const bytes32Array = utils.convertStringToBytes32(str);
-  return bytesToHex(bytes32Array);
+  return convertStringToBytes32(str) as unknown as string;
 }
 
 // 导出函数
