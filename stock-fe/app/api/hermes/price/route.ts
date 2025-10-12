@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
-import deploymentConfig from '../../../lib/abi/deployments-uups-sepolia.json';
+import deploymentConfig from '@/lib/abi/deployments-uups-sepolia.json';
 
 // 从部署配置文件直接获取价格源 ID 和代币地址
 const STOCK_FEED_IDS: Record<string, string> = deploymentConfig.priceFeeds;

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import deploymentConfig from '../abi/deployments-uups-sepolia.json';
+import deploymentConfig from '@/lib/abi/deployments-uups-sepolia.json';
 
 // 定义价格数据接口
 interface PriceInfo {
@@ -104,12 +104,27 @@ async function fetchUpdateData(symbols: string[] = ["AAPL"]): Promise<string[]> 
     
     // 转换为 EVM bytes 格式 (0x前缀 + 十六进制)
     // 注意：Pyth API 返回的是包含所有符号价格的单一 updateData
-    const bytesData = response.data.binary.data.map((data: string) => {
-      if (data && typeof data === 'string') {
-        return data.startsWith('0x') ? data : '0x' + data;
-      } else {
-        throw new Error('无效的更新数据格式');
+    const bytesData = response.data.binary.data.map((data: string, index: number) => {
+      if (data === null || data === undefined) {
+        throw new Error(`更新数据 [${index}] 为空`);
       }
+
+      if (typeof data !== 'string') {
+        throw new Error(`更新数据 [${index}] 类型无效: ${typeof data}`);
+      }
+
+      const trimmedData = data.trim();
+      if (!trimmedData) {
+        throw new Error(`更新数据 [${index}] 为空字符串`);
+      }
+
+      // 验证是否为有效的十六进制字符
+      const hexPart = trimmedData.startsWith('0x') ? trimmedData.slice(2) : trimmedData;
+      if (!/^[0-9a-fA-F]*$/.test(hexPart)) {
+        throw new Error(`更新数据 [${index}] 包含无效的十六进制字符: ${trimmedData}`);
+      }
+
+      return trimmedData.startsWith('0x') ? trimmedData : '0x' + trimmedData;
     });
     
     console.log(`✅ 成功获取 ${bytesData.length} 条更新数据`);

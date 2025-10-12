@@ -1,4 +1,4 @@
-import { Hero } from "@/components/Hero";
+pageimport { Hero } from "@/components/Hero";
 import { FeatureCard } from "@/components/FeatureCard";
 import { StockCard } from "@/components/StockCard";
 import { StatsSection } from "@/components/StatsSection";

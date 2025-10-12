@@ -56,6 +56,9 @@ importers:
       '@redstone-finance/evm-connector':
         specifier: 0.6.1
         version: 0.6.1(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+      '@redstone-finance/protocol':
+        specifier: ^0.6.1
+        version: 0.6.1(bufferutil@4.0.9)(utf-8-validate@5.0.10)
       '@redstone-finance/sdk':
         specifier: 0.6.1
         version: 0.6.1(bufferutil@4.0.9)(utf-8-validate@5.0.10)

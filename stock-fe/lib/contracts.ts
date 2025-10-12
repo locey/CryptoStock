@@ -1,5 +1,5 @@
 // 从部署文件中导入合约地址
-import deploymentConfig from './abi/deployments-uups-sepolia.json';
+import deploymentConfig from '@/lib/abi/deployments-uups-sepolia.json';
 
 // 合约地址配置
 export const NETWORK_CONFIG = {

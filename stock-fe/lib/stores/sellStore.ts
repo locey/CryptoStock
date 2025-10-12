@@ -5,13 +5,15 @@ import StockToken from "@/lib/abi/StockToken.json"
 import delpolyConfig from "@/lib/abi/deployments-uups-sepolia.json"
 import { fetchUpdateData } from "@/lib/utils/getPythUpdateData"
 import ORACLE_AGGREGATOR_ABI from '@/lib/abi/OracleAggregator.json';
+import PYTH_PRICE_FEED_ABI from '@/lib/abi/PythPriceFeed.json';
+import UNIFIED_ORACLE_DEPLOYMENT from '@/lib/abi/deployments-unified-oracle-sepolia.json';
 
 
 /**
  * 价格更新数据接口
  */
 interface PriceUpdateData {
-  updateData: Uint8Array[];
+  updateData: string[];
   updateFee: bigint;
 }
 
@@ -43,9 +45,11 @@ function ensureAddress(address: string | Address): Address {
 
 const usdtAddress = ensureAddress(delpolyConfig.contracts.USDT);
 const OracleAggregatorAddress = ensureAddress(delpolyConfig.contracts.PriceAggregator);
+const pythPriceFeedAddress = ensureAddress(UNIFIED_ORACLE_DEPLOYMENT.contracts.pythPriceFeed.address);
 
 // ==================== 类型化 ABI ====================
 const typedStockTokenABI = StockToken as Abi;
+const typedPythPriceFeedABI = PYTH_PRICE_FEED_ABI as Abi;
 // 标准的ERC20 ABI（用于余额查询）
 const typedERC20ABI = [
   {
@@ -166,7 +170,7 @@ interface SellStoreState {
   fetchBalances: (publicClient: PublicClient, stockTokenAddress: Address, userAddress: Address) => Promise<ContractCallResult>;
 
   // 2. 获取预估结果（使用最新价格）
-  getSellEstimate: (publicClient: PublicClient, stockTokenAddress: Address, tokenAmount: bigint) => Promise<ContractCallResult>;
+  getSellEstimate: (publicClient: PublicClient, stockTokenAddress: Address, tokenAmount: bigint, updateData: string[]) => Promise<ContractCallResult>;
 
   // 3. 获取价格更新数据
   fetchPriceUpdateData: (publicClient: PublicClient, tokenSymbol: string) => Promise<ContractCallResult>;
@@ -180,7 +184,7 @@ interface SellStoreState {
     stockTokenAddress: Address,
     tokenAmount: bigint,
     minUsdtAmount: bigint,
-    updateData: Uint8Array[],
+    updateData: string[],
     updateFee: bigint
   ) => Promise<ContractCallResult>;
 
@@ -483,17 +487,42 @@ export const useSellStore = create<SellStoreState>()(
 
       /**
        * 2. 获取预估结果（使用最新价格）
-       * 合约方法：getSellEstimate(uint256 tokenAmount) returns (uint256 usdtAmount, uint256 feeAmount)
+       * 合约方法：getSellEstimate(uint256 tokenAmount, bytes[][] updateData) returns (uint256 usdtAmount, uint256 feeAmount)
        */
-      getSellEstimate: async (publicClient: PublicClient, stockTokenAddress: Address, tokenAmount: bigint): Promise<ContractCallResult> => {
+      getSellEstimate: async (publicClient: PublicClient, stockTokenAddress: Address, tokenAmount: bigint, updateData: string[]): Promise<ContractCallResult> => {
         try {
-          console.log('🧮 获取卖出预估...', { stockTokenAddress, tokenAmount: tokenAmount.toString() });
+          // 验证 updateData 参数
+          if (!updateData || !Array.isArray(updateData)) {
+            throw new Error('updateData 参数无效或未定义');
+          }
+
+          console.log('🧮 获取卖出预估...', { stockTokenAddress, tokenAmount: tokenAmount.toString(), updateDataLength: updateData.length });
+
+          // 将 string[] 格式的 updateData 转换为 bytes[][] 格式
+          // 合约期望的是 bytes[][]，即嵌套的字节数组
+          // Pyth 数据作为第一个子数组，RedStone 数据作为第二个子数组（空数组）
+          const updateDataArray: string[][] = [
+            updateData,    // Pyth 数据作为第一个数组
+            []              // RedStone 数据作为第二个数组（暂时为空）
+          ];
+
+          console.log('🔍 转换后的 updateDataArray:', {
+            originalLength: updateData.length,
+            arrayLength: updateDataArray.length,
+            pythDataLength: updateDataArray[0].length,
+            redstoneDataLength: updateDataArray[1].length
+          });
+
+          // 确保 updateDataArray 是有效的二维数组
+          if (!Array.isArray(updateDataArray) || updateDataArray.length !== 2) {
+            throw new Error('updateDataArray 格式错误：期望长度为2的数组');
+          }
 
           const result = await publicClient.readContract({
             address: stockTokenAddress,
             abi: typedStockTokenABI,
             functionName: 'getSellEstimate',
-            args: [tokenAmount]
+            args: [tokenAmount, updateDataArray]
           });
 
           // 安全地类型断言
@@ -534,15 +563,33 @@ export const useSellStore = create<SellStoreState>()(
             throw new Error(`代币符号类型错误: 期望string，收到${typeof tokenSymbol}`);
           }
 
+          if (!tokenSymbol || tokenSymbol.trim() === '') {
+            throw new Error('代币符号不能为空');
+          }
+
           const updateData = await fetchUpdateData([tokenSymbol]);
           console.log('🔍 获取到的原始数据类型:', typeof updateData, updateData);
 
+          // 确保 updateData 是有效的数组
+          if (!updateData || !Array.isArray(updateData)) {
+            throw new Error('获取到的价格更新数据格式无效');
+          }
+
+          if (updateData.length === 0) {
+            throw new Error('获取到的价格更新数据为空');
+          }
+
           const updateFee = await publicClient.readContract({
-                    address: OracleAggregatorAddress,
-                    abi: ORACLE_AGGREGATOR_ABI,
+                    address: pythPriceFeedAddress,
+                    abi: typedPythPriceFeedABI,
                     functionName: "getUpdateFee",
                     args: [updateData]
                   }) as bigint;
+
+          console.log('✅ 价格更新数据获取成功:', {
+            dataLength: updateData.length,
+            updateFee: updateFee.toString()
+          });
 
           return {
             success: true,
@@ -572,7 +619,7 @@ export const useSellStore = create<SellStoreState>()(
         stockTokenAddress: Address,
         tokenAmount: bigint,
         minUsdtAmount: bigint,
-        updateData: Uint8Array[],
+        updateData: string[],
         updateFee: bigint
       ): Promise<ContractCallResult> => {
         try {
@@ -583,6 +630,17 @@ export const useSellStore = create<SellStoreState>()(
             updateFee: updateFee.toString()
           });
 
+          // 验证 updateData 参数
+          if (!updateData || !Array.isArray(updateData)) {
+            throw new Error('updateData 参数无效或未定义');
+          }
+
+          // 转换 updateData 为合约期望的 bytes[][] 格式
+          const updateDataArray: string[][] = [
+            updateData,    // Pyth 数据作为第一个数组
+            []              // RedStone 数据作为第二个数组（暂时为空）
+          ];
+
           console.log('🔍 调试信息:', {
             walletClient,
             walletClientType: typeof walletClient,
@@ -590,16 +648,25 @@ export const useSellStore = create<SellStoreState>()(
             stockTokenAddress,
             abi: typedStockTokenABI,
             functionName: 'sell',
-            args: [tokenAmount, minUsdtAmount, updateData],
+            args: [tokenAmount, minUsdtAmount, updateDataArray],
             chain,
             account,
-            value: updateFee
+            value: updateFee,
+            updateDataArrayLength: updateDataArray.length,
+            pythDataLength: updateDataArray[0].length,
+            redstoneDataLength: updateDataArray[1].length
           });
+
+          // 确保数据格式正确
+          if (!Array.isArray(updateDataArray) || updateDataArray.length !== 2) {
+            throw new Error('updateDataArray 格式错误：期望长度为2的数组');
+          }
+
           const hash = await walletClient.writeContract({
             address: stockTokenAddress,
             abi: typedStockTokenABI,
             functionName: 'sell',
-            args: [tokenAmount, minUsdtAmount, updateData],
+            args: [tokenAmount, minUsdtAmount, updateDataArray],
             chain,
             account,
             value: updateFee // 支付价格更新费用
@@ -670,9 +737,27 @@ export const useSellStore = create<SellStoreState>()(
             throw new Error(`代币余额不足。余额: ${formatUnits(tokenBalance, 18)}, 尝试卖出: ${state.sellAmount}`);
           }
 
-          // 步骤2：获取预估结果（使用最新价格）
-          console.log('📋 步骤2：获取预估结果...');
-          const estimateResult = await get().getSellEstimate(publicClient, stockTokenAddress, sellAmountWei);
+          // 步骤2：获取价格更新数据
+          console.log('📋 步骤2：获取价格更新数据...');
+          console.log('🔍 代币符号:', state.token?.symbol, typeof state.token?.symbol);
+          if (!state.token?.symbol || typeof state.token.symbol !== 'string' || state.token.symbol.trim() === '') {
+            throw new Error('代币符号无效或为空');
+          }
+          const updateDataResult = await get().fetchPriceUpdateData(publicClient, state.token.symbol);
+          if (!updateDataResult.success || !updateDataResult.data) {
+            throw new Error(updateDataResult.error || '获取价格更新数据失败');
+          }
+
+          const { updateData, updateFee } = updateDataResult.data;
+
+          // 额外验证 updateData
+          if (!updateData || !Array.isArray(updateData)) {
+            throw new Error('价格更新数据无效');
+          }
+
+          // 步骤3：获取预估结果（使用最新价格）
+          console.log('📋 步骤3：获取预估结果...');
+          const estimateResult = await get().getSellEstimate(publicClient, stockTokenAddress, sellAmountWei, updateData);
           if (!estimateResult.success || !estimateResult.data) {
             throw new Error(estimateResult.error || '获取预估失败');
           }
@@ -682,19 +767,6 @@ export const useSellStore = create<SellStoreState>()(
           get().setEstimate(estimatedUsdt, estimatedFee);
 
           const minUsdtAmount = get().estimate!.minUsdtAmount;
-
-          // 步骤3：获取价格更新数据
-          console.log('📋 步骤3：获取价格更新数据...');
-          console.log('🔍 代币符号:', state.token?.symbol, typeof state.token?.symbol);
-          if (!state.token?.symbol) {
-            throw new Error('代币符号无效');
-          }
-          const updateDataResult = await get().fetchPriceUpdateData(publicClient, state.token.symbol);
-          if (!updateDataResult.success || !updateDataResult.data) {
-            throw new Error(updateDataResult.error || '获取价格更新数据失败');
-          }
-
-          const { updateData, updateFee } = updateDataResult.data;
          
 
 

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import deploymentConfig from '../abi/deployments-uups-sepolia.json';
+import deploymentConfig from '@/lib/abi/deployments-uups-sepolia.json';
 
 // Pyth 相关配置
 const HERMES_ENDPOINT = 'https://hermes.pyth.network';
