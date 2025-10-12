@@ -13,22 +13,8 @@ import {
   decodeAbiParameters
 } from 'viem';
 import {
-  OperationParams,
-  OperationResult,
-  PositionInfo,
-  TokenInfo,
-  AddLiquidityParams,
-  RemoveLiquidityParams,
-  CollectFeesParams,
-  TransactionState,
-  ApprovalState,
-  UniswapError,
-  OperationType,
-  CONTRACT_ADDRESSES,
-  CONTRACT_ABIS,
   parseTokenAmount,
   formatTokenAmount,
-  encodePriceRange
 } from '@/lib/contracts/contracts';
 import { UNISWAP_CONFIG, PRICE_RANGE_PRESETS } from '@/lib/config/loadContracts';
 
