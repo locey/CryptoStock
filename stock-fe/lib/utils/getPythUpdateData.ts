@@ -1,4 +1,5 @@
 import axios from 'axios';
+import deploymentConfig from '../abi/deployments-uups-sepolia.json';
 
 // 定义价格数据接口
 interface PriceInfo {
@@ -22,25 +23,9 @@ interface ResponseData {
 // Sepolia 的 Pyth HTTP 端点
 const HERMES_ENDPOINT = "https://hermes.pyth.network";
 
-// 股票符号到 Pyth Feed ID 的映射（与合约和 price/route.ts 保持一致）
-const FEED_IDS: Record<string, string> = {
-  // 美股 - 使用与合约一致的 Feed ID
-  'AAPL': '0x49f6b65cb1de6b10eaf75e7c03ca029c306d0357e91b5311b175084a5ad55688', // Apple Inc.
-  'TSLA': '0x82c4d954fce9132f936100aa0b51628d7ac01888e4b46728d5d3f5778eb4c1d2', // Tesla Inc.
-  'GOOGL': '0x5a48c03e9b9cb337801073ed9d166817473697efff0d138874e0f6a33d6d5aa6', // Alphabet Inc.
-  'MSFT': '0xd0ca23c1cc005e004ccf1db5bf76aeb6a49218f43dac3d4b275e92de12ded4d1', // Microsoft Corp.
-  'AMZN': '0xb5d0e0fa58a1f8b81498ae670ce93c872d14434b72c364885d4fa1b257cbb07a', // Amazon.com Inc.
-  'META': '0xc1f33e5461c6a625f2e704417b7e10d87c0fce2c', // Meta Platforms Inc.
-  'NVDA': '0xb1073854ed24cbc755dc527418f52b7d271f6cc967bbf8d8129112b18860a593', // NVIDIA Corp.
-
-  // 加密货币
-  'BTC': '0xe62df6c8b8a885664618ed715f6a08e640c2c788', // Bitcoin/USD
-  'ETH': '0xff61491a931112dd9b260874939c7db856e478c1', // Ethereum/USD
-
-  // 指数
-  'SPY': '0xd3d2a9c7231a442a76f1a0df058a869d3b9954bb', // S&P 500
-  'QQQ': '0x2b89b9dc8fdf9f34709a5b106b472f0f39bb6ca9', // NASDAQ 100
-};
+// 从部署配置文件直接获取价格源 ID 和代币地址
+const FEED_IDS: Record<string, string> = deploymentConfig.priceFeeds;
+const TOKEN_ADDRESSES: Record<string, string> = deploymentConfig.stockTokens;
 
 /**
  * 获取指定符号的 Pyth 更新数据 (Price Update Data)
@@ -176,4 +161,4 @@ const getPythUpdateData = fetchUpdateData;
 export default getPythUpdateData;
 
 // 命名导出其他函数
-export { fetchUpdateData, fetchSingleUpdateData, getPriceInfo, FEED_IDS };
+export { fetchUpdateData, fetchSingleUpdateData, getPriceInfo, FEED_IDS, TOKEN_ADDRESSES };

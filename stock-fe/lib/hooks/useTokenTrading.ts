@@ -551,6 +551,7 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
       console.log(`🔍 使用 oracleAggregator 获取 ${token.symbol} 的最新价格更新数据...`);
 
       const { updateData, updateFee, totalFee } = await fetchUpdateDataAndFee([token.symbol]);
+      // 修改
 
       console.log("🐛 预言机数据获取完成:", {
         updateDataLength: updateData.length,
