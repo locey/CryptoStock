@@ -18,7 +18,7 @@ import {
   useSellTradingSimple as useSellTrading,
   UseSellTradingProps,
 } from "@/lib/hooks/useSellTradingSimple";
-import { useWallet } from "ycdirectory-ui";
+import { useWallet } from "yc-sdk-ui";
 
 // 预设金额选项 (代币数量)
 const PRESET_AMOUNTS = [0.1, 0.5, 1, 5, 10, 50];
@@ -153,11 +153,13 @@ export function SellModal({
 
       // 减少延迟时间，提升响应速度
       const timer = setTimeout(() => {
-        calculateEstimate().finally(() => {
-          setIsCalculatingEstimate(false);
-        }).catch(() => {
-          setIsCalculatingEstimate(false);
-        });
+        calculateEstimate()
+          .finally(() => {
+            setIsCalculatingEstimate(false);
+          })
+          .catch(() => {
+            setIsCalculatingEstimate(false);
+          });
       }, 150); // 从300ms减少到150ms
 
       return () => {

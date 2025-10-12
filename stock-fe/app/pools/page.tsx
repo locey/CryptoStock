@@ -8,6 +8,8 @@ import AaveUSDTBuyModal from '@/components/AaveUSDTBuyModal'
 import AaveUSDTSellModal from '@/components/AaveUSDTSellModal'
 import CompoundUSDTBuyModal from '@/components/CompoundUSDTBuyModal'
 import CompoundUSDTSellModal from '@/components/CompoundUSDTSellModal'
+import UniswapLiquidityModal from '@/components/UniswapLiquidityModal'
+import UniswapSellModal from '@/components/UniswapSellModal'
 
 const poolCategories = [
   {
@@ -110,6 +112,8 @@ export default function PoolsPage() {
   const [aaveSellModalOpen, setAaveSellModalOpen] = useState(false)
   const [compoundBuyModalOpen, setCompoundBuyModalOpen] = useState(false)
   const [compoundSellModalOpen, setCompoundSellModalOpen] = useState(false)
+  const [uniswapLiquidityModalOpen, setUniswapLiquidityModalOpen] = useState(false)
+  const [uniswapSellModalOpen, setUniswapSellModalOpen] = useState(false)
 
   const totalTVL = poolCategories.reduce((sum, category) => sum + category.tvl, 0)
   const totalVolume = poolCategories.reduce((sum, category) => sum + category.volume24h, 0)
@@ -240,7 +244,9 @@ export default function PoolsPage() {
                     variant="buy"
                     size="trading"
                     onClick={() => {
-                      if (category.id === 'aave') {
+                      if (category.id === 'uniswap') {
+                        setUniswapLiquidityModalOpen(true)
+                      } else if (category.id === 'aave') {
                         setAaveBuyModalOpen(true)
                       } else if (category.id === 'compound') {
                         setCompoundBuyModalOpen(true)
@@ -253,7 +259,9 @@ export default function PoolsPage() {
                     variant="sell"
                     size="trading"
                     onClick={() => {
-                      if (category.id === 'aave') {
+                      if (category.id === 'uniswap') {
+                        setUniswapSellModalOpen(true)
+                      } else if (category.id === 'aave') {
                         setAaveSellModalOpen(true)
                       } else if (category.id === 'compound') {
                         setCompoundSellModalOpen(true)
@@ -311,7 +319,10 @@ export default function PoolsPage() {
                   </div>
                 </div>
 
-                <button className="w-full mt-6 py-3 bg-gradient-to-r from-pink-500 to-yellow-400 hover:from-pink-600 hover:to-yellow-500 text-white font-semibold rounded-lg transition-all">
+                <button
+                  onClick={() => setUniswapLiquidityModalOpen(true)}
+                  className="w-full mt-6 py-3 bg-gradient-to-r from-pink-500 to-yellow-400 hover:from-pink-600 hover:to-yellow-500 text-white font-semibold rounded-lg transition-all"
+                >
                   添加流动性
                 </button>
               </div>
@@ -326,12 +337,13 @@ export default function PoolsPage() {
             从各种池类型中选择以最大化您的回报。无论您喜欢提供流动性、借出资产，还是探索收益耕作策略，我们的平台都能满足您的需求。
           </p>
           <div className="flex flex-wrap gap-4 justify-center">
-            <Link href="/pools/uniswap">
-              <Button size="lg" className="flex items-center gap-2 bg-gradient-to-r from-pink-500 to-yellow-400 hover:from-pink-600 hover:to-yellow-500">
-                <Plus className="w-4 h-4" />
-                创建新仓位
-              </Button>
-            </Link>
+            <button
+              onClick={() => setUniswapLiquidityModalOpen(true)}
+              className="flex items-center gap-2 bg-gradient-to-r from-pink-500 to-yellow-400 hover:from-pink-600 hover:to-yellow-500 px-6 py-3 rounded-lg font-semibold transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              创建新仓位
+            </button>
             <Link href="/lending/aave">
               <Button variant="secondary" size="lg" className="flex items-center gap-2">
                 <DollarSign className="w-4 h-4" />
@@ -379,6 +391,26 @@ export default function PoolsPage() {
         onSuccess={() => {
           console.log('Compound 卖出成功')
           setCompoundSellModalOpen(false)
+        }}
+      />
+
+      {/* Uniswap V3 添加流动性弹窗 */}
+      <UniswapLiquidityModal
+        isOpen={uniswapLiquidityModalOpen}
+        onClose={() => setUniswapLiquidityModalOpen(false)}
+        onSuccess={(result) => {
+          console.log('Uniswap V3 添加流动性成功:', result)
+          setUniswapLiquidityModalOpen(false)
+        }}
+      />
+
+      {/* Uniswap V3 卖出弹窗 */}
+      <UniswapSellModal
+        isOpen={uniswapSellModalOpen}
+        onClose={() => setUniswapSellModalOpen(false)}
+        onSuccess={(result) => {
+          console.log('Uniswap V3 卖出成功:', result)
+          setUniswapSellModalOpen(false)
         }}
       />
     </div>

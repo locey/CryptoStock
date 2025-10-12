@@ -1,0 +1,1324 @@
+import { create } from 'zustand';
+import {
+  Address,
+  PublicClient,
+  WalletClient,
+  TransactionReceipt,
+  Abi,
+  Chain,
+  Hex,
+  formatUnits,
+  parseUnits,
+  decodeEventLog as viemDecodeEventLog,
+} from 'viem';
+import UniswapV3AdapterABI from '@/lib/abi/UniswapV3Adapter.json';
+import DefiAggregatorABI from '@/lib/abi/DefiAggregator.json';
+import MockERC20ABI from '@/lib/abi/MockERC20.json';
+import UniswapDeploymentInfo from '@/lib/abi/deployments-uniswapv3-adapter-sepolia.json';
+
+// ==================== 类型定义 ====================
+
+/**
+ * Uniswap V3 操作类型枚举（基于测试用例）
+ */
+export enum UniswapOperationType {
+  ADD_LIQUIDITY = 2,    // 添加流动性
+  REMOVE_LIQUIDITY = 3, // 移除流动性
+  COLLECT_FEES = 18,    // 收取手续费
+}
+
+/**
+ * 操作参数类型（基于测试用例）
+ */
+export interface UniswapOperationParams {
+  tokens: Address[];
+  amounts: bigint[];
+  recipient: Address;
+  deadline: number;
+  tokenId: bigint;
+  extraData: Hex;
+}
+
+/**
+ * 操作结果类型（基于 DefiAggregator 返回结构）
+ */
+export interface UniswapOperationResult {
+  success: boolean;
+  outputAmounts: bigint[];
+  returnData: Hex;
+  message: string;
+}
+
+/**
+ * 交易结果类型
+ */
+export interface UniswapTransactionResult {
+  hash: `0x${string}`;
+  receipt: TransactionReceipt;
+  result: UniswapOperationResult;
+}
+
+/**
+ * Uniswap V3 池信息类型
+ */
+export interface UniswapPoolInfo {
+  defiAggregator: Address;
+  uniswapV3Adapter: Address;
+  usdtToken: Address;
+  wethToken: Address;
+  positionManager: Address;
+  adapterName: string;
+  adapterVersion: string;
+  contractVersion: string;
+  supportedOperations: UniswapOperationType[];
+  feeRateBps: number; // 手续费率（基点）
+}
+
+/**
+ * 位置信息类型
+ */
+export interface UniswapPositionInfo {
+  tokenId: bigint;
+  nonce: bigint;
+  operator: Address;
+  token0: Address;
+  token1: Address;
+  fee: number;
+  tickLower: number;
+  tickUpper: number;
+  liquidity: bigint;
+  feeGrowthInside0LastX128: bigint;
+  feeGrowthInside1LastX128: bigint;
+  tokensOwed0: bigint;
+  tokensOwed1: bigint;
+  token0ValueUSD?: number;
+  token1ValueUSD?: number;
+}
+
+/**
+ * 用户余额信息类型
+ */
+export interface UserBalanceInfo {
+  usdtBalance: bigint;     // 用户持有的 USDT 余额
+  wethBalance: bigint;     // 用户持有的 WETH 余额
+  usdtAllowance: bigint;   // 用户授权给 UniswapV3Adapter 的 USDT 数量
+  wethAllowance: bigint;   // 用户授权给 UniswapV3Adapter 的 WETH 数量
+  nftAllowance: bigint;    // 用户授权给 UniswapV3Adapter 的 NFT 数量
+}
+
+/**
+ * OperationExecuted 事件参数类型
+ */
+export interface OperationExecutedEventArgs {
+  user: Address;
+  operationType: number;
+  tokens: Address[];
+  amounts: bigint[];
+  returnData: Hex;
+}
+
+/**
+ * FeesCollected 事件参数类型
+ */
+export interface FeesCollectedEventArgs {
+  user: Address;
+  tokenId: bigint;
+  amount0: bigint;
+  amount1: bigint;
+}
+
+/**
+ * 解码事件日志的返回类型
+ */
+export interface DecodedOperationExecutedEvent {
+  eventName: 'OperationExecuted';
+  args: OperationExecutedEventArgs;
+}
+
+export interface DecodedFeesCollectedEvent {
+  eventName: 'FeesCollected';
+  args: FeesCollectedEventArgs;
+}
+
+// ==================== Store 状态定义 ====================
+interface UniswapState {
+  // ==================== 状态 ====================
+  /** DefiAggregator 合约地址 */
+  defiAggregatorAddress: Address | null;
+  /** UniswapV3 适配器合约地址 */
+  uniswapV3AdapterAddress: Address | null;
+  /** Uniswap V3 池信息 */
+  poolInfo: UniswapPoolInfo | null;
+  /** 用户余额信息 */
+  userBalance: UserBalanceInfo | null;
+  /** 用户位置信息 */
+  userPositions: UniswapPositionInfo[];
+  /** 选中的位置 */
+  selectedPosition: UniswapPositionInfo | null;
+  /** 加载状态 */
+  isLoading: boolean;
+  /** 操作执行中的加载状态 */
+  isOperating: boolean;
+  /** 错误信息 */
+  error: string | null;
+
+  // ==================== 初始化方法 ====================
+  /** 初始化合约地址 */
+  initContracts: (defiAggregatorAddress: Address, uniswapV3AdapterAddress: Address) => void;
+  /** 从部署文件初始化合约地址 */
+  initFromDeployment: () => void;
+
+  // ==================== 读取方法 ====================
+  /** 获取 Uniswap V3 池信息 */
+  fetchPoolInfo: (publicClient: PublicClient) => Promise<void>;
+  /** 获取用户余额信息 */
+  fetchUserBalance: (publicClient: PublicClient, userAddress: Address) => Promise<void>;
+  /** 获取用户位置信息 */
+  fetchUserPositions: (publicClient: PublicClient, userAddress: Address) => Promise<void>;
+  /** 获取用户 USDT 余额 */
+  fetchUserUSDTBalance: (publicClient: PublicClient, userAddress: Address) => Promise<bigint>;
+  /** 获取用户 WETH 余额 */
+  fetchUserWETHBalance: (publicClient: PublicClient, userAddress: Address) => Promise<bigint>;
+  /** 获取授权信息 */
+  fetchAllowances: (publicClient: PublicClient, userAddress: Address) => Promise<{ usdtAllowance: bigint; wethAllowance: bigint; nftAllowance: bigint }>;
+  /** 获取位置详情 */
+  fetchPositionDetails: (publicClient: PublicClient, tokenId: bigint) => Promise<UniswapPositionInfo>;
+  /** 获取手续费率 */
+  fetchFeeRate: (publicClient: PublicClient) => Promise<number>;
+
+  // ==================== 写入方法 ====================
+  /** 授权 USDT 给 UniswapV3Adapter */
+  approveUSDT: (
+    publicClient: PublicClient,
+    walletClient: WalletClient,
+    chain: Chain,
+    amount: bigint,
+    account: Address,
+    userAddress: Address,
+    gasConfig?: {
+      gas?: bigint;
+      gasPrice?: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    }
+  ) => Promise<TransactionReceipt>;
+
+  /** 授权 WETH 给 UniswapV3Adapter */
+  approveWETH: (
+    publicClient: PublicClient,
+    walletClient: WalletClient,
+    chain: Chain,
+    amount: bigint,
+    account: Address,
+    userAddress: Address,
+    gasConfig?: {
+      gas?: bigint;
+      gasPrice?: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    }
+  ) => Promise<TransactionReceipt>;
+
+  /** 授权 NFT 给 UniswapV3Adapter */
+  approveNFT: (
+    publicClient: PublicClient,
+    walletClient: WalletClient,
+    chain: Chain,
+    tokenId: bigint,
+    account: Address,
+    gasConfig?: {
+      gas?: bigint;
+      gasPrice?: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    }
+  ) => Promise<TransactionReceipt>;
+
+  /** 添加流动性（基于测试用例逻辑） */
+  addLiquidity: (
+    publicClient: PublicClient,
+    walletClient: WalletClient,
+    chain: Chain,
+    params: {
+      token0: Address;
+      token1: Address;
+      amount0: string;
+      amount1: string;
+      amount0Min: string;
+      amount1Min: string;
+      tickLower?: number;
+      tickUpper?: number;
+      recipient: Address;
+      deadline?: number;
+    },
+    account: Address,
+    gasConfig?: {
+      gas?: bigint;
+      gasPrice?: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    }
+  ) => Promise<UniswapTransactionResult>;
+
+  /** 移除流动性（基于测试用例逻辑） */
+  removeLiquidity: (
+    publicClient: PublicClient,
+    walletClient: WalletClient,
+    chain: Chain,
+    params: {
+      tokenId: bigint;
+      amount0Min?: string;
+      amount1Min?: string;
+      recipient: Address;
+      deadline?: number;
+    },
+    account: Address,
+    gasConfig?: {
+      gas?: bigint;
+      gasPrice?: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    }
+  ) => Promise<UniswapTransactionResult>;
+
+  /** 收取手续费（基于测试用例逻辑） */
+  collectFees: (
+    publicClient: PublicClient,
+    walletClient: WalletClient,
+    chain: Chain,
+    params: {
+      tokenId: bigint;
+      recipient: Address;
+      deadline?: number;
+    },
+    account: Address,
+    gasConfig?: {
+      gas?: bigint;
+      gasPrice?: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    }
+  ) => Promise<UniswapTransactionResult>;
+
+  // ==================== 辅助方法 ====================
+  /** 设置加载状态 */
+  setLoading: (loading: boolean) => void;
+  /** 设置操作状态 */
+  setOperating: (operating: boolean) => void;
+  /** 设置错误信息 */
+  setError: (error: string | null) => void;
+  /** 清除错误信息 */
+  clearErrors: () => void;
+  /** 选择位置 */
+  selectPosition: (position: UniswapPositionInfo | null) => void;
+  /** 重置状态 */
+  reset: () => void;
+}
+
+// ==================== 类型化 ABI ====================
+const typedDefiAggregatorABI = DefiAggregatorABI as Abi;
+const typedUniswapV3AdapterABI = UniswapV3AdapterABI as Abi;
+const typedMockERC20ABI = MockERC20ABI as Abi;
+
+// ==================== Store 创建 ====================
+export const useUniswapStore = create<UniswapState>((set, get) => ({
+  // ==================== 初始状态 ====================
+  defiAggregatorAddress: null,
+  uniswapV3AdapterAddress: null,
+  poolInfo: null,
+  userBalance: null,
+  userPositions: [],
+  selectedPosition: null,
+  isLoading: false,
+  isOperating: false,
+  error: null,
+
+  // ==================== 初始化方法 ====================
+  /**
+   * 初始化合约地址
+   */
+  initContracts: (defiAggregatorAddress: Address, uniswapV3AdapterAddress: Address) => {
+    try {
+      set({
+        defiAggregatorAddress,
+        uniswapV3AdapterAddress,
+        error: null
+      });
+      console.log('✅ DefiAggregator 合约地址已初始化:', defiAggregatorAddress);
+      console.log('✅ UniswapV3Adapter 合约地址已初始化:', uniswapV3AdapterAddress);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : '初始化合约失败';
+      set({ error: errorMsg });
+      console.error('❌ 初始化合约失败:', errorMsg);
+    }
+  },
+
+  /**
+   * 从部署文件初始化合约地址
+   */
+  initFromDeployment: () => {
+    try {
+      // 直接从导入的部署文件中获取地址
+      const defiAggregatorAddress = UniswapDeploymentInfo.contracts.DefiAggregator as Address;
+      const uniswapV3AdapterAddress = UniswapDeploymentInfo.contracts.UniswapV3Adapter as Address;
+      const usdtTokenAddress = UniswapDeploymentInfo.contracts.MockERC20_USDT as Address;
+      const wethTokenAddress = UniswapDeploymentInfo.contracts.MockWethToken as Address;
+      const positionManagerAddress = UniswapDeploymentInfo.contracts.MockPositionManager as Address;
+
+      set({
+        defiAggregatorAddress,
+        uniswapV3AdapterAddress,
+        error: null
+      });
+
+      console.log('✅ 从部署文件初始化合约地址:');
+      console.log('   DefiAggregator:', defiAggregatorAddress);
+      console.log('   UniswapV3Adapter:', uniswapV3AdapterAddress);
+      console.log('   USDT Token:', usdtTokenAddress);
+      console.log('   WETH Token:', wethTokenAddress);
+      console.log('   PositionManager:', positionManagerAddress);
+      console.log('   网络:', UniswapDeploymentInfo.network);
+      console.log('   手续费率:', UniswapDeploymentInfo.feeRateBps, 'BPS');
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : '从部署文件初始化失败';
+      set({ error: errorMsg });
+      console.error('❌ 从部署文件初始化失败:', errorMsg);
+    }
+  },
+
+  // ==================== 读取方法 ====================
+  /**
+   * 获取 Uniswap V3 池信息
+   */
+  fetchPoolInfo: async (publicClient: PublicClient) => {
+    const { defiAggregatorAddress, uniswapV3AdapterAddress } = get();
+    if (!defiAggregatorAddress || !uniswapV3AdapterAddress) {
+      set({ error: '合约地址未初始化' });
+      return;
+    }
+
+    try {
+      set({ isLoading: true, error: null });
+      console.log('🔍 获取 Uniswap V3 池信息...');
+
+      const [feeRateBps, usdtToken, wethToken, positionManager, adapterName, adapterVersion, contractVersion] = await Promise.all([
+        publicClient.readContract({
+          address: defiAggregatorAddress,
+          abi: typedDefiAggregatorABI,
+          functionName: 'feeRateBps',
+        }),
+        publicClient.readContract({
+          address: uniswapV3AdapterAddress,
+          abi: typedUniswapV3AdapterABI,
+          functionName: 'usdtToken',
+        }),
+        publicClient.readContract({
+          address: uniswapV3AdapterAddress,
+          abi: typedUniswapV3AdapterABI,
+          functionName: 'wethToken',
+        }),
+        publicClient.readContract({
+          address: uniswapV3AdapterAddress,
+          abi: typedUniswapV3AdapterABI,
+          functionName: 'positionManager',
+        }),
+        publicClient.readContract({
+          address: uniswapV3AdapterAddress,
+          abi: typedUniswapV3AdapterABI,
+          functionName: 'getAdapterName',
+        }),
+        publicClient.readContract({
+          address: uniswapV3AdapterAddress,
+          abi: typedUniswapV3AdapterABI,
+          functionName: 'getAdapterVersion',
+        }),
+        publicClient.readContract({
+          address: uniswapV3AdapterAddress,
+          abi: typedUniswapV3AdapterABI,
+          functionName: 'getContractVersion',
+        }),
+      ]);
+
+      const poolInfo: UniswapPoolInfo = {
+        defiAggregator: defiAggregatorAddress,
+        uniswapV3Adapter: uniswapV3AdapterAddress,
+        usdtToken: usdtToken as Address,
+        wethToken: wethToken as Address,
+        positionManager: positionManager as Address,
+        adapterName: adapterName as string,
+        adapterVersion: adapterVersion as string,
+        contractVersion: contractVersion as string,
+        supportedOperations: [UniswapOperationType.ADD_LIQUIDITY, UniswapOperationType.REMOVE_LIQUIDITY, UniswapOperationType.COLLECT_FEES],
+        feeRateBps: Number(feeRateBps),
+      };
+
+      console.log('✅ Uniswap V3 池信息获取成功:', poolInfo);
+      set({ poolInfo, isLoading: false });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : '获取 Uniswap V3 池信息失败';
+      set({ error: errorMsg, isLoading: false });
+      console.error('❌ 获取 Uniswap V3 池信息失败:', errorMsg);
+    }
+  },
+
+  /**
+   * 获取用户余额信息
+   */
+  fetchUserBalance: async (publicClient: PublicClient, userAddress: Address) => {
+    try {
+      set({ isLoading: true, error: null });
+      console.log('🔍 获取用户余额信息...');
+
+      const [usdtBalance, wethBalance, { usdtAllowance, wethAllowance, nftAllowance }] = await Promise.all([
+        get().fetchUserUSDTBalance(publicClient, userAddress),
+        get().fetchUserWETHBalance(publicClient, userAddress),
+        get().fetchAllowances(publicClient, userAddress),
+      ]);
+
+      const balanceInfo: UserBalanceInfo = {
+        usdtBalance,
+        wethBalance,
+        usdtAllowance,
+        wethAllowance,
+        nftAllowance,
+      };
+
+      console.log('✅ 用户余额信息获取成功:', balanceInfo);
+      set({ userBalance: balanceInfo, isLoading: false });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : '获取用户余额信息失败';
+      set({ error: errorMsg, isLoading: false });
+      console.error('❌ 获取用户余额信息失败:', errorMsg);
+    }
+  },
+
+  /**
+   * 获取用户位置信息
+   */
+  fetchUserPositions: async (publicClient: PublicClient, userAddress: Address) => {
+    const { uniswapV3AdapterAddress } = get();
+    if (!uniswapV3AdapterAddress) {
+      set({ error: '合约地址未初始化' });
+      return;
+    }
+
+    try {
+      set({ isLoading: true, error: null });
+      console.log('🔍 获取用户位置信息...');
+
+      const positionManagerAddress = UniswapDeploymentInfo.contracts.MockPositionManager as Address;
+
+      // 获取用户的 NFT 余额
+      const balance = await publicClient.readContract({
+        address: positionManagerAddress,
+        abi: typedMockERC20ABI, // MockPositionManager 使用 ERC721 接口
+        functionName: 'balanceOf',
+        args: [userAddress],
+      }) as bigint;
+
+      const positions: UniswapPositionInfo[] = [];
+
+      // 获取每个位置的详细信息
+      for (let i = 0; i < Number(balance); i++) {
+        const tokenId = await publicClient.readContract({
+          address: positionManagerAddress,
+          abi: typedMockERC20ABI,
+          functionName: 'tokenOfOwnerByIndex',
+          args: [userAddress, BigInt(i)],
+        }) as bigint;
+
+        const position = await get().fetchPositionDetails(publicClient, tokenId);
+        positions.push(position);
+      }
+
+      console.log('✅ 用户位置信息获取成功:', positions);
+      set({ userPositions: positions, isLoading: false });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : '获取用户位置信息失败';
+      set({ error: errorMsg, isLoading: false });
+      console.error('❌ 获取用户位置信息失败:', errorMsg);
+    }
+  },
+
+  /**
+   * 获取用户 USDT 余额
+   */
+  fetchUserUSDTBalance: async (publicClient: PublicClient, userAddress: Address): Promise<bigint> => {
+    try {
+      const balance = await publicClient.readContract({
+        address: UniswapDeploymentInfo.contracts.MockERC20_USDT as Address,
+        abi: typedMockERC20ABI,
+        functionName: 'balanceOf',
+        args: [userAddress],
+      });
+
+      console.log(`💰 用户 USDT 余额: ${formatUnits(balance as bigint, 6)}`);
+      return balance as bigint;
+    } catch (error) {
+      console.warn('获取用户 USDT 余额失败:', error);
+      return BigInt(0);
+    }
+  },
+
+  /**
+   * 获取用户 WETH 余额
+   */
+  fetchUserWETHBalance: async (publicClient: PublicClient, userAddress: Address): Promise<bigint> => {
+    try {
+      const balance = await publicClient.readContract({
+        address: UniswapDeploymentInfo.contracts.MockWethToken as Address,
+        abi: typedMockERC20ABI,
+        functionName: 'balanceOf',
+        args: [userAddress],
+      });
+
+      console.log(`💰 用户 WETH 余额: ${formatUnits(balance as bigint, 18)}`);
+      return balance as bigint;
+    } catch (error) {
+      console.warn('获取用户 WETH 余额失败:', error);
+      return BigInt(0);
+    }
+  },
+
+  /**
+   * 获取授权信息
+   */
+  fetchAllowances: async (publicClient: PublicClient, userAddress: Address): Promise<{ usdtAllowance: bigint; wethAllowance: bigint; nftAllowance: bigint }> => {
+    const { uniswapV3AdapterAddress } = get();
+    if (!uniswapV3AdapterAddress) {
+      throw new Error('UniswapV3Adapter 合约地址未初始化');
+    }
+
+    try {
+      const [usdtAllowance, wethAllowance] = await Promise.all([
+        publicClient.readContract({
+          address: UniswapDeploymentInfo.contracts.MockERC20_USDT as Address,
+          abi: typedMockERC20ABI,
+          functionName: 'allowance',
+          args: [userAddress, uniswapV3AdapterAddress],
+        }),
+        publicClient.readContract({
+          address: UniswapDeploymentInfo.contracts.MockWethToken as Address,
+          abi: typedMockERC20ABI,
+          functionName: 'allowance',
+          args: [userAddress, uniswapV3AdapterAddress],
+        }),
+      ]);
+
+      // NFT 授权通常不需要全部授权，检查是否有设置 approved
+      let nftAllowance = BigInt(0);
+      try {
+        const approvedAddress = await publicClient.readContract({
+          address: UniswapDeploymentInfo.contracts.MockPositionManager as Address,
+          abi: typedMockERC20ABI, // MockPositionManager 使用 ERC721 接口
+          functionName: 'getApproved',
+          args: [BigInt(0)], // 检查第一个 NFT
+        });
+        nftAllowance = approvedAddress === uniswapV3AdapterAddress ? BigInt(1) : BigInt(0);
+      } catch (e) {
+        // 可能没有 NFT，忽略错误
+      }
+
+      console.log(`🔑 USDT 授权额度: ${formatUnits(usdtAllowance as bigint, 6)}`);
+      console.log(`🔑 WETH 授权额度: ${formatUnits(wethAllowance as bigint, 18)}`);
+      console.log(`🔑 NFT 授权状态: ${nftAllowance > 0 ? '已授权' : '未授权'}`);
+
+      return {
+        usdtAllowance: usdtAllowance as bigint,
+        wethAllowance: wethAllowance as bigint,
+        nftAllowance,
+      };
+    } catch (error) {
+      console.warn('获取授权信息失败:', error);
+      return { usdtAllowance: BigInt(0), wethAllowance: BigInt(0), nftAllowance: BigInt(0) };
+    }
+  },
+
+  /**
+   * 获取位置详情
+   */
+  fetchPositionDetails: async (publicClient: PublicClient, tokenId: bigint): Promise<UniswapPositionInfo> => {
+    try {
+      const positionManagerAddress = UniswapDeploymentInfo.contracts.MockPositionManager as Address;
+
+      // 使用 readContract 获取位置信息
+      const positionData = await publicClient.readContract({
+        address: positionManagerAddress,
+        abi: typedUniswapV3AdapterABI, // MockPositionManager 可能使用 UniswapV3Adapter 的 ABI
+        functionName: 'positions',
+        args: [tokenId],
+      });
+
+      // 转换为位置信息结构
+      const position: UniswapPositionInfo = {
+        tokenId,
+        nonce: positionData[0] as bigint,
+        operator: positionData[1] as Address,
+        token0: positionData[2] as Address,
+        token1: positionData[3] as Address,
+        fee: Number(positionData[4]),
+        tickLower: Number(positionData[5]),
+        tickUpper: Number(positionData[6]),
+        liquidity: positionData[7] as bigint,
+        feeGrowthInside0LastX128: positionData[8] as bigint,
+        feeGrowthInside1LastX128: positionData[9] as bigint,
+        tokensOwed0: positionData[10] as bigint,
+        tokensOwed1: positionData[11] as bigint,
+      };
+
+      return position;
+    } catch (error) {
+      console.warn('获取位置详情失败:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * 获取手续费率
+   */
+  fetchFeeRate: async (publicClient: PublicClient): Promise<number> => {
+    const { defiAggregatorAddress } = get();
+    if (!defiAggregatorAddress) {
+      throw new Error('DefiAggregator 合约地址未初始化');
+    }
+
+    try {
+      const feeRateBps = await publicClient.readContract({
+        address: defiAggregatorAddress,
+        abi: typedDefiAggregatorABI,
+        functionName: 'feeRateBps',
+      });
+
+      const feeRate = Number(feeRateBps);
+      console.log(`💰 手续费率: ${feeRate} BPS (${feeRate / 100}%)`);
+      return feeRate;
+    } catch (error) {
+      console.warn('获取手续费率失败:', error);
+      return UniswapDeploymentInfo.feeRateBps; // 从部署文件读取默认手续费率
+    }
+  },
+
+  // ==================== 写入方法 ====================
+  /**
+   * 授权 USDT 给 UniswapV3Adapter
+   */
+  approveUSDT: async (
+    publicClient: PublicClient,
+    walletClient: WalletClient,
+    chain: Chain,
+    amount: bigint,
+    account: Address,
+    userAddress: Address,
+    gasConfig?: {
+      gas?: bigint;
+      gasPrice?: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    }
+  ): Promise<TransactionReceipt> => {
+    const { uniswapV3AdapterAddress } = get();
+    if (!uniswapV3AdapterAddress) {
+      throw new Error('UniswapV3Adapter 合约地址未初始化');
+    }
+
+    try {
+      console.log('🔑 开始授权 USDT 给 UniswapV3Adapter...');
+      console.log('参数:', { amount: amount.toString(), account });
+
+      const baseParams = {
+        address: UniswapDeploymentInfo.contracts.MockERC20_USDT as Address,
+        abi: typedMockERC20ABI,
+        functionName: 'approve' as const,
+        args: [uniswapV3AdapterAddress, amount] as [`0x${string}`, bigint],
+        chain,
+        account,
+      };
+
+      const writeParams = { ...baseParams };
+      if (gasConfig?.maxFeePerGas && gasConfig?.maxPriorityFeePerGas) {
+        Object.assign(writeParams, {
+          ...(gasConfig?.gas && { gas: gasConfig.gas }),
+          maxFeePerGas: gasConfig.maxFeePerGas,
+          maxPriorityFeePerGas: gasConfig.maxPriorityFeePerGas,
+        });
+      } else {
+        Object.assign(writeParams, {
+          ...(gasConfig?.gas && { gas: gasConfig.gas }),
+          ...(gasConfig?.gasPrice && { gasPrice: gasConfig.gasPrice }),
+        });
+      }
+
+      const hash = await walletClient.writeContract(writeParams as Parameters<typeof walletClient.writeContract>[0]);
+
+      console.log('📝 授权交易哈希:', hash);
+
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      console.log('✅ USDT 授权完成');
+
+      // 授权成功后更新授权状态
+      await get().fetchAllowances(publicClient, userAddress);
+
+      return receipt;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'USDT 授权失败';
+      console.error('❌ USDT 授权失败:', errorMsg);
+      throw error;
+    }
+  },
+
+  /**
+   * 授权 WETH 给 UniswapV3Adapter
+   */
+  approveWETH: async (
+    publicClient: PublicClient,
+    walletClient: WalletClient,
+    chain: Chain,
+    amount: bigint,
+    account: Address,
+    userAddress: Address,
+    gasConfig?: {
+      gas?: bigint;
+      gasPrice?: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    }
+  ): Promise<TransactionReceipt> => {
+    const { uniswapV3AdapterAddress } = get();
+    if (!uniswapV3AdapterAddress) {
+      throw new Error('UniswapV3Adapter 合约地址未初始化');
+    }
+
+    try {
+      console.log('🔑 开始授权 WETH 给 UniswapV3Adapter...');
+      console.log('参数:', { amount: amount.toString(), account });
+
+      const txParams = {
+        address: UniswapDeploymentInfo.contracts.MockWethToken as Address,
+        abi: typedMockERC20ABI,
+        functionName: 'approve',
+        args: [uniswapV3AdapterAddress, amount] as [`0x${string}`, bigint],
+        chain,
+        account,
+      };
+
+      if (gasConfig?.gas) {
+        Object.assign(txParams, { gas: gasConfig.gas });
+      }
+      if (gasConfig?.maxFeePerGas && gasConfig?.maxPriorityFeePerGas) {
+        Object.assign(txParams, {
+          maxFeePerGas: gasConfig.maxFeePerGas,
+          maxPriorityFeePerGas: gasConfig.maxPriorityFeePerGas,
+        });
+      } else if (gasConfig?.gasPrice) {
+        Object.assign(txParams, { gasPrice: gasConfig.gasPrice });
+      }
+
+      const hash = await walletClient.writeContract(txParams as any);
+
+      console.log('📝 授权交易哈希:', hash);
+
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      console.log('✅ WETH 授权完成');
+
+      return receipt;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'WETH 授权失败';
+      console.error('❌ WETH 授权失败:', errorMsg);
+      throw error;
+    }
+  },
+
+  /**
+   * 授权 NFT 给 UniswapV3Adapter
+   */
+  approveNFT: async (
+    publicClient: PublicClient,
+    walletClient: WalletClient,
+    chain: Chain,
+    tokenId: bigint,
+    account: Address,
+    gasConfig?: {
+      gas?: bigint;
+      gasPrice?: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    }
+  ): Promise<TransactionReceipt> => {
+    const { uniswapV3AdapterAddress } = get();
+    if (!uniswapV3AdapterAddress) {
+      throw new Error('UniswapV3Adapter 合约地址未初始化');
+    }
+
+    try {
+      console.log('🔑 开始授权 NFT 给 UniswapV3Adapter...');
+      console.log('参数:', { tokenId: tokenId.toString(), account });
+
+      const txParams = {
+        address: UniswapDeploymentInfo.contracts.MockPositionManager as Address,
+        abi: typedMockERC20ABI, // MockPositionManager 使用 ERC721 接口
+        functionName: 'approve',
+        args: [uniswapV3AdapterAddress, tokenId] as [`0x${string}`, bigint],
+        chain,
+        account,
+      };
+
+      if (gasConfig?.gas) {
+        Object.assign(txParams, { gas: gasConfig.gas });
+      }
+      if (gasConfig?.maxFeePerGas && gasConfig?.maxPriorityFeePerGas) {
+        Object.assign(txParams, {
+          maxFeePerGas: gasConfig.maxFeePerGas,
+          maxPriorityFeePerGas: gasConfig.maxPriorityFeePerGas,
+        });
+      } else if (gasConfig?.gasPrice) {
+        Object.assign(txParams, { gasPrice: gasConfig.gasPrice });
+      }
+
+      const hash = await walletClient.writeContract(txParams as any);
+
+      console.log('📝 授权交易哈希:', hash);
+
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      console.log('✅ NFT 授权完成');
+
+      return receipt;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'NFT 授权失败';
+      console.error('❌ NFT 授权失败:', errorMsg);
+      throw error;
+    }
+  },
+
+  /**
+   * 添加流动性（基于测试用例逻辑）
+   */
+  addLiquidity: async (
+    publicClient: PublicClient,
+    walletClient: WalletClient,
+    chain: Chain,
+    params: {
+      token0: Address;
+      token1: Address;
+      amount0: string;
+      amount1: string;
+      amount0Min: string;
+      amount1Min: string;
+      tickLower?: number;
+      tickUpper?: number;
+      recipient: Address;
+      deadline?: number;
+    },
+    account: Address,
+    gasConfig?: {
+      gas?: bigint;
+      gasPrice?: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    }
+  ): Promise<UniswapTransactionResult> => {
+    const { defiAggregatorAddress } = get();
+    if (!defiAggregatorAddress) {
+      throw new Error('合约地址未初始化');
+    }
+
+    try {
+      set({ isOperating: true, error: null });
+      console.log('🚀 开始添加流动性...');
+      console.log('参数:', { ...params, account });
+
+      // 构造操作参数（基于测试用例）
+      const operationParams: UniswapOperationParams = {
+        tokens: [params.token0, params.token1],
+        amounts: [
+          parseUnits(params.amount0, params.token0 === UniswapDeploymentInfo.contracts.MockERC20_USDT ? 6 : 18),
+          parseUnits(params.amount1, params.token1 === UniswapDeploymentInfo.contracts.MockWethToken ? 18 : 6),
+          parseUnits(params.amount0Min, params.token0 === UniswapDeploymentInfo.contracts.MockERC20_USDT ? 6 : 18),
+          parseUnits(params.amount1Min, params.token1 === UniswapDeploymentInfo.contracts.MockWethToken ? 18 : 6),
+        ],
+        recipient: params.recipient,
+        deadline: params.deadline || Math.floor(Date.now() / 1000) + 3600,
+        tokenId: BigInt(0), // 添加流动性时不需要 tokenId
+        extraData: params.tickLower && params.tickUpper
+          ? `0x${Buffer.from(new DataView(new ArrayBuffer(8)).setInt32(0, params.tickLower, true) + new DataView(new ArrayBuffer(8)).setInt32(4, params.tickUpper, true)).toString('hex')}`
+          : '0x' as Hex,
+      };
+
+      console.log('📋 操作参数:', operationParams);
+
+      const txParams = {
+        address: defiAggregatorAddress,
+        abi: typedDefiAggregatorABI,
+        functionName: 'executeOperation',
+        args: [
+          'uniswapv3', // 适配器名称
+          UniswapOperationType.ADD_LIQUIDITY,
+          operationParams
+        ] as [string, number, UniswapOperationParams],
+        chain,
+        account,
+        ...(gasConfig?.gas && { gas: gasConfig.gas }),
+        ...(gasConfig?.maxFeePerGas && gasConfig?.maxPriorityFeePerGas && {
+          maxFeePerGas: gasConfig.maxFeePerGas,
+          maxPriorityFeePerGas: gasConfig.maxPriorityFeePerGas,
+        }),
+        ...(gasConfig?.gasPrice && { gasPrice: gasConfig.gasPrice }),
+      } as Parameters<typeof walletClient.writeContract>[0];
+
+      const hash = await walletClient.writeContract(txParams);
+
+      console.log('📝 添加流动性交易哈希:', hash);
+
+      console.log('⏳ 等待交易确认...');
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      console.log('✅ 交易已确认');
+
+      // 解析操作结果（从事件日志中）
+      let operationResult: UniswapOperationResult = {
+        success: false,
+        outputAmounts: [],
+        returnData: '0x' as Hex,
+        message: '无法解析操作结果',
+      };
+
+      if (receipt.logs) {
+        for (const log of receipt.logs as Array<{ topics: readonly Hex[] } & typeof receipt.logs[0]>) {
+          try {
+            const event = viemDecodeEventLog({
+              abi: typedUniswapV3AdapterABI,
+              data: log.data,
+              topics: log.topics as [signature: Hex, ...args: Hex[]],
+            });
+
+            if (event && event.eventName === 'OperationExecuted') {
+              const operationEvent = event as unknown as DecodedOperationExecutedEvent;
+              operationResult = {
+                success: true,
+                outputAmounts: operationEvent.args.amounts,
+                returnData: operationEvent.args.returnData,
+                message: '添加流动性成功',
+              };
+              console.log('✅ 解析到 OperationExecuted 事件:', operationEvent);
+              break;
+            }
+          } catch (e) {
+            console.warn('解码事件日志失败:', e);
+          }
+        }
+      }
+
+      set({ isOperating: false });
+
+      const result: UniswapTransactionResult = {
+        hash,
+        receipt,
+        result: operationResult,
+      };
+
+      console.log('✅ 添加流动性操作完成');
+      return result;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : '添加流动性失败';
+      set({ error: errorMsg, isOperating: false });
+      console.error('❌ 添加流动性失败:', errorMsg);
+      throw error;
+    }
+  },
+
+  /**
+   * 移除流动性（基于测试用例逻辑）
+   */
+  removeLiquidity: async (
+    publicClient: PublicClient,
+    walletClient: WalletClient,
+    chain: Chain,
+    params: {
+      tokenId: bigint;
+      amount0Min?: string;
+      amount1Min?: string;
+      recipient: Address;
+      deadline?: number;
+    },
+    account: Address,
+    gasConfig?: {
+      gas?: bigint;
+      gasPrice?: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    }
+  ): Promise<UniswapTransactionResult> => {
+    const { defiAggregatorAddress } = get();
+    if (!defiAggregatorAddress) {
+      throw new Error('合约地址未初始化');
+    }
+
+    try {
+      set({ isOperating: true, error: null });
+      console.log('🚀 开始移除流动性...');
+      console.log('参数:', { ...params, account });
+
+      // 构造操作参数（基于测试用例）
+      const operationParams: UniswapOperationParams = {
+        tokens: [UniswapDeploymentInfo.contracts.MockERC20_USDT as Address], // 占位符地址
+        amounts: [
+          params.amount0Min ? parseUnits(params.amount0Min, 6) : BigInt(0),
+          params.amount1Min ? parseUnits(params.amount1Min, 18) : BigInt(0),
+        ],
+        recipient: params.recipient,
+        deadline: params.deadline || Math.floor(Date.now() / 1000) + 3600,
+        tokenId: params.tokenId,
+        extraData: '0x' as Hex,
+      };
+
+      console.log('📋 移除流动性操作参数:', operationParams);
+
+      const hash = await walletClient.writeContract({
+        address: defiAggregatorAddress,
+        abi: typedDefiAggregatorABI,
+        functionName: 'executeOperation',
+        args: [
+          'uniswapv3', // 适配器名称
+          UniswapOperationType.REMOVE_LIQUIDITY,
+          operationParams
+        ],
+        chain,
+        account,
+        ...(gasConfig?.gas && { gas: gasConfig.gas }),
+        ...(gasConfig?.maxFeePerGas && gasConfig?.maxPriorityFeePerGas && {
+          maxFeePerGas: gasConfig.maxFeePerGas,
+          maxPriorityFeePerGas: gasConfig.maxPriorityFeePerGas,
+        }),
+        ...(gasConfig?.gasPrice && { gasPrice: gasConfig.gasPrice }),
+      } as Parameters<typeof walletClient.writeContract>[0]);
+
+      console.log('📝 移除流动性交易哈希:', hash);
+
+      console.log('⏳ 等待交易确认...');
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      console.log('✅ 交易已确认');
+
+      // 解析操作结果（从事件日志中）
+      let operationResult: UniswapOperationResult = {
+        success: false,
+        outputAmounts: [],
+        returnData: '0x' as Hex,
+        message: '无法解析操作结果',
+      };
+
+      if (receipt.logs) {
+        for (const log of receipt.logs as Array<{ topics: readonly Hex[] } & typeof receipt.logs[0]>) {
+          try {
+            const event = viemDecodeEventLog({
+              abi: typedUniswapV3AdapterABI,
+              data: log.data,
+              topics: log.topics as [signature: Hex, ...args: Hex[]],
+            });
+
+            if (event && event.eventName === 'OperationExecuted') {
+              const operationEvent = event as unknown as DecodedOperationExecutedEvent;
+              operationResult = {
+                success: true,
+                outputAmounts: operationEvent.args.amounts,
+                returnData: operationEvent.args.returnData,
+                message: '移除流动性成功',
+              };
+              console.log('✅ 解析到 OperationExecuted 事件:', operationEvent);
+              break;
+            }
+          } catch (e) {
+            console.warn('解码事件日志失败:', e);
+          }
+        }
+      }
+
+      set({ isOperating: false });
+
+      const result: UniswapTransactionResult = {
+        hash,
+        receipt,
+        result: operationResult,
+      };
+
+      console.log('✅ 移除流动性操作完成');
+      return result;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : '移除流动性失败';
+      set({ error: errorMsg, isOperating: false });
+      console.error('❌ 移除流动性失败:', errorMsg);
+      throw error;
+    }
+  },
+
+  /**
+   * 收取手续费（基于测试用例逻辑）
+   */
+  collectFees: async (
+    publicClient: PublicClient,
+    walletClient: WalletClient,
+    chain: Chain,
+    params: {
+      tokenId: bigint;
+      recipient: Address;
+      deadline?: number;
+    },
+    account: Address,
+    gasConfig?: {
+      gas?: bigint;
+      gasPrice?: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    }
+  ): Promise<UniswapTransactionResult> => {
+    const { defiAggregatorAddress } = get();
+    if (!defiAggregatorAddress) {
+      throw new Error('合约地址未初始化');
+    }
+
+    try {
+      set({ isOperating: true, error: null });
+      console.log('💰 开始收取手续费...');
+      console.log('参数:', { ...params, account });
+
+      // 构造操作参数（基于测试用例）
+      const operationParams: UniswapOperationParams = {
+        tokens: [UniswapDeploymentInfo.contracts.MockERC20_USDT as Address], // 占位符地址
+        amounts: [], // 空数组表示收取指定 tokenId 的手续费
+        recipient: params.recipient,
+        deadline: params.deadline || Math.floor(Date.now() / 1000) + 3600,
+        tokenId: params.tokenId,
+        extraData: '0x' as Hex,
+      };
+
+      console.log('📋 收取手续费操作参数:', operationParams);
+
+      const hash = await walletClient.writeContract({
+        address: defiAggregatorAddress,
+        abi: typedDefiAggregatorABI,
+        functionName: 'executeOperation',
+        args: [
+          'uniswapv3', // 适配器名称
+          UniswapOperationType.COLLECT_FEES,
+          operationParams
+        ],
+        chain,
+        account,
+        ...(gasConfig?.gas && { gas: gasConfig.gas }),
+        ...(gasConfig?.maxFeePerGas && gasConfig?.maxPriorityFeePerGas && {
+          maxFeePerGas: gasConfig.maxFeePerGas,
+          maxPriorityFeePerGas: gasConfig.maxPriorityFeePerGas,
+        }),
+        ...(gasConfig?.gasPrice && { gasPrice: gasConfig.gasPrice }),
+      } as Parameters<typeof walletClient.writeContract>[0];
+
+      console.log('📝 收取手续费交易哈希:', hash);
+
+      console.log('⏳ 等待交易确认...');
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      console.log('✅ 交易已确认');
+
+      // 解析操作结果（从事件日志中）
+      let operationResult: UniswapOperationResult = {
+        success: false,
+        outputAmounts: [],
+        returnData: '0x' as Hex,
+        message: '无法解析操作结果',
+      };
+
+      if (receipt.logs) {
+        for (const log of receipt.logs as Array<{ topics: readonly Hex[] } & typeof receipt.logs[0]>) {
+          try {
+            const event = viemDecodeEventLog({
+              abi: typedUniswapV3AdapterABI,
+              data: log.data,
+              topics: log.topics as [signature: Hex, ...args: Hex[]],
+            });
+
+            if (event && event.eventName === 'OperationExecuted') {
+              const operationEvent = event as unknown as DecodedOperationExecutedEvent;
+              operationResult = {
+                success: true,
+                outputAmounts: operationEvent.args.amounts,
+                returnData: operationEvent.args.returnData,
+                message: '收取手续费成功',
+              };
+              console.log('✅ 解析到 OperationExecuted 事件:', operationEvent);
+              break;
+            }
+          } catch (e) {
+            console.warn('解码事件日志失败:', e);
+          }
+        }
+      }
+
+      set({ isOperating: false });
+
+      const result: UniswapTransactionResult = {
+        hash,
+        receipt,
+        result: operationResult,
+      };
+
+      console.log('✅ 收取手续费操作完成');
+      return result;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : '收取手续费失败';
+      set({ error: errorMsg, isOperating: false });
+      console.error('❌ 收取手续费失败:', errorMsg);
+      throw error;
+    }
+  },
+
+  // ==================== 辅助方法 ====================
+  /**
+   * 设置加载状态
+   */
+  setLoading: (loading: boolean) => {
+    set({ isLoading: loading });
+  },
+
+  /**
+   * 设置操作状态
+   */
+  setOperating: (operating: boolean) => {
+    set({ isOperating: operating });
+  },
+
+  /**
+   * 设置错误信息
+   */
+  setError: (error: string | null) => {
+    set({ error: error });
+  },
+
+  /**
+   * 清除错误信息
+   */
+  clearErrors: () => {
+    set({ error: null });
+  },
+
+  /**
+   * 选择位置
+   */
+  selectPosition: (position: UniswapPositionInfo | null) => {
+    set({ selectedPosition: position });
+  },
+
+  /**
+   * 重置状态
+   */
+  reset: () => {
+    set({
+      defiAggregatorAddress: null,
+      uniswapV3AdapterAddress: null,
+      poolInfo: null,
+      userBalance: null,
+      userPositions: [],
+      selectedPosition: null,
+      isLoading: false,
+      isOperating: false,
+      error: null,
+    });
+  },
+}));
+
+export default useUniswapStore;

@@ -21,7 +21,7 @@ export const NETWORK_CONFIG = {
     name: "sepolia",
     rpcUrl: "https://sepolia.infura.io/v3/",
     contracts: {
-      oracleAggregator: deploymentConfig.contracts.OracleAggregator.proxy,
+      oracleAggregator: deploymentConfig.contracts.PriceAggregator,
       usdt: deploymentConfig.contracts.USDT,
       stockTokenImplementation: deploymentConfig.contracts.StockTokenImplementation, // StockToken implementation contract
     }

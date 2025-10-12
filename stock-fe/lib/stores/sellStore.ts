@@ -42,7 +42,7 @@ function ensureAddress(address: string | Address): Address {
 }
 
 const usdtAddress = ensureAddress(delpolyConfig.contracts.USDT);
-const OracleAggregatorAddress = ensureAddress(delpolyConfig.contracts.OracleAggregator.proxy);
+const OracleAggregatorAddress = ensureAddress(delpolyConfig.contracts.PriceAggregator);
 
 // ==================== 类型化 ABI ====================
 const typedStockTokenABI = StockToken as Abi;

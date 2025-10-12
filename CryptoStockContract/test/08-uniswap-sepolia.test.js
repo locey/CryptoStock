@@ -53,7 +53,8 @@ describe("08-uniswap-sepolia.test.js - Uniswap V3 Adapter Sepolia Test", functio
         }
         const nftManager = await ethers.getContractAt("MockNonfungiblePositionManager", deployments.contracts.MockPositionManager);
         const defiAggregator = await ethers.getContractAt("DefiAggregator", deployments.contracts.DefiAggregator);
-        const uniswapAdapter = await ethers.getContractAt("UniswapV3Adapter", deployments.contracts.UniswapV3Adapter);
+        const 
+         = await ethers.getContractAt("UniswapV3Adapter", deployments.contracts.UniswapV3Adapter);
         
         console.log("✅ 已连接到 Sepolia 上的合约:");
         console.log("   USDT Token:", deployments.contracts.MockERC20_USDT);
@@ -448,6 +449,7 @@ describe("08-uniswap-sepolia.test.js - Uniswap V3 Adapter Sepolia Test", functio
                 console.log("⚠️  该NFT没有流动性，尝试使用其他NFT...");
                 // 尝试找一个有流动性的NFT
                 const nftBalance = await nftManager.balanceOf(user.address);
+
                 for (let i = nftBalance - 1n; i >= 0n; i--) {
                     const testTokenId = await nftManager.tokenOfOwnerByIndex(user.address, i);
                     const testPosition = await nftManager.positions(testTokenId);

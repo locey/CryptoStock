@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Address, formatUnits, parseUnits, maxUint256, formatEther } from 'viem';
-import { usePublicClient, useWalletClient } from 'ycdirectory-hooks';
-import { useWallet } from 'ycdirectory-ui';
+import { usePublicClient, useWalletClient } from 'yc-sdk-hooks';
+import { useWallet } from 'yc-sdk-ui';
 import { useToast } from '@/hooks/use-toast';
 import USDT_TOKEN_ABI from '@/lib/abi/MockERC20.json';
 import STOCK_TOKEN_ABI from '@/lib/abi/StockToken.json';

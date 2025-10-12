@@ -2,7 +2,7 @@
 import { createPublicClient, createWalletClient, http,
 custom ,Address} from 'viem'; // 修正导入
 import { sepolia, mainnet, goerli } from 'viem/chains';
-import { useWallet } from 'ycdirectory-ui';
+import { useWallet } from 'yc-sdk-ui';
 import { useMemo } from 'react';
 
 // 自定义本地网络配置 (Chain ID: 31337 - Hardhat 默认)

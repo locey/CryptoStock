@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { Address, formatUnits, parseUnits, PublicClient, WalletClient, Chain } from 'viem';
-import { useWallet } from 'ycdirectory-ui';
-import { usePublicClient, useWalletClient } from 'ycdirectory-hooks';
+import { useWallet } from 'yc-sdk-ui';
+import { usePublicClient, useWalletClient } from 'yc-sdk-hooks';
 import { createPublicClient, http } from 'viem';
 import useAaveStore, {
   AaveOperationType,

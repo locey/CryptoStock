@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { Address, parseAbi } from 'viem';
-import { useWallet } from 'ycdirectory-ui';
-import { usePublicClient, useWalletClient } from 'ycdirectory-hooks';
+import { useWallet } from 'yc-sdk-ui';
+import { usePublicClient, useWalletClient } from 'yc-sdk-hooks';
 import useTokenFactoryStore, {
   CreateTokenParams,
   TransactionResult,

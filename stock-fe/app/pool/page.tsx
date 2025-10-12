@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useTokenFactoryWithClients } from "@/lib/hooks/useTokenFactoryWithClients";
-import { useWallet } from "ycdirectory-ui";
+import { useWallet } from "yc-sdk-ui";
 import { formatUnits, parseUnits } from "viem";
 import { Button } from "@/components/ui/button";
 import BuyModal from "@/components/BuyModal";
@@ -76,47 +76,51 @@ export default function TokenPool() {
       return [];
     }
 
-    const convertedTokens = storeAllTokens.map((tokenInfo) => {
-      try {
-        // 安全转换用户余额
-        let userBalance = 0;
-        if (typeof tokenInfo.userBalance === "bigint") {
-          const formattedBalance = formatUnits(
-            tokenInfo.userBalance,
-            tokenInfo.decimals
+    const convertedTokens = storeAllTokens
+      .map((tokenInfo) => {
+        try {
+          // 安全转换用户余额
+          let userBalance = 0;
+          if (typeof tokenInfo.userBalance === "bigint") {
+            const formattedBalance = formatUnits(
+              tokenInfo.userBalance,
+              tokenInfo.decimals
+            );
+            const rawBalance = Number(formattedBalance);
+            userBalance = isFinite(rawBalance) ? rawBalance : 0;
+          }
+
+          const price = Number(
+            formatUnits(tokenInfo.price, tokenInfo.decimals)
           );
-          const rawBalance = Number(formattedBalance);
-          userBalance = isFinite(rawBalance) ? rawBalance : 0;
+          const volume24h = Number(
+            formatUnits(tokenInfo.volume24h, tokenInfo.decimals)
+          );
+          const marketCap = Number(
+            formatUnits(tokenInfo.marketCap, tokenInfo.decimals)
+          );
+          const totalSupply = Number(
+            formatUnits(tokenInfo.totalSupply, tokenInfo.decimals)
+          );
+
+          return {
+            symbol: tokenInfo.symbol,
+            name: tokenInfo.name,
+            address: tokenInfo.address as `0x${string}`,
+            price,
+            change24h: tokenInfo.change24h,
+            volume24h,
+            marketCap,
+            totalSupply,
+            userBalance,
+            userValue: userBalance * price,
+          };
+        } catch (error) {
+          console.error(`代币数据转换失败: ${tokenInfo.symbol}`, error);
+          return null;
         }
-
-        const price = Number(formatUnits(tokenInfo.price, tokenInfo.decimals));
-        const volume24h = Number(
-          formatUnits(tokenInfo.volume24h, tokenInfo.decimals)
-        );
-        const marketCap = Number(
-          formatUnits(tokenInfo.marketCap, tokenInfo.decimals)
-        );
-        const totalSupply = Number(
-          formatUnits(tokenInfo.totalSupply, tokenInfo.decimals)
-        );
-
-        return {
-          symbol: tokenInfo.symbol,
-          name: tokenInfo.name,
-          address: tokenInfo.address as `0x${string}`,
-          price,
-          change24h: tokenInfo.change24h,
-          volume24h,
-          marketCap,
-          totalSupply,
-          userBalance,
-          userValue: userBalance * price,
-        };
-      } catch (error) {
-        console.error(`代币数据转换失败: ${tokenInfo.symbol}`, error);
-        return null;
-      }
-    }).filter((token): token is TokenData => token !== null);
+      })
+      .filter((token): token is TokenData => token !== null);
 
     return convertedTokens;
   }, [storeAllTokens]);
@@ -320,11 +324,13 @@ export default function TokenPool() {
         />
 
         {/* Empty State */}
-        {!isInitialLoad && filteredAndSortedTokens.length === 0 && !isLoading && (
-          <div className="col-span-full p-8 text-center text-gray-400">
-            没有找到匹配的代币
-          </div>
-        )}
+        {!isInitialLoad &&
+          filteredAndSortedTokens.length === 0 &&
+          !isLoading && (
+            <div className="col-span-full p-8 text-center text-gray-400">
+              没有找到匹配的代币
+            </div>
+          )}
       </div>
 
       {/* Buy Modal */}
