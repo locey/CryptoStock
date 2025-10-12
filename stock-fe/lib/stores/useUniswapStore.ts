@@ -915,7 +915,7 @@ export const useUniswapStore = create<UniswapState>()(
         abi: typedMockPositionManagerABI, // MockPositionManager 使用自己的 ABI
         functionName: 'positions',
         args: [tokenId],
-      });
+      }) as readonly unknown[];
 
       // 转换为位置信息结构
       const position: UniswapPositionInfo = {
