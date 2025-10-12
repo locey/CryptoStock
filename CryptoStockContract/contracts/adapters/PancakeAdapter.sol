@@ -199,6 +199,18 @@ contract PancakeAdapter is
         // 用户提供最小输出数量 (滑点保护)
         uint256 minAmountOut = params.amounts[1];
         
+        // 检查用户授权
+        require(
+            IERC20(params.tokens[0]).allowance(params.recipient, address(this)) >= params.amounts[0],
+            "Insufficient allowance"
+        );
+        
+        // 检查用户余额
+        require(
+            IERC20(params.tokens[0]).balanceOf(params.recipient) >= params.amounts[0],
+            "Insufficient balance"
+        );
+        
         // 转入代币并授权
         IERC20(params.tokens[0]).safeTransferFrom(params.recipient, address(this), params.amounts[0]);
         IERC20(params.tokens[0]).forceApprove(pancakeRouter, actualAmountIn);
@@ -261,6 +273,18 @@ contract PancakeAdapter is
         uint256 fee = (maxAmountIn * feeRateBps) / 10000;
         // 实际用于交换的数量
         uint256 actualMaxAmountIn = maxAmountIn - fee;
+        
+        // 检查用户授权
+        require(
+            IERC20(params.tokens[0]).allowance(params.recipient, address(this)) >= maxAmountIn,
+            "Insufficient allowance"
+        );
+        
+        // 检查用户余额
+        require(
+            IERC20(params.tokens[0]).balanceOf(params.recipient) >= maxAmountIn,
+            "Insufficient balance"
+        );
         
         // 转入代币并授权
         IERC20(params.tokens[0]).safeTransferFrom(params.recipient, address(this), maxAmountIn);

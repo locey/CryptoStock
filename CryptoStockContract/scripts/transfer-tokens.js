@@ -17,14 +17,57 @@ const ERC20_ABI = [
  * 读取部署配置文件
  */
 function readDeploymentConfig() {
-    const deploymentPath = path.join(__dirname, "../deployments-uups-sepolia.json");
+    // 优先尝试读取股票系统部署文件
+    const stockDeploymentPath = path.join(__dirname, "../deployments-stock-sepolia.json");
+    const uupsDeploymentPath = path.join(__dirname, "../deployments-uups-sepolia.json");
+    
+    let deploymentPath, deploymentData;
+    
+    if (fs.existsSync(stockDeploymentPath)) {
+        deploymentPath = stockDeploymentPath;
+        deploymentData = JSON.parse(fs.readFileSync(stockDeploymentPath, 'utf8'));
+        console.log(`📋 Loaded stock deployment config for network: ${deploymentData.network} (Chain ID: ${deploymentData.chainId})`);
+    } else if (fs.existsSync(uupsDeploymentPath)) {
+        deploymentPath = uupsDeploymentPath;
+        deploymentData = JSON.parse(fs.readFileSync(uupsDeploymentPath, 'utf8'));
+        console.log(`📋 Loaded UUPS deployment config for network: ${deploymentData.network} (Chain ID: ${deploymentData.chainId})`);
+    } else {
+        throw new Error(`Deployment file not found. Tried:\n  - ${stockDeploymentPath}\n  - ${uupsDeploymentPath}`);
+    }
+    
+    return deploymentData;
+}
+
+/**
+ * 读取 UniswapV3 适配器部署文件
+ */
+function readUniswapDeploymentConfig() {
+    const deploymentPath = path.join(__dirname, "../deployments-uniswapv3-adapter-sepolia.json");
     
     if (!fs.existsSync(deploymentPath)) {
-        throw new Error(`Deployment file not found: ${deploymentPath}`);
+        console.log(`⚠️  UniswapV3 deployment file not found: ${deploymentPath}`);
+        return null;
     }
     
     const deploymentData = JSON.parse(fs.readFileSync(deploymentPath, 'utf8'));
-    console.log(`📋 Loaded deployment config for network: ${deploymentData.network} (Chain ID: ${deploymentData.chainId})`);
+    console.log(`📋 Loaded UniswapV3 deployment config`);
+    
+    return deploymentData;
+}
+
+/**
+ * 读取 DeFi 基础设施部署文件
+ */
+function readDefiInfrastructureConfig() {
+    const deploymentPath = path.join(__dirname, "../deployments-defi-infrastructure-sepolia.json");
+    
+    if (!fs.existsSync(deploymentPath)) {
+        console.log(`⚠️  DeFi infrastructure deployment file not found: ${deploymentPath}`);
+        return null;
+    }
+    
+    const deploymentData = JSON.parse(fs.readFileSync(deploymentPath, 'utf8'));
+    console.log(`📋 Loaded DeFi infrastructure deployment config`);
     
     return deploymentData;
 }
@@ -32,10 +75,10 @@ function readDeploymentConfig() {
 /**
  * 获取所有 ERC20 代币地址
  */
-function getAllTokenAddresses(deploymentData) {
+function getAllTokenAddresses(deploymentData, uniswapData, defiData) {
     const tokens = {};
     
-    // 添加 USDT
+    // 添加主部署文件中的 USDT
     if (deploymentData.contracts.USDT) {
         tokens.USDT = deploymentData.contracts.USDT;
     }
@@ -45,6 +88,25 @@ function getAllTokenAddresses(deploymentData) {
         Object.entries(deploymentData.stockTokens).forEach(([symbol, address]) => {
             tokens[symbol] = address;
         });
+    }
+    
+    // 添加 UniswapV3 部署文件中的 MockWethToken
+    if (uniswapData && uniswapData.contracts && uniswapData.contracts.MockWethToken) {
+        tokens.WETH = uniswapData.contracts.MockWethToken;
+        console.log(`📋 Added MockWethToken from UniswapV3 deployment: ${uniswapData.contracts.MockWethToken}`);
+    }
+    
+    // 添加 DeFi 基础设施部署文件中的代币
+    if (defiData && defiData.contracts) {
+        if (defiData.contracts.MockERC20_USDC) {
+            tokens.USDC = defiData.contracts.MockERC20_USDC;
+            console.log(`📋 Added MockERC20_USDC from DeFi deployment: ${defiData.contracts.MockERC20_USDC}`);
+        }
+        
+        if (defiData.contracts.MockERC20_DAI) {
+            tokens.DAI = defiData.contracts.MockERC20_DAI;
+            console.log(`📋 Added MockERC20_DAI from DeFi deployment: ${defiData.contracts.MockERC20_DAI}`);
+        }
     }
     
     return tokens;
@@ -149,6 +211,10 @@ async function main() {
         // 读取部署配置
         const deploymentData = readDeploymentConfig();
         
+        // 读取额外的部署配置
+        const uniswapData = readUniswapDeploymentConfig();
+        const defiData = readDefiInfrastructureConfig();
+        
         // 验证网络
         const network = await ethers.provider.getNetwork();
         console.log(`🌐 当前网络: ${network.name} (Chain ID: ${network.chainId})`);
@@ -167,7 +233,7 @@ async function main() {
         }
         
         // 获取所有代币地址
-        const tokens = getAllTokenAddresses(deploymentData);
+        const tokens = getAllTokenAddresses(deploymentData, uniswapData, defiData);
         console.log(`📊 找到 ${Object.keys(tokens).length} 种 ERC20 代币:`);
         Object.entries(tokens).forEach(([symbol, address]) => {
             console.log(`   ${symbol}: ${address}`);

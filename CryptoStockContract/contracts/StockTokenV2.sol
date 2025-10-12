@@ -8,7 +8,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./OracleAggregator.sol";
+import "./PriceAggregator.sol";
 
 contract StockTokenV2 is
     Initializable,
@@ -18,7 +18,7 @@ contract StockTokenV2 is
     PausableUpgradeable,
     ReentrancyGuardUpgradeable
 {
-    OracleAggregator public oracleAggregator;
+    PriceAggregator public oracleAggregator;
     IERC20 public usdtToken;
     string public stockSymbol;
     uint256 public minTradeAmount;
@@ -55,7 +55,7 @@ contract StockTokenV2 is
         __UUPSUpgradeable_init();
         __Pausable_init();
         __ReentrancyGuard_init();
-        oracleAggregator = OracleAggregator(_oracleAggregator);
+        oracleAggregator = PriceAggregator(_oracleAggregator);
         usdtToken = IERC20(_usdtToken);
         stockSymbol = symbol;
         _mint(msg.sender, initialSupply);
