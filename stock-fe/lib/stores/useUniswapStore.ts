@@ -194,6 +194,8 @@ interface UniswapState {
   fetchPositionDetails: (publicClient: PublicClient, tokenId: bigint) => Promise<UniswapPositionInfo>;
   /** 获取手续费率 */
   fetchFeeRate: (publicClient: PublicClient) => Promise<number>;
+  /** 验证 UniswapV3 适配器是否已注册 */
+  verifyAdapterRegistration: (publicClient: PublicClient) => Promise<boolean>;
 
   // ==================== 写入方法 ====================
   /** 授权 USDT 给 UniswapV3Adapter */
@@ -1021,8 +1023,7 @@ export const useUniswapStore = create<UniswapState>()(
           gasUsed: BigInt(0),
           effectiveGasPrice: BigInt(0),
           logs: [],
-          logIndex: 0,
-          status: 'success',
+                    status: 'success',
           type: 'legacy',
         };
         return mockReceipt;
@@ -1086,8 +1087,7 @@ export const useUniswapStore = create<UniswapState>()(
             gasUsed: BigInt(0),
             effectiveGasPrice: BigInt(0),
             logs: [],
-            logIndex: 0,
-            status: 'success',
+                        status: 'success',
             type: 'legacy',
           };
           return mockReceipt;
@@ -1151,8 +1151,7 @@ export const useUniswapStore = create<UniswapState>()(
           gasUsed: BigInt(0),
           effectiveGasPrice: BigInt(0),
           logs: [],
-          logIndex: 0,
-          status: 'success',
+                    status: 'success',
           type: 'legacy',
         };
         return mockReceipt;
@@ -1216,8 +1215,7 @@ export const useUniswapStore = create<UniswapState>()(
             gasUsed: BigInt(0),
             effectiveGasPrice: BigInt(0),
             logs: [],
-            logIndex: 0,
-            status: 'success',
+                        status: 'success',
             type: 'legacy',
           };
           return mockReceipt;
@@ -1647,7 +1645,7 @@ export const useUniswapStore = create<UniswapState>()(
           UniswapDeploymentInfo.contracts.MockERC20_USDT as Address,
           UniswapDeploymentInfo.contracts.MockWethToken as Address
         ],
-        amounts: [0, 0], // 🔧 严格按照测试用例：amount0Min, amount1Min 写死为 0
+        amounts: ["0", "0"], // 🔧 严格按照测试用例：amount0Min, amount1Min 写死为 0（字符串格式）
         recipient: params.recipient,
         deadline: Math.floor(Date.now() / 1000) + 3600,
         tokenId: params.tokenId.toString(), // 使用 tokenId 字段
