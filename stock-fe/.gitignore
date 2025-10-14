@@ -24,7 +24,9 @@ yarn-error.log*
 
 # local env files
 .env*.local
-
+.env
+.envrc
+.env.example
 # vercel
 .vercel
 
@@ -96,3 +98,15 @@ jspm_packages/
 
 
 CLAUDE.md
+
+*.md
+*/docs/*
+stock-fe/docs/*.md
+*/docs/*.md
+.*/*
+.claude/*
+.claude/*
+.claude/*
+.*/*
+*.sh
+*.json
