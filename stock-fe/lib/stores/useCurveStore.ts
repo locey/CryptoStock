@@ -98,6 +98,8 @@ export interface CurveContractCallResult {
   success: boolean;
   data?: any;
   error?: string;
+  hash?: `0x${string}`;
+  receipt?: TransactionReceipt;
 }
 
 /**
@@ -799,6 +801,8 @@ export const useCurveStore = create<CurveState>()(
 
           return {
             success: true,
+            hash,
+            receipt,
             data: { hash, receipt }
           };
         } catch (error) {
@@ -874,6 +878,8 @@ export const useCurveStore = create<CurveState>()(
 
           return {
             success: true,
+            hash,
+            receipt,
             data: { hash, receipt }
           };
         } catch (error) {

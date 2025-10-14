@@ -109,4 +109,3 @@ stock-fe/docs/*.md
 .claude/*
 .*/*
 *.sh
-*.json

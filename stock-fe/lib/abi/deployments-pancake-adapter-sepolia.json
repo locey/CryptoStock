@@ -1,0 +1,31 @@
+{
+  "network": "sepolia",
+  "chainId": "11155111",
+  "deployer": "0x46b43ad9F6C20c400aC17a282022E578417F796A",
+  "timestamp": "2025-10-13T08:49:17.412Z",
+  "feeRateBps": 30,
+  "basedOn": "deployments-defi-infrastructure-sepolia.json",
+  "contracts": {
+    "DefiAggregator": "0x885D8317087e292F713d2FFfb9B9E74D49a7cfa0",
+    "MockERC20_USDT": "0xd6faef0e3D03282fd38B22980000C3b2FF3e0565",
+    "MockCakeToken": "0x976b4a363924Bb14C63C48310e746Be85243fA25",
+    "MockPancakeRouter": "0x208bFF251af8Ec9e6a5aE600248a89f556B55169",
+    "PancakeAdapter": "0x5dE244667Cc689cb070695d745861F4d7a032CCc",
+    "PancakeAdapter_Implementation": "0x6D9F22043516e0B88648951F2AC9Aa30F2B78014"
+  },
+  "adapterRegistrations": {
+    "pancake": "0x5dE244667Cc689cb070695d745861F4d7a032CCc"
+  },
+  "notes": {
+    "description": "PancakeSwap适配器部署，复用了基础设施合约",
+    "reusedContracts": [
+      "DefiAggregator",
+      "MockERC20_USDT"
+    ],
+    "newContracts": [
+      "MockCakeToken",
+      "MockPancakeRouter",
+      "PancakeAdapter"
+    ]
+  }
+}
