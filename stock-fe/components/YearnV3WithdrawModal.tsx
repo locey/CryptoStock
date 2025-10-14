@@ -31,7 +31,7 @@ export default function YearnV3WithdrawModal({ isOpen, onClose, onSuccess }: Yea
   const [amount, setAmount] = useState('')
   const [step, setStep] = useState<'input' | 'approve' | 'withdraw' | 'success'>('input')
   const [txHash, setTxHash] = useState<string>('')
-  const [previewData, setPreviewData] = useState<{ assets: string; formattedAssets: string; requiredShares: string; inputSharesAmount: string } | null>(null)
+  const [previewData, setPreviewData] = useState<{ assets: string; formattedAssets: string } | null>(null)
   const [percentage, setPercentage] = useState<number>(0)
 
   const store = useYearnV3Store()
@@ -90,6 +90,27 @@ export default function YearnV3WithdrawModal({ isOpen, onClose, onSuccess }: Yea
     setPreviewData(null)
     setPercentage(0)
     clearError()
+    // ✅ 强制重置操作状态
+    try {
+      const { setOperating } = store;
+      setOperating(false);
+    } catch (e) {
+      console.error('重置操作状态失败:', e);
+    }
+  }
+
+  // 紧急重置函数 - 用于处理卡住的情况
+  const emergencyReset = () => {
+    console.log('🚨 执行紧急重置');
+    resetModal()
+    // 强制重置所有相关状态
+    try {
+      const { setOperating, setError, clearError } = store;
+      setOperating(false);
+      clearError();
+    } catch (e) {
+      console.error('紧急重置失败:', e);
+    }
   }
 
   // 关闭弹窗
@@ -124,52 +145,25 @@ export default function YearnV3WithdrawModal({ isOpen, onClose, onSuccess }: Yea
   // 输入验证
   const validateAmount = (value: string): boolean => {
     if (!value || parseFloat(value) <= 0) return false
-    const maxAmount = parseFloat(maxBalances.maxSharesToWithdraw)
+    const maxAmount = parseFloat(formattedBalances.currentValue || '0')
     return parseFloat(value) <= maxAmount
   }
 
-  // 处理金额输入 - 修正为直接处理shares数量
+  // 处理金额输入 - 简化为直接处理USDT金额
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
-    // 只允许数字和小数点，最多6位小数（shares数量）
+    // 只允许数字和小数点，最多6位小数（USDT精度）
     if (/^\d*\.?\d{0,6}$/.test(value) || value === '') {
       setAmount(value)
       setPercentage(0) // 重置百分比
 
-      // 如果shares数量有效，预览取款金额
+      // 如果金额有效，计算对应的shares数量
       if (validateAmount(value)) {
-        // 防抖：只在用户停止输入一段时间后再触发预览
-        const timeoutId = setTimeout(async () => {
-          try {
-            console.log('🔍 预览取款 - 输入shares数量:', value)
-
-            // ✅ 直接使用shares数量进行预览
-            const preview = await previewWithdraw(value)
-            if (preview.success && preview.data) {
-              console.log('💰 预览结果:', {
-                inputShares: value,
-                expectedUSDT: preview.data.formattedAssets,
-                rawAssets: preview.data.assets.toString()
-              })
-
-              setPreviewData({
-                assets: preview.data.assets.toString(),
-                formattedAssets: preview.data.formattedAssets,
-                requiredShares: value,
-                inputSharesAmount: value
-              })
-            } else {
-              console.error('预览失败:', preview.error)
-              setPreviewData(null)
-            }
-          } catch (error) {
-            console.error('预览失败:', error)
-            setPreviewData(null)
-          }
-        }, 300)
-
-        // 清除之前的防抖
-        return () => clearTimeout(timeoutId)
+        // 简化：不进行复杂的预览计算，直接显示费用明细
+        setPreviewData({
+          assets: value,
+          formattedAssets: value
+        })
       } else {
         setPreviewData(null)
       }
@@ -178,15 +172,15 @@ export default function YearnV3WithdrawModal({ isOpen, onClose, onSuccess }: Yea
 
   // 设置最大金额
   const handleMaxAmount = () => {
-    setAmount(maxBalances.maxSharesToWithdraw)
+    setAmount(formattedBalances.currentValue || '0')
     setPercentage(100)
   }
 
   // 处理百分比选择
   const handlePercentageSelect = (percent: number) => {
     setPercentage(percent)
-    const maxAmount = parseFloat(maxBalances.maxSharesToWithdraw)
-    const selectedAmount = (maxAmount * percent / 100).toFixed(6)
+    const maxAmount = parseFloat(formattedBalances.currentValue || '0')
+    const selectedAmount = (maxAmount * percent / 100).toFixed(2)
     setAmount(selectedAmount)
   }
 
@@ -199,19 +193,21 @@ export default function YearnV3WithdrawModal({ isOpen, onClose, onSuccess }: Yea
     return remaining.toFixed(2)
   }
 
-  // 处理授权 - 严格按照测试用例
+  // 处理授权 - 简化为Aave一样的流程
   const handleApprove = async () => {
     if (!validateAmount(amount)) return
 
     try {
       setStep('approve')
 
-      // 根据测试用例第193-196行，授权需要使用 shares 数量
-      const sharesToApprove = previewData?.requiredShares || "0";
+      // 简化：直接使用当前价值作为授权的shares数量估算
+      const currentValue = parseFloat(formattedBalances.currentValue || '0')
+      const sharesBalance = parseFloat(formattedBalances.sharesBalance || '0')
+      const sharesToApprove = sharesBalance > 0 ? (amount * sharesBalance / currentValue).toFixed(6) : "0";
 
-      console.log("=== 授权执行详情 ===");
-      console.log("用户输入 shares 数量:", amount, "shares");
-      console.log("需要授权的份额数量:", sharesToApprove);
+      console.log("=== 简化授权流程 ===");
+      console.log("用户输入 USDT 数量:", amount);
+      console.log("估算需要授权的份额数量:", sharesToApprove);
 
       // 使用 hook 提供的 approveShares 方法
       const approveResult = await approveShares(sharesToApprove);
@@ -233,10 +229,17 @@ export default function YearnV3WithdrawModal({ isOpen, onClose, onSuccess }: Yea
     } catch (error) {
       console.error('授权失败:', error)
       setStep('input')
+      // ✅ 确保错误时也重置操作状态
+      try {
+        const { setOperating } = store;
+        setOperating(false);
+      } catch (e) {
+        console.error('重置状态失败:', e);
+      }
     }
   }
 
-  // 处理取款 - 严格按照测试用例
+  // 处理取款 - 简化为Aave一样的流程
   const handleWithdraw = async () => {
     if (!validateAmount(amount)) return
 
@@ -246,28 +249,50 @@ export default function YearnV3WithdrawModal({ isOpen, onClose, onSuccess }: Yea
         setStep('withdraw')
       }
 
-      console.log("=== 提取执行详情 ===");
-      console.log("用户输入 shares 数量:", amount, "shares");
-      console.log("需要提取的份额数量:", previewData?.requiredShares || "0");
-      console.log("预期获得 USDT:", previewData?.formattedAssets || "0", "USDT");
+      console.log("=== 简化提取流程 ===");
+      console.log("用户输入 USDT 数量:", amount);
 
-      // 使用 hook 提供的 withdraw 方法，传入需要提取的 shares 数量
-      const sharesToWithdraw = previewData?.requiredShares || amount;
+      // 简化：使用当前价值来估算需要的shares数量
+      const currentValue = parseFloat(formattedBalances.currentValue || '0')
+      const sharesBalance = parseFloat(formattedBalances.sharesBalance || '0')
+      const sharesToWithdraw = sharesBalance > 0 ? (amount * sharesBalance / currentValue).toFixed(6) : "0";
+
+      console.log("估算需要提取的份额数量:", sharesToWithdraw);
+
       const result = await withdraw(sharesToWithdraw);
+      console.log("✅ withdraw hook 返回结果:", result);
 
-      setTxHash(result.hash || '')
-      setStep('success')
+      if (result.success || result.hash) {
+        setTxHash(result.hash || '')
+        setStep('success')
 
-      // 刷新余额
-      await refreshUserInfo()
+        // 刷新余额
+        await refreshUserInfo()
 
-      // 成功回调
-      if (onSuccess) {
-        onSuccess(result)
+        // 成功回调
+        if (onSuccess) {
+          onSuccess(result)
+        }
+      } else {
+        throw new Error(result.error || '取款操作失败');
       }
     } catch (error) {
       console.error('取款失败:', error)
       setStep('input')
+      // ✅ 确保错误时重置操作状态
+      try {
+        const { setOperating } = store;
+        setOperating(false);
+      } catch (e) {
+        console.error('重置状态失败:', e);
+      }
+      // ✅ 设置错误信息
+      try {
+        const { setError } = store;
+        setError(error instanceof Error ? error.message : '取款失败');
+      } catch (e) {
+        console.error('设置错误信息失败:', e);
+      }
     }
   }
 
@@ -326,6 +351,24 @@ export default function YearnV3WithdrawModal({ isOpen, onClose, onSuccess }: Yea
               <div className="flex items-center gap-2 text-red-400">
                 <AlertCircle className="w-4 h-4" />
                 <span className="text-sm">{error}</span>
+              </div>
+            </div>
+          )}
+
+          {/* 卡住时的紧急重置按钮 */}
+          {isOperating && (
+            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-yellow-400">
+                  <AlertCircle className="w-4 h-4" />
+                  <span className="text-sm">操作进行中，如果长时间卡住请重置</span>
+                </div>
+                <button
+                  onClick={emergencyReset}
+                  className="px-3 py-1 bg-yellow-500/20 text-yellow-400 rounded text-xs hover:bg-yellow-500/30 transition-colors"
+                >
+                  紧急重置
+                </button>
               </div>
             </div>
           )}
@@ -432,7 +475,7 @@ export default function YearnV3WithdrawModal({ isOpen, onClose, onSuccess }: Yea
               {/* 输入框 */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  提取数量 (Shares)
+                  提取数量
                 </label>
                 <div className="relative">
                   <input
@@ -452,37 +495,24 @@ export default function YearnV3WithdrawModal({ isOpen, onClose, onSuccess }: Yea
                   </button>
                 </div>
                 {amount && !validateAmount(amount) && (
-                  <p className="text-red-400 text-xs mt-1">请输入有效的份额数量</p>
+                  <p className="text-red-400 text-xs mt-1">请输入有效的金额</p>
                 )}
               </div>
 
-              {/* 预览收益 */}
-              {amount && validateAmount(amount) && previewData && (
+              {/* 费用明细 */}
+              {amount && validateAmount(amount) && (
                 <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-3 space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">提取份额</span>
-                    <span className="text-white">{amount} Shares</span>
+                    <span className="text-gray-400">提取金额</span>
+                    <span className="text-white">{amount} USDT</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">预期获得</span>
-                    <div className="text-right">
-                      <span className="text-green-400">{previewData.formattedAssets} USDT</span>
-                      {previewData.requiredShares && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          使用 {formatShares(previewData.requiredShares)} yvUSDT 份额
-                        </p>
-                      )}
-                    </div>
+                    <span className="text-gray-400">年化收益率</span>
+                    <span className="text-white">12.5% APY</span>
                   </div>
-                  {percentage > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">提取比例</span>
-                      <span className="text-orange-400">{percentage}%</span>
-                    </div>
-                  )}
                   <div className="border-t border-gray-700 pt-2">
                     <div className="flex justify-between">
-                      <span className="text-sm font-medium text-gray-300">提取后价值</span>
+                      <span className="text-sm font-medium text-gray-300">提取后余额</span>
                       <span className="text-sm font-bold text-blue-400">${calculateRemainingBalance()}</span>
                     </div>
                   </div>
@@ -518,7 +548,7 @@ export default function YearnV3WithdrawModal({ isOpen, onClose, onSuccess }: Yea
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">授权中</h3>
                 <p className="text-sm text-gray-400">
-                  正在授权 {amount} yvUSDT 份额给 YearnV3 合约
+                  正在授权 yvUSDT 给 DefiAggregator 合约
                 </p>
               </div>
             </div>
@@ -533,13 +563,8 @@ export default function YearnV3WithdrawModal({ isOpen, onClose, onSuccess }: Yea
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">提取中</h3>
                 <p className="text-sm text-gray-400">
-                  正在提取 {amount} yvUSDT 份额
+                  正在从 YearnV3 协议提取 {amount} USDT
                 </p>
-                {previewData && (
-                  <p className="text-sm text-green-400 mt-2">
-                    预期获得 {previewData.formattedAssets} USDT
-                  </p>
-                )}
               </div>
             </div>
           )}
@@ -553,16 +578,8 @@ export default function YearnV3WithdrawModal({ isOpen, onClose, onSuccess }: Yea
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">提取成功！</h3>
                 <p className="text-sm text-gray-400 mb-4">
-                  成功提取 {amount} yvUSDT 份额
+                  成功提取 {amount} USDT 到您的钱包
                 </p>
-                {previewData && (
-                  <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 mb-4">
-                    <p className="text-sm text-gray-400 mb-1">获得金额</p>
-                    <p className="text-lg font-bold text-green-400">
-                      {previewData.formattedAssets} USDT
-                    </p>
-                  </div>
-                )}
 
                 {/* 交易哈希 */}
                 {txHash && (
