@@ -100,7 +100,7 @@ export const useSecurityValidation = (): UseSecurityValidationReturn => {
   });
 
   // 清理定时器引用
-  const cleanupTimerRef = useRef<NodeJS.Timeout>();
+  const cleanupTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   /**
    * 创建安全的交易元数据
