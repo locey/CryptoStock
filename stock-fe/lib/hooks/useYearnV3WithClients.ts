@@ -455,8 +455,8 @@ export const useYearnV3WithClients = () => {
 
       // ✅ 预览取款以获得预期的USDT数量
       const previewResult = await previewWithdraw(sharesAmount);
-      if (!previewResult.success) {
-        throw new Error('无法预览取款金额: ' + previewResult.error);
+      if (!previewResult.success || !previewResult.data) {
+        throw new Error('无法预览取款金额: ' + (previewResult.error || '返回数据为空'));
       }
 
       const expectedUsdtAmount = previewResult.data.assets;
