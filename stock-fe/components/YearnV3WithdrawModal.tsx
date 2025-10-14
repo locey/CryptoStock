@@ -203,7 +203,8 @@ export default function YearnV3WithdrawModal({ isOpen, onClose, onSuccess }: Yea
       // 简化：直接使用当前价值作为授权的shares数量估算
       const currentValue = parseFloat(formattedBalances.currentValue || '0')
       const sharesBalance = parseFloat(formattedBalances.sharesBalance || '0')
-      const sharesToApprove = sharesBalance > 0 && currentValue > 0 ? (amount * sharesBalance / currentValue).toFixed(6) : "0";
+      const amountValue = parseFloat(amount || '0')
+      const sharesToApprove = sharesBalance > 0 && currentValue > 0 ? (amountValue * sharesBalance / currentValue).toFixed(6) : "0";
 
       console.log("=== 简化授权流程 ===");
       console.log("用户输入 USDT 数量:", amount);
@@ -255,7 +256,8 @@ export default function YearnV3WithdrawModal({ isOpen, onClose, onSuccess }: Yea
       // 简化：使用当前价值来估算需要的shares数量
       const currentValue = parseFloat(formattedBalances.currentValue || '0')
       const sharesBalance = parseFloat(formattedBalances.sharesBalance || '0')
-      const sharesToWithdraw = sharesBalance > 0 && currentValue > 0 ? (amount * sharesBalance / currentValue).toFixed(6) : "0";
+      const amountValue = parseFloat(amount || '0')
+      const sharesToWithdraw = sharesBalance > 0 && currentValue > 0 ? (amountValue * sharesBalance / currentValue).toFixed(6) : "0";
 
       console.log("估算需要提取的份额数量:", sharesToWithdraw);
 
