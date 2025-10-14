@@ -351,7 +351,7 @@ export const useSecurityValidation = (): UseSecurityValidationReturn => {
   /**
    * 记录安全事件
    */
-  const logSecurityEvent = useCallback((eventType: string, details: any) => {
+  const logSecurityEvent = useCallback((eventType: string, details: Record<string, unknown>) => {
     console.warn(`🚨 安全事件: ${eventType}`, details);
 
     // 在实际应用中，这里应该发送到安全监控服务
@@ -382,14 +382,14 @@ export const useSecurityValidation = (): UseSecurityValidationReturn => {
 /**
  * 创建带有安全验证的交易函数
  */
-export const createSecureTransactionFunction = <T extends any[]>(
-  originalFunction: (...args: T) => Promise<any>,
+export const createSecureTransactionFunction = <T extends unknown[]>(
+  originalFunction: (...args: T) => Promise<unknown>,
   securityHook: UseSecurityValidationReturn
 ) => {
   return async (
     securityParams: TransactionSecurityParams,
     ...args: T
-  ): Promise<any> => {
+  ): Promise<unknown> => {
     try {
       // 1. 生成交易哈希（这里简化处理，实际应该从交易参数计算）
       const hash = generateTransactionHash(securityParams, args);
@@ -435,7 +435,7 @@ export const createSecureTransactionFunction = <T extends any[]>(
  */
 const generateTransactionHash = (
   securityParams: TransactionSecurityParams,
-  args: any[]
+  args: unknown[]
 ): Hash => {
   const data = {
     userAddress: securityParams.userAddress,
