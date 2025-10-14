@@ -168,7 +168,7 @@ export const CurveWithdrawModal: React.FC<CurveWithdrawModalProps> = ({
         lpAmount,
       });
 
-      setTxHash(result.hash);
+      setTxHash(result.hash || '');
       setStep('success');
 
       // 刷新用户信息
