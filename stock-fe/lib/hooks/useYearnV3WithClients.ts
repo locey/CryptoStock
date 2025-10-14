@@ -205,7 +205,7 @@ export const useYearnV3WithClients = () => {
         success: true,
         data: {
           assets: assets as bigint,
-          formattedAssets: formatUnits(assets, TOKEN_DECIMALS.USDT),
+          formattedAssets: formatUnits(assets as bigint, TOKEN_DECIMALS.USDT),
         }
       };
     } catch (error) {
