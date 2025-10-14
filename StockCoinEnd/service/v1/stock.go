@@ -62,11 +62,11 @@ type StockResponse struct {
 }
 
 type StockSummary struct {
-	Ticker              string  `json:"ticker"`
-	Name                string  `json:"name"`
-	Description         string  `json:"description"`
-	Logo                string  `json:"logo"`
-	TokenAddress        string  `json:"token_address"`
+	Ticker              string  `json:"ticker"`                 // 股票代码
+	Name                string  `json:"name"`                   //股票名称
+	Description         string  `json:"description"`            //股票描述
+	Logo                string  `json:"logo"`                   //股票logo地址
+	TokenAddress        string  `json:"token_address"`          //代币地址
 	AvgGain             float64 `json:"avg_gain"`               //7日平均涨幅
 	AvgGainPercent      float64 `json:"avg_gain_percent"`       //7日平均涨幅百分比
 	AvgVolume           float64 `json:"avg_volume"`             //7日平均成交量

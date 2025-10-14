@@ -3,12 +3,17 @@ package router
 import (
 	"github.com/gin-gonic/gin"
 
+	docs "github.com/go-project-name/docs"
 	"github.com/locey/CryptoStock/StockCoinEnd/api/middleware"
 	v1 "github.com/locey/CryptoStock/StockCoinEnd/api/v1"
 	"github.com/locey/CryptoStock/StockCoinEnd/service/svc"
+	swaggerfiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 func loadV1(r *gin.Engine, svcCtx *svc.ServerCtx) {
+	docs.SwaggerInfo.BasePath = "/api/v1"
+
 	apiV1 := r.Group("/api/v1")
 
 	user := apiV1.Group("/user")
@@ -66,8 +71,11 @@ func loadV1(r *gin.Engine, svcCtx *svc.ServerCtx) {
 	}
 	stocks := apiV1.Group("/stocks")
 	{
-		stocks.GET("", v1.GetStockList(svcCtx))              // 批量获取activity信息
+		stocks.GET("", v1.GetStockList(svcCtx))              // 分页批量获取stock信息
 		stocks.GET("/overview", v1.GetOverview(svcCtx))      // 获取股票总览信息
 		stocks.GET("/:code/price", v1.GetStockPrice(svcCtx)) // 获取股票价格
 	}
+	swagger := gin.Default()
+	// 注册 Swagger 路由
+	swagger.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
 }

@@ -2,6 +2,7 @@ package dao
 
 import (
 	"context"
+	"time"
 
 	"github.com/locey/CryptoStock/StockCoinBase/stores/gdb/airdrop"
 	"github.com/locey/CryptoStock/StockCoinEnd/types/v1"
@@ -37,4 +38,22 @@ func (d *Dao) CreateUserTask(c context.Context, userTask *airdrop.AirdropUserTas
 
 func (d *Dao) UpdateUserTask(c context.Context, userTask *airdrop.AirdropUserTask) error {
 	return d.DB.Save(userTask).Error
+}
+
+func (d *Dao) GetUserTasksByTime(tx context.Context, startTime time.Time, endTime time.Time) ([]airdrop.AirdropUserTask, error) {
+	var userTasks []airdrop.AirdropUserTask
+	d.DB.WithContext(tx).Table(airdrop.AirdropUserTaskTableName()).Where("created_at >= ? AND created_at <= ?", startTime, endTime).Find(&userTasks)
+
+	return userTasks, nil
+}
+
+// 批量更新
+func (d *Dao) UpdateUserTasks(airdropTasks []airdrop.AirdropUserTask) {
+	// 根据id 批量更新
+	ids := make([]int64, len(airdropTasks))
+	for i, task := range airdropTasks {
+		ids[i] = task.ID
+	}
+	d.DB.Model(&airdrop.AirdropUserTask{}).Where("id IN ?", ids).Updates(airdropTasks)
+	d.DB.Model(&airdrop.AirdropUserTask{}).Where("id IN ?")
 }

@@ -11,6 +11,9 @@ import (
 	"github.com/locey/CryptoStock/StockCoinEnd/service/v1"
 )
 
+// @BasePath /api/v1
+// @Success 200 {string} string "OK"
+// @Router /stocks [get]
 func GetStockList(svcCtx *svc.ServerCtx) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		pageSize := ctx.Query("pageSize")
