@@ -216,7 +216,7 @@ export const CurveLiquidityModal: React.FC<CurveLiquidityModalProps> = ({
         amounts: [amounts.USDC, amounts.USDT, amounts.DAI],
       });
 
-      setTxHash(result.hash);
+      setTxHash(result.hash || '');
       setStep('success');
 
       // 刷新用户信息
