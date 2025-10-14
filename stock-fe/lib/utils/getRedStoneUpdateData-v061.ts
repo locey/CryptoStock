@@ -28,7 +28,7 @@ async function getRedStoneUpdateData(symbol:string): Promise<RedStoneUpdateData>
  symbol = 'TSLA';
     
     console.log(`🔍 获取 ${symbol} --${symbol1} 的 RedStone 数据...`);
-    debugger;
+    ;
     // 使用成功验证的配置
     const wrapper = new DataServiceWrapper({
       dataServiceId: "redstone-main-demo",

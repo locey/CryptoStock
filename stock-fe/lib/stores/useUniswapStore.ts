@@ -1508,8 +1508,8 @@ export const useUniswapStore = create<UniswapState>()(
       console.log('Token0 小数位数:', token0Decimals);
       console.log('Token1 小数位数:', token1Decimals);
 
-      // 🔧 DEBUGGER: 在构造操作参数前添加断点
-      console.log('🐛 [DEBUGGER] 构造操作参数前检查点');
+      // 🔧 : 在构造操作参数前添加断点
+      console.log('🐛 [] 构造操作参数前检查点');
 
       // 构造操作参数（基于测试用例，使用排序后的代币和正确的小数位数）
       const amount0BigInt = parseUnits(sortedAmounts[0], token0Decimals);

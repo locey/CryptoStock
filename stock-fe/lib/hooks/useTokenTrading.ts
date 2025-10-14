@@ -1183,7 +1183,7 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         }
 
         console.log("🚀 即将调用 client.writeContract...");
-        debugger; // 🔍 在浏览器中暂停，可以检查所有参数
+        ; // 🔍 在浏览器中暂停，可以检查所有参数
 
         // 严格按照测试文件第 479-484 行的方式调用 buy 函数
         console.log("🚀 严格按照测试文件方式执行购买交易...");
@@ -1902,7 +1902,7 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         }
 
         console.log("🚀 即将调用 client.writeContract...");
-        debugger; // 🔍 在浏览器中暂停，可以检查所有参数
+        ; // 🔍 在浏览器中暂停，可以检查所有参数
 
         // 严格按照测试文件第 712-717 行的方式调用 sell 函数
         console.log("🚀 严格按照测试文件方式执行卖出交易...");
