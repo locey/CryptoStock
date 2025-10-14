@@ -70,7 +70,7 @@ export const useYearnV3WithClients = () => {
     if (!publicClient || !address) {
       throw new Error('PublicClient 未初始化或钱包未连接');
     }
-    return store.fetchUserBalance(publicClient, address);
+    await store.fetchUserBalance(publicClient, address);
   }, [publicClient, address]);
 
   // 获取授权信息（包含客户端） - 直接使用 store
