@@ -1,5 +1,5 @@
 // 从部署文件中导入合约地址
-import deploymentConfig from './abi/deployments-uups-sepolia.json';
+import deploymentConfig from '@/lib/abi/deployments-uups-sepolia.json';
 
 // 合约地址配置
 export const NETWORK_CONFIG = {
@@ -21,7 +21,7 @@ export const NETWORK_CONFIG = {
     name: "sepolia",
     rpcUrl: "https://sepolia.infura.io/v3/",
     contracts: {
-      oracleAggregator: deploymentConfig.contracts.PriceAggregator,
+      oracleAggregator: deploymentConfig.contracts.OracleAggregator.proxy,
       usdt: deploymentConfig.contracts.USDT,
       stockTokenImplementation: deploymentConfig.contracts.StockTokenImplementation, // StockToken implementation contract
     }

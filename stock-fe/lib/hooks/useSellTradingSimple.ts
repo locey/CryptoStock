@@ -98,7 +98,18 @@ export function useSellTradingSimple({
 
         console.log("🔢 开始计算预估...", { sellAmount: sellStore.sellAmount });
         const sellAmountWei = parseUnits(sellStore.sellAmount, 18);
-        const result = await sellStore.getSellEstimate(publicClient as any, stockTokenAddress, sellAmountWei);
+
+        // 获取价格更新数据
+        console.log("🔍 获取价格更新数据...");
+        const updateDataResult = await sellStore.fetchPriceUpdateData(publicClient as any, sellStore.token?.symbol || "");
+        if (!updateDataResult.success || !updateDataResult.data) {
+          throw new Error(updateDataResult.error || '获取价格更新数据失败');
+        }
+
+        const { updateData } = updateDataResult.data;
+        console.log("✅ 获取到价格更新数据:", { updateDataLength: updateData.length, sampleData: updateData[0]?.slice(0, 20) + "..." });
+
+        const result = await sellStore.getSellEstimate(publicClient as any, stockTokenAddress, sellAmountWei, updateData);
         if (result.success && result.data) {
           sellStore.setEstimate(result.data.estimatedUsdt, result.data.estimatedFee);
           console.log("✅ 预估计算完成");

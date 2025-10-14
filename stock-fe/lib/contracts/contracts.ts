@@ -170,10 +170,11 @@ export const formatTokenAmount = (amount: bigint, decimals: number): string => {
 };
 
 export const encodePriceRange = (tickLower: number, tickUpper: number): `0x${string}` => {
-  return `0x${Buffer.from(
-    new DataView(new ArrayBuffer(8)).setInt32(0, tickLower, true) +
-    new DataView(new ArrayBuffer(8)).setInt32(4, tickUpper, true)
-  ).toString('hex')}`;
+  const buffer = new ArrayBuffer(8);
+  const view = new DataView(buffer);
+  view.setInt32(0, tickLower, true);
+  view.setInt32(4, tickUpper, true);
+  return `0x${Buffer.from(buffer).toString('hex')}`;
 };
 
 export const decodePriceRange = (data: `0x${string}`): { tickLower: number; tickUpper: number } => {

@@ -1,27 +1,12 @@
 import axios from 'axios';
+import deploymentConfig from '@/lib/abi/deployments-uups-sepolia.json';
 
 // Pyth 相关配置
 const HERMES_ENDPOINT = 'https://hermes.pyth.network';
 
-// 常见股票的 Pyth Feed ID
-const STOCK_FEED_IDS: Record<string, string> = {
-  // 美股
-  'AAPL': 'e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43', // Apple Inc
-  'TSLA': '7777b97a1f5396c6bd8fbb7ecf8b3c1b6e4c6b5d5c4a5d5d4a5d5a5d5a5d5a5d5a', // Tesla Inc
-  'GOOGL': 'e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b42', // Alphabet Inc
-  'MSFT': 'e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43', // Microsoft Corp
-  'AMZN': 'e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b44', // Amazon Inc
-  'META': 'e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b45', // Meta Platforms
-  'NVDA': 'e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b46', // NVIDIA Corp
-
-  // 加密货币
-  'BTC': 'e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43', // Bitcoin
-  'ETH': 'e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43', // Ethereum
-
-  // 指数
-  'SPY': 'e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b47', // S&P 500 ETF
-  'QQQ': 'e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b48', // NASDAQ 100 ETF
-};
+// 从部署配置文件直接获取价格源 ID 和代币地址
+const STOCK_FEED_IDS: Record<string, string> = deploymentConfig.priceFeeds;
+const STOCK_TOKEN_ADDRESSES: Record<string, string> = deploymentConfig.stockTokens;
 
 export interface HermesPriceData {
   id: string;
@@ -144,3 +129,23 @@ export function isStockSupportedByHermes(symbol: string): boolean {
 export function getSupportedStocks(): string[] {
   return Object.keys(STOCK_FEED_IDS);
 }
+
+/**
+ * 获取股票代币地址
+ * @param symbol 股票符号
+ * @returns 代币地址，如果不存在返回 undefined
+ */
+export function getStockTokenAddress(symbol: string): string | undefined {
+  return STOCK_TOKEN_ADDRESSES[symbol];
+}
+
+/**
+ * 获取所有股票代币地址映射
+ * @returns 股票代币地址映射对象
+ */
+export function getAllStockTokenAddresses(): Record<string, string> {
+  return { ...STOCK_TOKEN_ADDRESSES };
+}
+
+// 导出常量供外部使用
+export { STOCK_FEED_IDS, STOCK_TOKEN_ADDRESSES };

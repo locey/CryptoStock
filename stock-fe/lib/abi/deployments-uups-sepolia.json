@@ -4,7 +4,10 @@
   "deployer": "0x46b43ad9F6C20c400aC17a282022E578417F796A",
   "architecture": "统一预言机架构 (复用已部署的预言机)",
   "contracts": {
-    "PriceAggregator": "0x9F491D7e329BF6CfC2672F01dF9f856F45379034",
+    "OracleAggregator": {
+      "proxy": "0x9F491D7e329BF6CfC2672F01dF9f856F45379034",
+      "implementation": "0x9F491D7e329BF6CfC2672F01dF9f856F45379034"
+    },
     "TokenFactory": {
       "proxy": "0xe2e0aC10A1EEE33382BcE32D3dE374C8833eA0ae",
       "implementation": "0x1f6BA3cAD5606a6d86d4eC099A0EAfF871520c0E"

@@ -194,6 +194,8 @@ interface UniswapState {
   fetchPositionDetails: (publicClient: PublicClient, tokenId: bigint) => Promise<UniswapPositionInfo>;
   /** 获取手续费率 */
   fetchFeeRate: (publicClient: PublicClient) => Promise<number>;
+  /** 验证 UniswapV3 适配器是否已注册 */
+  verifyAdapterRegistration: (publicClient: PublicClient) => Promise<boolean>;
 
   // ==================== 写入方法 ====================
   /** 授权 USDT 给 UniswapV3Adapter */
@@ -915,7 +917,7 @@ export const useUniswapStore = create<UniswapState>()(
         abi: typedMockPositionManagerABI, // MockPositionManager 使用自己的 ABI
         functionName: 'positions',
         args: [tokenId],
-      });
+      }) as readonly unknown[];
 
       // 转换为位置信息结构
       const position: UniswapPositionInfo = {
@@ -1018,10 +1020,14 @@ export const useUniswapStore = create<UniswapState>()(
           blockHash: '0x0000000000000000000000000000000000000000000000000000000000000001' as `0x${string}`,
           blockNumber: BigInt(0),
           transactionIndex: 0,
+          from: '0x0000000000000000000000000000000000000000' as Address,
+          to: '0x0000000000000000000000000000000000000000' as Address,
+          cumulativeGasUsed: BigInt(0),
           gasUsed: BigInt(0),
           effectiveGasPrice: BigInt(0),
+          contractAddress: null,
           logs: [],
-          logIndex: 0,
+          logsBloom: '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`,
           status: 'success',
           type: 'legacy',
         };
@@ -1083,10 +1089,14 @@ export const useUniswapStore = create<UniswapState>()(
             blockHash: '0x0000000000000000000000000000000000000000000000000000000000000001' as `0x${string}`,
             blockNumber: BigInt(0),
             transactionIndex: 0,
+            from: '0x0000000000000000000000000000000000000000' as Address,
+            to: '0x0000000000000000000000000000000000000000' as Address,
+            cumulativeGasUsed: BigInt(0),
             gasUsed: BigInt(0),
             effectiveGasPrice: BigInt(0),
+            contractAddress: null,
             logs: [],
-            logIndex: 0,
+            logsBloom: '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`,
             status: 'success',
             type: 'legacy',
           };
@@ -1148,10 +1158,14 @@ export const useUniswapStore = create<UniswapState>()(
           blockHash: '0x0000000000000000000000000000000000000000000000000000000000000001' as `0x${string}`,
           blockNumber: BigInt(0),
           transactionIndex: 0,
+          from: '0x0000000000000000000000000000000000000000' as Address,
+          to: '0x0000000000000000000000000000000000000000' as Address,
+          cumulativeGasUsed: BigInt(0),
           gasUsed: BigInt(0),
           effectiveGasPrice: BigInt(0),
+          contractAddress: null,
           logs: [],
-          logIndex: 0,
+          logsBloom: '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`,
           status: 'success',
           type: 'legacy',
         };
@@ -1213,10 +1227,14 @@ export const useUniswapStore = create<UniswapState>()(
             blockHash: '0x0000000000000000000000000000000000000000000000000000000000000001' as `0x${string}`,
             blockNumber: BigInt(0),
             transactionIndex: 0,
+            from: '0x0000000000000000000000000000000000000000' as Address,
+            to: '0x0000000000000000000000000000000000000000' as Address,
+            cumulativeGasUsed: BigInt(0),
             gasUsed: BigInt(0),
             effectiveGasPrice: BigInt(0),
+            contractAddress: null,
             logs: [],
-            logIndex: 0,
+            logsBloom: '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`,
             status: 'success',
             type: 'legacy',
           };
@@ -1647,7 +1665,7 @@ export const useUniswapStore = create<UniswapState>()(
           UniswapDeploymentInfo.contracts.MockERC20_USDT as Address,
           UniswapDeploymentInfo.contracts.MockWethToken as Address
         ],
-        amounts: [0, 0], // 🔧 严格按照测试用例：amount0Min, amount1Min 写死为 0
+        amounts: ["0", "0"], // 🔧 严格按照测试用例：amount0Min, amount1Min 写死为 0（字符串格式）
         recipient: params.recipient,
         deadline: Math.floor(Date.now() / 1000) + 3600,
         tokenId: params.tokenId.toString(), // 使用 tokenId 字段
