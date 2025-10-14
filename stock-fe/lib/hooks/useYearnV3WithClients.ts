@@ -78,7 +78,7 @@ export const useYearnV3WithClients = () => {
     if (!publicClient || !address) {
       throw new Error('PublicClient 未初始化或钱包未连接');
     }
-    return store.fetchAllowances(publicClient, address);
+    await store.fetchAllowances(publicClient, address);
   }, [publicClient, address]);
 
   // 获取用户当前价值
