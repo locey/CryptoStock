@@ -31,7 +31,7 @@ export default function YearnV3WithdrawModal({ isOpen, onClose, onSuccess }: Yea
   const [amount, setAmount] = useState('')
   const [step, setStep] = useState<'input' | 'approve' | 'withdraw' | 'success'>('input')
   const [txHash, setTxHash] = useState<string>('')
-  const [previewData, setPreviewData] = useState<{ assets: string; formattedAssets: string } | null>(null)
+  const [previewData, setPreviewData] = useState<{ assets: string; formattedAssets: string; requiredShares: string; inputSharesAmount: string } | null>(null)
   const [percentage, setPercentage] = useState<number>(0)
 
   const store = useYearnV3Store()
@@ -128,51 +128,39 @@ export default function YearnV3WithdrawModal({ isOpen, onClose, onSuccess }: Yea
     return parseFloat(value) <= maxAmount
   }
 
-  // 处理金额输入 - 添加防抖优化
+  // 处理金额输入 - 修正为直接处理shares数量
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
-    // 只允许数字和小数点，最多6位小数（用户期望输入USDT数量）
+    // 只允许数字和小数点，最多6位小数（shares数量）
     if (/^\d*\.?\d{0,6}$/.test(value) || value === '') {
       setAmount(value)
       setPercentage(0) // 重置百分比
 
-      // 如果金额有效，预览取款金额（基于用户输入的USDT数量）
+      // 如果shares数量有效，预览取款金额
       if (validateAmount(value)) {
         // 防抖：只在用户停止输入一段时间后再触发预览
         const timeoutId = setTimeout(async () => {
           try {
-            // 计算对应的shares数量（基于当前份额价格）
-            const usdtAmount = parseFloat(value)
-            const currentUsdtValue = parseFloat(formattedBalances.currentValue || '0')
-            const sharesBalance = parseFloat(formattedBalances.sharesBalance || '0')
+            console.log('🔍 预览取款 - 输入shares数量:', value)
 
-            if (currentUsdtValue > 0 && sharesBalance > 0) {
-              // 计算每份额价格
-              const pricePerShare = currentUsdtValue / sharesBalance
-              // 根据用户输入的USDT数量计算需要的shares
-              const requiredShares = usdtAmount / pricePerShare
+            // ✅ 直接使用shares数量进行预览
+            const preview = await previewWithdraw(value)
+            if (preview.success && preview.data) {
+              console.log('💰 预览结果:', {
+                inputShares: value,
+                expectedUSDT: preview.data.formattedAssets,
+                rawAssets: preview.data.assets.toString()
+              })
 
-              // 使用计算出的shares数量进行预览
-              const preview = await previewWithdraw(requiredShares.toFixed(6))
-              if (preview.success && preview.data) {
-                setPreviewData({
-                  assets: preview.data.assets.toString(),
-                  formattedAssets: preview.data.formattedAssets,
-                  requiredShares: requiredShares.toFixed(6),
-                  inputUsdtAmount: value
-                })
-              }
+              setPreviewData({
+                assets: preview.data.assets.toString(),
+                formattedAssets: preview.data.formattedAssets,
+                requiredShares: value,
+                inputSharesAmount: value
+              })
             } else {
-              // 如果没有当前价值数据，尝试直接使用shares数量
-              const preview = await previewWithdraw(value)
-              if (preview.success && preview.data) {
-                setPreviewData({
-                  assets: preview.data.assets.toString(),
-                  formattedAssets: preview.data.formattedAssets,
-                  requiredShares: value,
-                  inputUsdtAmount: value
-                })
-              }
+              console.error('预览失败:', preview.error)
+              setPreviewData(null)
             }
           } catch (error) {
             console.error('预览失败:', error)
@@ -222,7 +210,7 @@ export default function YearnV3WithdrawModal({ isOpen, onClose, onSuccess }: Yea
       const sharesToApprove = previewData?.requiredShares || "0";
 
       console.log("=== 授权执行详情 ===");
-      console.log("用户输入 USDT 数量:", amount, "USDT");
+      console.log("用户输入 shares 数量:", amount, "shares");
       console.log("需要授权的份额数量:", sharesToApprove);
 
       // 使用 hook 提供的 approveShares 方法
@@ -259,7 +247,7 @@ export default function YearnV3WithdrawModal({ isOpen, onClose, onSuccess }: Yea
       }
 
       console.log("=== 提取执行详情 ===");
-      console.log("用户输入 USDT 数量:", amount, "USDT");
+      console.log("用户输入 shares 数量:", amount, "shares");
       console.log("需要提取的份额数量:", previewData?.requiredShares || "0");
       console.log("预期获得 USDT:", previewData?.formattedAssets || "0", "USDT");
 
@@ -444,7 +432,7 @@ export default function YearnV3WithdrawModal({ isOpen, onClose, onSuccess }: Yea
               {/* 输入框 */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  提取数量 (USDT)
+                  提取数量 (Shares)
                 </label>
                 <div className="relative">
                   <input
@@ -464,7 +452,7 @@ export default function YearnV3WithdrawModal({ isOpen, onClose, onSuccess }: Yea
                   </button>
                 </div>
                 {amount && !validateAmount(amount) && (
-                  <p className="text-red-400 text-xs mt-1">请输入有效的金额</p>
+                  <p className="text-red-400 text-xs mt-1">请输入有效的份额数量</p>
                 )}
               </div>
 
@@ -472,8 +460,8 @@ export default function YearnV3WithdrawModal({ isOpen, onClose, onSuccess }: Yea
               {amount && validateAmount(amount) && previewData && (
                 <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-3 space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">提取金额</span>
-                    <span className="text-white">{amount} USDT</span>
+                    <span className="text-gray-400">提取份额</span>
+                    <span className="text-white">{amount} Shares</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-400">预期获得</span>
@@ -481,7 +469,7 @@ export default function YearnV3WithdrawModal({ isOpen, onClose, onSuccess }: Yea
                       <span className="text-green-400">{previewData.formattedAssets} USDT</span>
                       {previewData.requiredShares && (
                         <p className="text-xs text-gray-500 mt-1">
-                          需要 {formatShares(previewData.requiredShares)} yvUSDT 份额
+                          使用 {formatShares(previewData.requiredShares)} yvUSDT 份额
                         </p>
                       )}
                     </div>

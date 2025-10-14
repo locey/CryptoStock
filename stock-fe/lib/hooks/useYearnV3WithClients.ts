@@ -421,8 +421,8 @@ export const useYearnV3WithClients = () => {
     }
   }, [isConnected, publicClient, chain, getWalletClient, store, address]);
 
-  // 取款操作
-  const withdraw = useCallback(async (amount: string) => {
+  // 取款操作 - 修正为使用shares作为输入参数
+  const withdraw = useCallback(async (sharesAmount: string) => {
     if (!isConnected || !address) {
       throw new Error('请先连接钱包');
     }
@@ -451,14 +451,21 @@ export const useYearnV3WithClients = () => {
       store.setOperating(true);
       store.setError(null);
 
-      console.log('🚀 开始取款操作...', { amount });
+      console.log('🚀 开始取款操作...', { sharesAmount });
 
-      const amountBigInt = parseUnits(amount, TOKEN_DECIMALS.USDT);
+      // ✅ 预览取款以获得预期的USDT数量
+      const previewResult = await previewWithdraw(sharesAmount);
+      if (!previewResult.success) {
+        throw new Error('无法预览取款金额: ' + previewResult.error);
+      }
 
-      // 构造操作参数
+      const expectedUsdtAmount = previewResult.data.assets;
+      console.log('💰 预期获得USDT:', formatUnits(expectedUsdtAmount, TOKEN_DECIMALS.USDT));
+
+      // ✅ 使用预期的USDT数量构造操作参数
       const operationParams = {
         tokens: [DEPLOYMENT_ADDRESSES.usdtToken],
-        amounts: [amountBigInt.toString()],
+        amounts: [expectedUsdtAmount.toString()], // 预期的USDT输出
         recipient: address,
         deadline: Math.floor(Date.now() / 1000) + 3600,
         tokenId: "0",
@@ -513,7 +520,7 @@ export const useYearnV3WithClients = () => {
     } finally {
       isMounted = false;
     }
-  }, [isConnected, publicClient, chain, getWalletClient, store, address]);
+  }, [isConnected, publicClient, chain, getWalletClient, store, address, previewWithdraw]);
 
   // 初始化 YearnV3 功能 - 优化依赖
   const initializeYearnV3 = useCallback(async () => {
