@@ -127,7 +127,7 @@ interface PancakeSwapState {
   swapExactInput: (amountIn: string, tokenIn: Address, tokenOut: Address, slippageBps?: number) => Promise<PancakeSwapTransactionResult>;
   swapExactOutput: (amountOut: string, tokenIn: Address, tokenOut: Address, slippageBps?: number) => Promise<PancakeSwapTransactionResult>;
   approveToken: (token: Address, amount: string) => Promise<PancakeSwapContractCallResult>;
-  estimateSwap: (amountIn: string, tokenIn: Address, tokenOut: Address, operationType: PancakeSwapOperationType) => Promise<PancakeSwapContractCallResult>;
+  estimateSwap: (publicClient: PublicClient, amountIn: string, tokenIn: Address, tokenOut: Address, operationType: PancakeSwapOperationType) => Promise<PancakeSwapContractCallResult>;
 
   // 辅助方法
   setLoading: (loading: boolean) => void;
@@ -377,7 +377,7 @@ export const usePancakeSwapStore = create<PancakeSwapState>()(
       },
 
       // 预估交换
-      estimateSwap: async (amountIn: string, tokenIn: Address, tokenOut: Address, operationType: PancakeSwapOperationType) => {
+      estimateSwap: async (publicClient: PublicClient, amountIn: string, tokenIn: Address, tokenOut: Address, operationType: PancakeSwapOperationType) => {
         const { pancakeAdapterAddress } = get();
         if (!pancakeAdapterAddress) {
           return { success: false, error: '合约地址未初始化' };
