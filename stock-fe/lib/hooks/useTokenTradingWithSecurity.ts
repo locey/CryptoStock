@@ -6,7 +6,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import { Address, formatUnits, parseUnits } from 'viem';
+import { Address, formatEther, formatUnits, parseUnits } from 'viem';
 import { ethers } from 'ethers';
 import { usePublicClient, useWalletClient } from 'yc-sdk-hooks';
 import { useWallet } from 'yc-sdk-ui';
