@@ -11,8 +11,9 @@ describe("10-yearnv3-sepolia.test.js - YearnV3Adapter Sepolia 测试", function 
     let deployer, user;
     let usdt, vault, defiAggregator, yearnAdapter;
     let USDT_ADDRESS, YEARN_V3_VAULT;
-    
+
     const USER_DEPOSIT_AMOUNT = ethers.parseUnits("100", 6); // 100 USDT (6 decimals)
+    const SHARES_DECIMALS = 18; // Vault Shares 使用 18 位小数
 
     before(async function() {
         // 加载部署配置
@@ -95,7 +96,7 @@ describe("10-yearnv3-sepolia.test.js - YearnV3Adapter Sepolia 测试", function 
         
         console.log("存款前:");
         console.log("用户USDT余额:", ethers.formatUnits(userUsdtBefore, 6));
-        console.log("用户份额余额:", ethers.formatUnits(userSharesBefore, 6));
+        console.log("用户份额余额:", ethers.formatUnits(userSharesBefore, SHARES_DECIMALS));
         console.log("存款金额:", ethers.formatUnits(USER_DEPOSIT_AMOUNT, 6));
         
         // 检查当前授权额度
@@ -139,7 +140,7 @@ describe("10-yearnv3-sepolia.test.js - YearnV3Adapter Sepolia 测试", function 
         
         console.log("存款后:");
         console.log("用户USDT余额:", ethers.formatUnits(userUsdtAfter, 6));
-        console.log("用户份额余额:", ethers.formatUnits(userSharesAfter, 6));
+        console.log("用户份额余额:", ethers.formatUnits(userSharesAfter, SHARES_DECIMALS));
         
         // 验证代币转移
         expect(userUsdtBefore - userUsdtAfter).to.equal(USER_DEPOSIT_AMOUNT);
@@ -159,39 +160,41 @@ describe("10-yearnv3-sepolia.test.js - YearnV3Adapter Sepolia 测试", function 
         const vaultSharePrice = vaultTotalSupply > 0 ? (vaultTotalAssets * ethers.parseUnits("1", 6)) / vaultTotalSupply : ethers.parseUnits("1", 6);
         
         console.log("=== 取款前状态 ===");
-        console.log("用户份额余额:", ethers.formatUnits(sharesBefore, 6));
+        console.log("用户份额余额:", ethers.formatUnits(sharesBefore, SHARES_DECIMALS));
         console.log("用户USDT余额:", ethers.formatUnits(usdtBefore, 6));
         console.log("Vault USDT余额:", ethers.formatUnits(vaultUsdtBefore, 6));
-        
+
         console.log("=== Vault 完整余额信息 ===");
         console.log("Vault 总资产 (totalAssets):", ethers.formatUnits(vaultTotalAssets, 6), "USDT");
-        console.log("Vault 总供应量 (totalSupply):", ethers.formatUnits(vaultTotalSupply, 6), "shares");
+        console.log("Vault 总供应量 (totalSupply):", ethers.formatUnits(vaultTotalSupply, SHARES_DECIMALS), "shares");
         console.log("Vault 每份额价格 (计算值):", ethers.formatUnits(vaultSharePrice, 6));
         console.log("Vault 地址余额 (balanceOf):", ethers.formatUnits(vaultUsdtBefore, 6), "USDT");
-        
+
         // 取款50%的份额
         const sharesToWithdraw = sharesBefore / 2n;
-        
-        // 基于实际情况：用户存入了100 USDT，应该能取回大约50 USDT
-        // 考虑到手续费，实际可取金额会稍少
-        const reasonableWithdrawAmount = ethers.parseUnits("45", 6); // 45 USDT，考虑手续费
-        
+
         console.log("=== 取款计划 ===");
-        console.log("计划取款份额:", ethers.formatUnits(sharesToWithdraw, 6));
-        console.log("计划取款金额:", ethers.formatUnits(reasonableWithdrawAmount, 6), "USDT");
+        console.log("计划取款份额:", ethers.formatUnits(sharesToWithdraw, SHARES_DECIMALS));
+
+        // 预览取款金额，看看能取回多少USDT
+        const previewAssets = await yearnAdapter.previewRedeem(sharesToWithdraw);
+        console.log("预期取回资产:", ethers.formatUnits(previewAssets, 6), "USDT");
 
         const withdrawParams = {
             tokens: [USDT_ADDRESS],
-            amounts: [reasonableWithdrawAmount],
+            amounts: [sharesToWithdraw.toString()], // 传入shares数量，而不是USDT数量
             recipient: user.address,
             deadline: Math.floor(Date.now() / 1000) + 3600,
             tokenId: 0,
             extraData: "0x"
         };
-        
-        // 用户授权足够的份额（授权全部份额以防不够）
-        await vault.connect(user).approve(await yearnAdapter.getAddress(), sharesBefore);
-        
+
+        // 用户授权足够的份额（授权要取款的份额数量）
+        console.log("正在授权 Vault Shares...");
+        const approveTx = await vault.connect(user).approve(await yearnAdapter.getAddress(), sharesToWithdraw);
+        await approveTx.wait();
+        console.log("Vault Shares 授权完成");
+
         console.log("正在执行取款操作...");
         const withdrawTx = await defiAggregator.connect(user).executeOperation("yearnv3", 1, withdrawParams); // WITHDRAW
         console.log("取款交易已提交，等待确认...");
@@ -215,18 +218,18 @@ describe("10-yearnv3-sepolia.test.js - YearnV3Adapter Sepolia 测试", function 
         const vaultSharePriceAfter = vaultTotalSupplyAfter > 0 ? (vaultTotalAssetsAfter * ethers.parseUnits("1", 6)) / vaultTotalSupplyAfter : ethers.parseUnits("1", 6);
         
         console.log("=== 取款后状态 ===");
-        console.log("用户份额余额:", ethers.formatUnits(sharesAfter, 6));
+        console.log("用户份额余额:", ethers.formatUnits(sharesAfter, SHARES_DECIMALS));
         console.log("用户USDT余额:", ethers.formatUnits(usdtAfter, 6));
-        
+
         console.log("=== Vault 取款后完整余额信息 ===");
         console.log("Vault 总资产 (totalAssets):", ethers.formatUnits(vaultTotalAssetsAfter, 6), "USDT");
-        console.log("Vault 总供应量 (totalSupply):", ethers.formatUnits(vaultTotalSupplyAfter, 6), "shares");
+        console.log("Vault 总供应量 (totalSupply):", ethers.formatUnits(vaultTotalSupplyAfter, SHARES_DECIMALS), "shares");
         console.log("Vault 每份额价格 (计算值):", ethers.formatUnits(vaultSharePriceAfter, 6));
         console.log("Vault 地址余额 (balanceOf):", ethers.formatUnits(vaultUsdtAfter, 6), "USDT");
-        
+
         console.log("=== Vault 余额变化对比 ===");
         console.log("总资产变化:", ethers.formatUnits(vaultTotalAssetsAfter - vaultTotalAssets, 6), "USDT");
-        console.log("总供应量变化:", ethers.formatUnits(vaultTotalSupplyAfter - vaultTotalSupply, 6), "shares");
+        console.log("总供应量变化:", ethers.formatUnits(vaultTotalSupplyAfter - vaultTotalSupply, SHARES_DECIMALS), "shares");
         console.log("地址余额变化:", ethers.formatUnits(vaultUsdtAfter - vaultUsdtBefore, 6), "USDT");
         
         // 验证取款效果

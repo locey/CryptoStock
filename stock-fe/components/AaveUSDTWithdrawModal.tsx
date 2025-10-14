@@ -182,9 +182,9 @@ export default function AaveUSDTWithdrawModal({ isOpen, onClose, onSuccess }: Aa
         <button
           onClick={handleClose}
           className="absolute top-4 right-4 p-2 hover:bg-gray-800 rounded-lg transition-colors"
-          disabled={isOperating}
+          title={isOperating ? "操作进行中，请稍候" : "关闭弹窗"}
         >
-          <X className="w-5 h-5 text-gray-400" />
+          <X className={`w-5 h-5 ${isOperating ? 'text-gray-600 cursor-not-allowed' : 'text-gray-400 hover:text-white'} transition-colors`} />
         </button>
 
         {/* 标题 */}

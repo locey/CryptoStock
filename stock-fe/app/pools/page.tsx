@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { ArrowRight, TrendingUp, DollarSign, Shield, Droplets, Activity, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,8 @@ import UniswapLiquidityModal from '@/components/UniswapLiquidityModal'
 import UniswapSellModal from '@/components/UniswapSellModal'
 import CurveLiquidityModal from '@/components/CurveLiquidityModal'
 import CurveWithdrawModal from '@/components/CurveWithdrawModal'
+import YearnV3DepositModal from '@/components/YearnV3DepositModal'
+import YearnV3WithdrawModal from '@/components/YearnV3WithdrawModal'
 
 const poolCategories = [
   {
@@ -85,6 +87,24 @@ const poolCategories = [
     color: 'from-green-500 to-blue-500',
     href: '#',
     features: ['算法利率', 'COMP治理奖励', '清算保护', '跨资产支持', '透明度高']
+  },
+  {
+    id: 'yearnv3',
+    name: 'Yearn Finance V3',
+    description: '领先的DeFi收益聚合器，通过自动化策略为用户提供最优收益',
+    icon: '🌾',
+    tvl: 2000000000,
+    apr: 15.8,
+    volume24h: 567890.12,
+    invested: 345678.90,
+    earned: 23456.78,
+    pools: 8,
+    minDeposit: 100,
+    token: 'USDT',
+    lockPeriod: '灵活取款',
+    color: 'from-yellow-500 to-orange-500',
+    href: '#',
+    features: ['自动收益优化', '多策略投资', '低风险收益', 'YFI代币奖励', '智能金库管理']
   }
 ]
 
@@ -121,6 +141,14 @@ const featuredPools = [
     apr: 2.15,
     volume24h: 567.89,
     type: 'Curve Stable'
+  },
+  {
+    token0: { symbol: 'USDT', name: 'Tether', icon: '₮' },
+    token1: { symbol: 'yvUSDT', name: 'Yearn USDT Vault', icon: '🌾' },
+    tvl: 892345.67,
+    apr: 15.8,
+    volume24h: 234567.89,
+    type: 'YearnV3 Vault'
   }
 ]
 
@@ -145,9 +173,18 @@ export default function PoolsPage() {
   const [uniswapSellModalOpen, setUniswapSellModalOpen] = useState(false)
   const [curveLiquidityModalOpen, setCurveLiquidityModalOpen] = useState(false)
   const [curveWithdrawModalOpen, setCurveWithdrawModalOpen] = useState(false)
+  const [yearnV3DepositModalOpen, setYearnV3DepositModalOpen] = useState(false)
+  const [yearnV3WithdrawModalOpen, setYearnV3WithdrawModalOpen] = useState(false)
 
-  const totalTVL = poolCategories.reduce((sum, category) => sum + category.tvl, 0)
-  const totalVolume = poolCategories.reduce((sum, category) => sum + category.volume24h, 0)
+  // 使用 useMemo 缓存计算结果，防止每次渲染都重新计算
+  const totalTVL = useMemo(() =>
+    poolCategories.reduce((sum, category) => sum + category.tvl, 0),
+    [poolCategories]
+  );
+  const totalVolume = useMemo(() =>
+    poolCategories.reduce((sum, category) => sum + category.volume24h, 0),
+    [poolCategories]
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black text-white">
@@ -283,6 +320,8 @@ export default function PoolsPage() {
                         setAaveBuyModalOpen(true)
                       } else if (category.id === 'compound') {
                         setCompoundBuyModalOpen(true)
+                      } else if (category.id === 'yearnv3') {
+                        setYearnV3DepositModalOpen(true)
                       }
                     }}
                   >
@@ -300,6 +339,8 @@ export default function PoolsPage() {
                         setAaveSellModalOpen(true)
                       } else if (category.id === 'compound') {
                         setCompoundSellModalOpen(true)
+                      } else if (category.id === 'yearnv3') {
+                        setYearnV3WithdrawModalOpen(true)
                       }
                     }}
                   >
@@ -365,13 +406,15 @@ export default function PoolsPage() {
                   onClick={() => {
                     if (pool.type === 'Curve 3Pool' || pool.type === 'Curve Stable') {
                       setCurveLiquidityModalOpen(true)
+                    } else if (pool.type === 'YearnV3 Vault') {
+                      setYearnV3DepositModalOpen(true)
                     } else {
                       setUniswapLiquidityModalOpen(true)
                     }
                   }}
                   className="w-full mt-6 py-3 bg-gradient-to-r from-pink-500 to-yellow-400 hover:from-pink-600 hover:to-yellow-500 text-white font-semibold rounded-lg transition-all"
                 >
-                  添加流动性
+                  {pool.type === 'YearnV3 Vault' ? '存入' : '添加流动性'}
                 </button>
               </div>
             ))}
@@ -479,6 +522,26 @@ export default function PoolsPage() {
         onSuccess={(result) => {
           console.log('Curve 提取流动性成功:', result)
           setCurveWithdrawModalOpen(false)
+        }}
+      />
+
+      {/* YearnV3 存款弹窗 */}
+      <YearnV3DepositModal
+        isOpen={yearnV3DepositModalOpen}
+        onClose={() => setYearnV3DepositModalOpen(false)}
+        onSuccess={(result) => {
+          console.log('YearnV3 存款成功:', result)
+          setYearnV3DepositModalOpen(false)
+        }}
+      />
+
+      {/* YearnV3 提取弹窗 */}
+      <YearnV3WithdrawModal
+        isOpen={yearnV3WithdrawModalOpen}
+        onClose={() => setYearnV3WithdrawModalOpen(false)}
+        onSuccess={(result) => {
+          console.log('YearnV3 提取成功:', result)
+          setYearnV3WithdrawModalOpen(false)
         }}
       />
     </div>
