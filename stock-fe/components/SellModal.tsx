@@ -116,8 +116,6 @@ export function SellModal({
   // 初始化数据
   useEffect(() => {
     if (isOpen && isConnected) {
-      console.log("🔍 SellModal 打开，初始化数据...");
-      console.log("🔍 当前余额状态:", balances);
       updateBalance();
     }
   }, [isOpen, isConnected]);
@@ -131,19 +129,7 @@ export function SellModal({
     }
   }, [isOpen, clearError, setSellAmount]);
 
-  // 监听余额变化
-  useEffect(() => {
-    if (isOpen) {
-      console.log("🔍 余额更新:", {
-        balances,
-        tokenBalance: balances?.tokenBalance,
-        formatted: balances?.tokenBalance
-          ? formatUnits(balances.tokenBalance, 18)
-          : "0",
-      });
-    }
-  }, [balances, isOpen]);
-
+  
   // 监听卖出金额变化，自动计算预估
   useEffect(() => {
     if (isOpen && params?.sellAmount && parseFloat(params.sellAmount) > 0) {
@@ -171,16 +157,7 @@ export function SellModal({
 
   // 处理卖出
   const handleSell = async () => {
-    console.log("🚀 开始卖出代币:", {
-      token: token.symbol,
-      params,
-      estimate,
-      isConnected,
-    });
-
-    const result = await executeSell();
-
-    // toast 提示已经在 hook 中处理，这里不需要重复处理
+    await executeSell();
   };
 
   // 计算按钮状态

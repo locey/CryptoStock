@@ -212,7 +212,6 @@ export const useTokenFactoryStore = create<TokenFactoryState>((set, get) => ({
 
     try {
       set({ isLoading: true, error: null });
-      console.log('🔍 获取所有代币信息...');
 
       const tokenAddresses = await publicClient.readContract({
         address: contractAddress,
@@ -225,7 +224,6 @@ export const useTokenFactoryStore = create<TokenFactoryState>((set, get) => ({
       const tokensInfo: TokenInfo[] = [];
       for (const tokenAddress of tokenAddresses) {
         try {
-          console.log(`🔍 获取代币 ${tokenAddress} 的详细信息...`);
 
           // 先获取基本信息
           const [name, symbol, decimals, totalSupply] = await Promise.all([
@@ -376,7 +374,6 @@ export const useTokenFactoryStore = create<TokenFactoryState>((set, get) => ({
 
     try {
       set({ isLoading: true, error: null });
-      console.log('🔍 获取代币映射...');
 
       const mapping = await publicClient.readContract({
         address: contractAddress,
@@ -414,7 +411,6 @@ export const useTokenFactoryStore = create<TokenFactoryState>((set, get) => ({
 
     try {
       set({ isLoading: true, error: null });
-      console.log(`🔍 获取代币 ${symbol} 的地址...`);
 
       const tokenAddress = await publicClient.readContract({
         address: contractAddress,

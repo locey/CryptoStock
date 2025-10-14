@@ -185,7 +185,6 @@ export const useSecurityValidation = (): UseSecurityValidationReturn => {
     setState(prev => ({ ...prev, isValidating: true, error: null }));
 
     try {
-      console.log('🔍 开始验证交易...', {
         hash: metadata.hash,
         nonce: metadata.nonce.toString(),
         sessionId: metadata.sessionId,

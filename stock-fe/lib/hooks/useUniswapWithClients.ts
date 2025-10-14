@@ -564,7 +564,7 @@ export const useUniswapWithClients = () => {
 
   // 强制订阅 userPositions 变化 - 添加更详细的监控
   useEffect(() => {
-    console.log('🔍 [DEBUG] useUniswapWithClients - userPositions 变化:', {
+    console.log("🔍 Uniswap userPositions 变化 (useEffect):", {
       length: store.userPositions.length,
       positions: store.userPositions,
       timestamp: new Date().toISOString()

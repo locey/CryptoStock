@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useUniswap, useUniswapOperations } from '@/lib/hooks/useUniswap';
 import { formatUnits } from 'viem';
+import { UNISWAP_CONFIG } from '@/lib/config/loadContracts';
 
 interface PositionCardProps {
   position: {
@@ -66,8 +67,8 @@ export const PositionCard: React.FC<PositionCardProps> = ({
 
   // 获取代币符号
   const getTokenSymbol = (address: string) => {
-    if (address === '0xd7C597Cf30fb56162AEDAe8a52927B7CE4076e5B') return 'USDT';
-    if (address === '0x6a1B8536678C42cacf9e2C6502bffe288c84C8bA') return 'WETH';
+    if (address.toLowerCase() === UNISWAP_CONFIG.tokens.USDT.address.toLowerCase()) return 'USDT';
+    if (address.toLowerCase() === UNISWAP_CONFIG.tokens.WETH.address.toLowerCase()) return 'WETH';
     return 'Unknown';
   };
 

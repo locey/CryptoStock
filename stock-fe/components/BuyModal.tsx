@@ -85,7 +85,6 @@ export default function BuyModal({
   // 初始化数据
   useEffect(() => {
     if (isOpen && isConnected) {
-      console.log("🔍 BuyModal 打开，初始化数据...");
       initializeData();
     }
   }, [isOpen, isConnected, initializeData]);

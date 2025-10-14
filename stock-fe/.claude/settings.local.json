@@ -16,7 +16,11 @@
       "Read(//Users/lijinhai/Desktop/my_project/ethclient-tutorial/**)",
       "Bash(go run:*)",
       "Bash(go build:*)",
-      "Bash(./quick_demo:*)"
+      "Bash(./quick_demo:*)",
+      "Bash(for:*)",
+      "Bash(do:*)",
+      "Bash(echo:*)",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": []

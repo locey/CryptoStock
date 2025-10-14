@@ -389,27 +389,27 @@ export const useCompoundWithClients = () => {
 
     if (tokenType === 'usdt') {
       const allowance = store.userBalance.usdtAllowance || 0n;
-      const needsApproval = allowance < amountBigInt;
-      console.log('🔍 USDT 授权检查:', {
-        amount: amountBigInt.toString(),
-        allowance: allowance.toString(),
-        needsApproval
-      });
-      return needsApproval;
+        const needsApproval = allowance < amountBigInt;
+    console.log('USDT 授权检查:', {
+      amount: amountBigInt.toString(),
+      allowance: allowance.toString(),
+      needsApproval
+    });
+    return needsApproval;
     } else {
       // 对于 cUSDT，需要将 USDT 金额转换为 cUSDT 金额
       const exchangeRate = store.poolInfo.currentExchangeRate || 1n;
       const cUsdtAmount = (amountBigInt * 100n) / exchangeRate;
       const allowance = store.userBalance.cUsdtAllowance || 0n;
       const needsApproval = allowance < cUsdtAmount;
-      console.log('🔍 cUSDT 授权检查:', {
-        usdtAmount: amountBigInt.toString(),
-        exchangeRate: exchangeRate.toString(),
-        cUsdtAmount: cUsdtAmount.toString(),
-        allowance: allowance.toString(),
-        needsApproval
-      });
-      return needsApproval;
+    console.log('cUSDT 授权检查:', {
+      usdtAmount: amountBigInt.toString(),
+      exchangeRate: exchangeRate.toString(),
+      cUsdtAmount: cUsdtAmount.toString(),
+      allowance: allowance.toString(),
+      needsApproval
+    });
+    return needsApproval;
     }
   }, [store.userBalance, store.poolInfo]);
 

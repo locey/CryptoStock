@@ -226,7 +226,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         oracleAggregatorAddress
       });
 
-      console.log("🔍 获取预言机更新数据:", { symbols, oracleAggregatorAddress });
 
       // 1. 获取 Pyth 更新数据
       const updateData = await getPythUpdateData(symbols);
@@ -651,7 +650,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
       console.log("🔄 开始购买流程，获取最新价格数据...");
 
       // 1. 首先确保有价格数据
-      console.log(`🔍 确保 ${token.symbol} 的价格数据已获取...`);
       if (!tradingState.priceData) {
         console.log("⚠️ 价格数据为空，重新获取...");
         await fetchPriceData();
@@ -665,7 +663,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
       console.log("✅ 价格数据已确认:", tradingState.priceData);
 
       // 2. 获取 Pyth 和 RedStone 数据
-      console.log(`🔍 获取 ${token.symbol} 的 Pyth 和 RedStone 数据...`);
 
       pythUpdateData = await fetchUpdateData([token.symbol]);
       console.log("✅ Pyth 数据获取成功");
@@ -751,7 +748,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
       });
 
       // 在调用 getAggregatedPrice 之前验证参数
-      console.log("🔍 验证 getAggregatedPrice 调用参数:");
       console.log("token.symbol 类型:", typeof token.symbol, "值:", token.symbol);
       console.log("updateDataArray 类型:", typeof updateDataArray, "长度:", updateDataArray.length);
 
@@ -985,7 +981,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
       console.log("测试值 最小代币数量:", BigInt(BUY_PARAMS.minTokenAmount).toString(), formatEther(BigInt(BUY_PARAMS.minTokenAmount)));
       console.log("动态计算 最小代币数量:", minTokenAmount.toString(), formatEther(minTokenAmount));
       // 验证所有参数类型
-      console.log("🔍 最终参数类型验证:");
       console.log("buyAmountWei 类型:", typeof buyAmountWei, "值:", buyAmountWei);
       console.log("minTokenAmount 类型:", typeof minTokenAmount, "值:", minTokenAmount);
       console.log("currentUpdateDataArray 类型:", typeof currentUpdateDataArray, "值:", currentUpdateDataArray);
@@ -993,7 +988,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
       console.log("address 类型:", typeof address, "值:", address);
 
       // 详细验证 updateDataArray 的每个元素
-      console.log("🔍 详细验证 updateDataArray:");
       currentUpdateDataArray.forEach((subArray, arrayIndex) => {
         console.log(`数组 ${arrayIndex}:`, {
           type: typeof subArray,
@@ -1033,10 +1027,8 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
       let hash: `0x${string}`;
       try {
         // 最终验证和格式化所有 writeContract 参数
-        console.log("🔍 最终验证 writeContract 参数...");
 
         // 验证并格式化地址
-        console.log("🔍 验证代币地址...");
         const validatedAddress = token.address;
         console.log("   原始地址:", validatedAddress);
         console.log("   类型:", typeof validatedAddress);
@@ -1048,7 +1040,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         console.log("✅ 代币地址验证通过");
 
         // 验证并格式化账户地址
-        console.log("🔍 验证账户地址...");
         const validatedAccount = address;
         console.log("   原始地址:", validatedAccount);
         console.log("   类型:", typeof validatedAccount);
@@ -1060,7 +1051,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         console.log("✅ 账户地址验证通过");
 
         // 确保 buyAmountWei 是 bigint
-        console.log("🔍 验证购买金额...");
         console.log("   原始值:", buyAmountWei);
         console.log("   类型:", typeof buyAmountWei);
         const validatedBuyAmountWei = typeof buyAmountWei === 'bigint' ? buyAmountWei : BigInt(buyAmountWei);
@@ -1069,7 +1059,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         console.log("✅ 购买金额验证通过");
 
         // 确保 minTokenAmount 是 bigint
-        console.log("🔍 验证最小代币数量...");
         console.log("   原始值:", minTokenAmount);
         console.log("   类型:", typeof minTokenAmount);
         const validatedMinTokenAmount = typeof minTokenAmount === 'bigint' ? minTokenAmount : BigInt(minTokenAmount);
@@ -1093,7 +1082,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         console.log("✅ 按测试文件方式构建的 updateDataArray:", contractUpdateDataArray);
 
         // 深度验证 contractUpdateDataArray 中的每个元素
-        console.log("🔍 深度验证 contractUpdateDataArray:");
         contractUpdateDataArray.forEach((subArray, arrayIndex) => {
           console.log(`数组 ${arrayIndex}:`, {
             type: typeof subArray,
@@ -1137,7 +1125,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         console.log("✅ 清理后的 contractUpdateDataArray:", sanitizedContractUpdateDataArray);
 
         // 确保 finalUpdateFee 是 bigint
-        console.log("🔍 验证交易费用...");
         console.log("   原始值:", finalUpdateFee);
         console.log("   类型:", typeof finalUpdateFee);
         const validatedValue = typeof finalUpdateFee === 'bigint' ? finalUpdateFee : BigInt(finalUpdateFee);
@@ -1160,7 +1147,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         });
 
         // 额外验证：在调用前检查所有参数类型
-        console.log("🔍 预调用参数类型检查:");
         console.log("  validatedAddress 类型:", typeof validatedAddress);
         console.log("  validatedAccount 类型:", typeof validatedAccount);
         console.log("  validatedBuyAmountWei 类型:", typeof validatedBuyAmountWei);
@@ -1395,7 +1381,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
       console.log("🔄 开始卖出流程，获取最新价格数据...");
 
       // 1. 首先确保有价格数据
-      console.log(`🔍 确保 ${token.symbol} 的价格数据已获取...`);
       if (!tradingState.priceData) {
         console.log("⚠️ 价格数据为空，重新获取...");
         await fetchPriceData();
@@ -1409,7 +1394,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
       console.log("✅ 价格数据已确认:", tradingState.priceData);
 
       // 2. 获取 Pyth 和 RedStone 数据
-      console.log(`🔍 获取 ${token.symbol} 的 Pyth 和 RedStone 数据...`);
 
       pythUpdateData = await fetchUpdateData([token.symbol]);
       console.log("✅ Pyth 数据获取成功");
@@ -1495,7 +1479,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
       });
 
       // 在调用 getAggregatedPrice 之前验证参数
-      console.log("🔍 验证 getAggregatedPrice 调用参数:");
       console.log("token.symbol 类型:", typeof token.symbol, "值:", token.symbol);
       console.log("updateDataArray 类型:", typeof updateDataArray, "长度:", updateDataArray.length);
 
@@ -1619,7 +1602,7 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         args: [token.address]
       }) as bigint;
 
-      console.log("🔍 合约USDT余额检查:", {
+      console.log("💰 合约USDT余额检查:", {
         contractUsdtBalance: contractUsdtBalance.toString(),
         contractUsdtBalanceFormatted: formatUnits(contractUsdtBalance, 6),
         expectedUsdtAmount: expectedUsdtAmount.toString(),
@@ -1704,7 +1687,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
       });
 
       // 验证所有参数类型
-      console.log("🔍 最终参数类型验证:");
       console.log("sellAmountWei 类型:", typeof sellAmountWei, "值:", sellAmountWei);
       console.log("minUsdtAmount 类型:", typeof minUsdtAmount, "值:", minUsdtAmount);
       console.log("currentUpdateDataArray 类型:", typeof currentUpdateDataArray, "值:", currentUpdateDataArray);
@@ -1712,7 +1694,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
       console.log("address 类型:", typeof address, "值:", address);
 
       // 详细验证 updateDataArray 的每个元素
-      console.log("🔍 详细验证 updateDataArray:");
       currentUpdateDataArray.forEach((subArray, arrayIndex) => {
         console.log(`数组 ${arrayIndex}:`, {
           type: typeof subArray,
@@ -1752,10 +1733,8 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
       let hash: `0x${string}`;
       try {
         // 最终验证和格式化所有 writeContract 参数
-        console.log("🔍 最终验证 writeContract 参数...");
 
         // 验证并格式化地址
-        console.log("🔍 验证代币地址...");
         const validatedAddress = token.address;
         console.log("   原始地址:", validatedAddress);
         console.log("   类型:", typeof validatedAddress);
@@ -1767,7 +1746,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         console.log("✅ 代币地址验证通过");
 
         // 验证并格式化账户地址
-        console.log("🔍 验证账户地址...");
         const validatedAccount = address;
         console.log("   原始地址:", validatedAccount);
         console.log("   类型:", typeof validatedAccount);
@@ -1779,7 +1757,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         console.log("✅ 账户地址验证通过");
 
         // 确保 sellAmountWei 是 bigint
-        console.log("🔍 验证卖出金额...");
         console.log("   原始值:", sellAmountWei);
         console.log("   类型:", typeof sellAmountWei);
         const validatedSellAmountWei = typeof sellAmountWei === 'bigint' ? sellAmountWei : BigInt(sellAmountWei);
@@ -1788,7 +1765,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         console.log("✅ 卖出金额验证通过");
 
         // 确保 minUsdtAmount 是 bigint
-        console.log("🔍 验证最小USDT数量...");
         console.log("   原始值:", minUsdtAmount);
         console.log("   类型:", typeof minUsdtAmount);
         const validatedMinUsdtAmount = typeof minUsdtAmount === 'bigint' ? minUsdtAmount : BigInt(minUsdtAmount);
@@ -1812,7 +1788,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         console.log("✅ 按测试文件方式构建的 updateDataArray:", contractUpdateDataArray);
 
         // 深度验证 contractUpdateDataArray 中的每个元素
-        console.log("🔍 深度验证 contractUpdateDataArray:");
         contractUpdateDataArray.forEach((subArray, arrayIndex) => {
           console.log(`数组 ${arrayIndex}:`, {
             type: typeof subArray,
@@ -1856,7 +1831,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         console.log("✅ 清理后的 contractUpdateDataArray:", sanitizedContractUpdateDataArray);
 
         // 确保 finalUpdateFee 是 bigint
-        console.log("🔍 验证交易费用...");
         console.log("   原始值:", finalUpdateFee);
         console.log("   类型:", typeof finalUpdateFee);
         const validatedValue = typeof finalUpdateFee === 'bigint' ? finalUpdateFee : BigInt(finalUpdateFee);
@@ -1879,7 +1853,6 @@ console.log("🔍 useTokenTrading 初始化:", { isConnected, address, stockToke
         });
 
         // 额外验证：在调用前检查所有参数类型
-        console.log("🔍 预调用参数类型检查:");
         console.log("  validatedAddress 类型:", typeof validatedAddress);
         console.log("  validatedAccount 类型:", typeof validatedAccount);
         console.log("  validatedSellAmountWei 类型:", typeof validatedSellAmountWei);

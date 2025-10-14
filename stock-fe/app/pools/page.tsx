@@ -10,6 +10,8 @@ import CompoundUSDTBuyModal from '@/components/CompoundUSDTBuyModal'
 import CompoundUSDTSellModal from '@/components/CompoundUSDTSellModal'
 import UniswapLiquidityModal from '@/components/UniswapLiquidityModal'
 import UniswapSellModal from '@/components/UniswapSellModal'
+import CurveLiquidityModal from '@/components/CurveLiquidityModal'
+import CurveWithdrawModal from '@/components/CurveWithdrawModal'
 
 const poolCategories = [
   {
@@ -29,6 +31,24 @@ const poolCategories = [
     color: 'from-pink-500 to-purple-500',
     href: '/pools/uniswap',
     features: ['集中流动性', '交易手续费', '无常损失风险', '主动管理', 'MEV奖励']
+  },
+  {
+    id: 'curve',
+    name: 'Curve Finance',
+    description: '稳定币交易平台，低滑点交易和高收益',
+    icon: '🌀',
+    tvl: 1500000000,
+    apr: 12.5,
+    volume24h: 345678.90,
+    invested: 234567.89,
+    earned: 15678.34,
+    pools: 6,
+    minDeposit: 100,
+    token: 'USDC/USDT/DAI',
+    lockPeriod: '灵活取款',
+    color: 'from-cyan-500 to-blue-500',
+    href: '/pools/curve',
+    features: ['稳定币交易', '低滑点', '高收益', 'CRV奖励', '智能池管理']
   },
   {
     id: 'aave',
@@ -70,6 +90,15 @@ const poolCategories = [
 
 const featuredPools = [
   {
+    token0: { symbol: 'USDC', name: 'USD Coin', icon: '$' },
+    token1: { symbol: 'USDT', name: 'Tether', icon: '₮' },
+    token2: { symbol: 'DAI', name: 'Dai Stablecoin', icon: '◈' },
+    tvl: 456789.12,
+    apr: 12.5,
+    volume24h: 789.12,
+    type: 'Curve 3Pool'
+  },
+  {
     token0: { symbol: 'ETH', name: 'Ethereum', icon: 'Ξ' },
     token1: { symbol: 'USDC', name: 'USD Coin', icon: '$' },
     tvl: 125983.45,
@@ -91,7 +120,7 @@ const featuredPools = [
     tvl: 234567.89,
     apr: 2.15,
     volume24h: 567.89,
-    type: 'Uniswap V3'
+    type: 'Curve Stable'
   }
 ]
 
@@ -114,6 +143,8 @@ export default function PoolsPage() {
   const [compoundSellModalOpen, setCompoundSellModalOpen] = useState(false)
   const [uniswapLiquidityModalOpen, setUniswapLiquidityModalOpen] = useState(false)
   const [uniswapSellModalOpen, setUniswapSellModalOpen] = useState(false)
+  const [curveLiquidityModalOpen, setCurveLiquidityModalOpen] = useState(false)
+  const [curveWithdrawModalOpen, setCurveWithdrawModalOpen] = useState(false)
 
   const totalTVL = poolCategories.reduce((sum, category) => sum + category.tvl, 0)
   const totalVolume = poolCategories.reduce((sum, category) => sum + category.volume24h, 0)
@@ -246,6 +277,8 @@ export default function PoolsPage() {
                     onClick={() => {
                       if (category.id === 'uniswap') {
                         setUniswapLiquidityModalOpen(true)
+                      } else if (category.id === 'curve') {
+                        setCurveLiquidityModalOpen(true)
                       } else if (category.id === 'aave') {
                         setAaveBuyModalOpen(true)
                       } else if (category.id === 'compound') {
@@ -261,6 +294,8 @@ export default function PoolsPage() {
                     onClick={() => {
                       if (category.id === 'uniswap') {
                         setUniswapSellModalOpen(true)
+                      } else if (category.id === 'curve') {
+                        setCurveWithdrawModalOpen(true)
                       } else if (category.id === 'aave') {
                         setAaveSellModalOpen(true)
                       } else if (category.id === 'compound') {
@@ -294,12 +329,19 @@ export default function PoolsPage() {
                     <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center border-2 border-gray-900">
                       <span className="text-sm font-bold">{pool.token0.icon}</span>
                     </div>
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center border-2 border-gray-900">
+                    <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center border-2 border-gray-900">
                       <span className="text-sm font-bold">{pool.token1.icon}</span>
                     </div>
+                    {pool.token2 && (
+                      <div className="w-10 h-10 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-full flex items-center justify-center border-2 border-gray-900">
+                        <span className="text-sm font-bold">{pool.token2.icon}</span>
+                      </div>
+                    )}
                   </div>
                   <div>
-                    <div className="font-semibold">{pool.token0.symbol}/{pool.token1.symbol}</div>
+                    <div className="font-semibold">
+                      {pool.token2 ? `${pool.token0.symbol}/${pool.token1.symbol}/${pool.token2.symbol}` : `${pool.token0.symbol}/${pool.token1.symbol}`}
+                    </div>
                     <div className="text-sm text-gray-400">{pool.type}</div>
                   </div>
                 </div>
@@ -320,7 +362,13 @@ export default function PoolsPage() {
                 </div>
 
                 <button
-                  onClick={() => setUniswapLiquidityModalOpen(true)}
+                  onClick={() => {
+                    if (pool.type === 'Curve 3Pool' || pool.type === 'Curve Stable') {
+                      setCurveLiquidityModalOpen(true)
+                    } else {
+                      setUniswapLiquidityModalOpen(true)
+                    }
+                  }}
                   className="w-full mt-6 py-3 bg-gradient-to-r from-pink-500 to-yellow-400 hover:from-pink-600 hover:to-yellow-500 text-white font-semibold rounded-lg transition-all"
                 >
                   添加流动性
@@ -411,6 +459,26 @@ export default function PoolsPage() {
         onSuccess={(result) => {
           console.log('Uniswap V3 卖出成功:', result)
           setUniswapSellModalOpen(false)
+        }}
+      />
+
+      {/* Curve 添加流动性弹窗 */}
+      <CurveLiquidityModal
+        isOpen={curveLiquidityModalOpen}
+        onClose={() => setCurveLiquidityModalOpen(false)}
+        onSuccess={(result) => {
+          console.log('Curve 添加流动性成功:', result)
+          setCurveLiquidityModalOpen(false)
+        }}
+      />
+
+      {/* Curve 提取流动性弹窗 */}
+      <CurveWithdrawModal
+        isOpen={curveWithdrawModalOpen}
+        onClose={() => setCurveWithdrawModalOpen(false)}
+        onSuccess={(result) => {
+          console.log('Curve 提取流动性成功:', result)
+          setCurveWithdrawModalOpen(false)
         }}
       />
     </div>

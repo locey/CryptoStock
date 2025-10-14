@@ -303,11 +303,9 @@ export const LiquidityModal: React.FC<LiquidityModalProps> = ({
 
     if (activeTab === 'add') {
       // 🔧 修复：智能检查授权状态，避免重复授权
-      console.log('🔍 智能检查授权状态...', { needsApproval, amount0, amount1, currentTokenPair });
 
       // 检查 token0 授权状态
       if (amount0 && parseFloat(amount0) > 0) {
-        console.log(`🔑 检查 ${currentTokenPair.symbol0} 授权...`);
 
         let allowance = '0';
         let needsApprovalForToken = false;
@@ -344,19 +342,16 @@ export const LiquidityModal: React.FC<LiquidityModalProps> = ({
             console.error(`${currentTokenPair.symbol0} 授权失败:`, error);
             // 如果授权失败，检查是否是"already known"错误，如果是则继续执行
             if (error instanceof Error && error.message.includes('already known')) {
-              console.log(`✅ ${currentTokenPair.symbol0} 授权可能已存在，继续执行`);
             } else {
               throw error;
             }
           }
         } else {
-          console.log(`✅ ${currentTokenPair.symbol0} 授权充足，跳过授权`);
         }
       }
 
       // 检查 token1 授权状态
       if (amount1 && parseFloat(amount1) > 0) {
-        console.log(`🔑 检查 ${currentTokenPair.symbol1} 授权...`);
 
         let allowance = '0';
         let needsApprovalForToken = false;
@@ -393,13 +388,11 @@ export const LiquidityModal: React.FC<LiquidityModalProps> = ({
             console.error(`${currentTokenPair.symbol1} 授权失败:`, error);
             // 如果授权失败，检查是否是"already known"错误，如果是则继续执行
             if (error instanceof Error && error.message.includes('already known')) {
-              console.log(`✅ ${currentTokenPair.symbol1} 授权可能已存在，继续执行`);
             } else {
               throw error;
             }
           }
         } else {
-          console.log(`✅ ${currentTokenPair.symbol1} 授权充足，跳过授权`);
         }
       }
 

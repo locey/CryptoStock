@@ -117,7 +117,7 @@ export const useUniswapPositions = () => {
   } = uniswapData;
 
   // 调试日志：监控 userPositions 变化
-  console.log('🔍 [DEBUG] useUniswapPositions - 解构后的 userPositions:', {
+  console.log("🔍 Uniswap userPositions 变化:", {
     length: userPositions.length,
     positions: userPositions,
     timestamp: new Date().toISOString()
