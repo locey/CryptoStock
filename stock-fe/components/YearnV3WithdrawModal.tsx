@@ -4,7 +4,11 @@ import React, { useState, useEffect } from 'react'
 import { X, DollarSign, TrendingUp, AlertCircle, Check, Wallet, Zap, ArrowUpRight } from 'lucide-react'
 import { useYearnV3WithClients } from '@/lib/hooks/useYearnV3WithClients'
 import useYearnV3Store from '@/lib/stores/useYearnV3Store'
-import { ethers } from 'ethers'
+import { parseUnits } from 'viem'
+import { getContractAddresses } from "@/app/pool/page"
+
+// 获取合约地址
+const { USDT_ADDRESS } = getContractAddresses() as { USDT_ADDRESS: `0x${string}` };
 
 interface YearnV3WithdrawModalProps {
   isOpen: boolean
@@ -216,27 +220,28 @@ export default function YearnV3WithdrawModal({ isOpen, onClose, onSuccess }: Yea
 
       // 根据测试用例第193-196行，授权需要使用 shares 数量
       const sharesToApprove = previewData?.requiredShares || "0";
-      const sharesBigInt = ethers.parseUnits(sharesToApprove, 18); // 使用18位小数
 
       console.log("=== 授权执行详情 ===");
       console.log("用户输入 USDT 数量:", amount, "USDT");
-      console.log("需要授权的份额数量:", sharesBigInt.toString());
+      console.log("需要授权的份额数量:", sharesToApprove);
 
-      const approveTx = await vault.connect(user).approve(
-        await yearnAdapter.getAddress(),
-        sharesBigInt
-      );
-      await approveTx.wait();
-      console.log("Vault Shares 授权完成");
+      // 使用 hook 提供的 approveShares 方法
+      const approveResult = await approveShares(sharesToApprove);
 
-      // 授权成功后刷新余额信息
-      await refreshUserInfo();
+      if (approveResult.success) {
+        console.log("Vault Shares 授权完成");
 
-      // 自动进入取款步骤
-      setStep('withdraw')
+        // 授权成功后刷新余额信息
+        await refreshUserInfo();
 
-      // 自动执行取款逻辑
-      await handleWithdraw()
+        // 自动进入取款步骤
+        setStep('withdraw')
+
+        // 自动执行取款逻辑
+        await handleWithdraw()
+      } else {
+        throw new Error(approveResult.error || '授权失败');
+      }
     } catch (error) {
       console.error('授权失败:', error)
       setStep('input')
@@ -253,29 +258,15 @@ export default function YearnV3WithdrawModal({ isOpen, onClose, onSuccess }: Yea
         setStep('withdraw')
       }
 
-      // 根据测试用例，amount 现在是 USDT 数量，但需要转换为 shares 数量
-      const usdtAmount = ethers.parseUnits(amount, 6); // USDT 6位小数
-      const sharesToWithdraw = ethers.parseUnits(
-        previewData?.requiredShares || "0",
-        18 // 测试用例使用18位小数
-      );
-
       console.log("=== 提取执行详情 ===");
       console.log("用户输入 USDT 数量:", amount, "USDT");
-      console.log("计算的份额数量:", sharesToWithdraw.toString());
+      console.log("需要提取的份额数量:", previewData?.requiredShares || "0");
       console.log("预期获得 USDT:", previewData?.formattedAssets || "0", "USDT");
 
-      // 传入 shares 数量，而不是 USDT 数量
-      const withdrawParams = {
-        tokens: [USDT_ADDRESS],
-        amounts: [sharesToWithdraw], // 传入 shares 数量
-        recipient: user.address,
-        deadline: Math.floor(Date.now() / 1000) + 3600,
-        tokenId: 0,
-        extraData: "0x"
-      };
+      // 使用 hook 提供的 withdraw 方法，传入需要提取的 shares 数量
+      const sharesToWithdraw = previewData?.requiredShares || amount;
+      const result = await withdraw(sharesToWithdraw);
 
-      const result = await withdraw(withdrawParams);
       setTxHash(result.hash || '')
       setStep('success')
 
