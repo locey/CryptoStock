@@ -14,6 +14,7 @@ import CurveLiquidityModal from '@/components/CurveLiquidityModal'
 import CurveWithdrawModal from '@/components/CurveWithdrawModal'
 import YearnV3DepositModal from '@/components/YearnV3DepositModal'
 import YearnV3WithdrawModal from '@/components/YearnV3WithdrawModal'
+import PancakeSwapComponent from '@/components/PancakeSwap'
 
 const poolCategories = [
   {
@@ -105,6 +106,24 @@ const poolCategories = [
     color: 'from-yellow-500 to-orange-500',
     href: '#',
     features: ['自动收益优化', '多策略投资', '低风险收益', 'YFI代币奖励', '智能金库管理']
+  },
+  {
+    id: 'pancakeswap',
+    name: 'PancakeSwap',
+    description: '领先的去中心化交易所，支持USDT和CAKE代币交换',
+    icon: '🥞',
+    tvl: 450000000,
+    apr: 6.8,
+    volume24h: 234567.89,
+    invested: 123456.78,
+    earned: 8901.23,
+    pools: 2,
+    minDeposit: 10,
+    token: 'USDT/CAKE',
+    lockPeriod: '无锁定期',
+    color: 'from-amber-500 to-yellow-500',
+    href: '#',
+    features: ['代币交换', '低手续费', '快速交易', '滑点保护', '流动性挖矿']
   }
 ]
 
@@ -175,6 +194,7 @@ export default function PoolsPage() {
   const [curveWithdrawModalOpen, setCurveWithdrawModalOpen] = useState(false)
   const [yearnV3DepositModalOpen, setYearnV3DepositModalOpen] = useState(false)
   const [yearnV3WithdrawModalOpen, setYearnV3WithdrawModalOpen] = useState(false)
+  const [pancakeSwapModalOpen, setPancakeSwapModalOpen] = useState(false)
 
   // 使用 useMemo 缓存计算结果，防止每次渲染都重新计算
   const totalTVL = useMemo(() =>
@@ -322,6 +342,8 @@ export default function PoolsPage() {
                         setCompoundBuyModalOpen(true)
                       } else if (category.id === 'yearnv3') {
                         setYearnV3DepositModalOpen(true)
+                      } else if (category.id === 'pancakeswap') {
+                        setPancakeSwapModalOpen(true)
                       }
                     }}
                   >
@@ -341,6 +363,8 @@ export default function PoolsPage() {
                         setCompoundSellModalOpen(true)
                       } else if (category.id === 'yearnv3') {
                         setYearnV3WithdrawModalOpen(true)
+                      } else if (category.id === 'pancakeswap') {
+                        setPancakeSwapModalOpen(true)
                       }
                     }}
                   >
@@ -544,6 +568,79 @@ export default function PoolsPage() {
           setYearnV3WithdrawModalOpen(false)
         }}
       />
+
+      {/* PancakeSwap 弹窗 */}
+      {pancakeSwapModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-2xl mx-4 relative">
+            {/* 关闭按钮 */}
+            <button
+              onClick={() => setPancakeSwapModalOpen(false)}
+              className="absolute top-4 right-4 p-2 hover:bg-gray-800 rounded-lg transition-colors z-10"
+              title="关闭弹窗"
+            >
+              <svg className="w-5 h-5 text-gray-400 hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* 标题区域 */}
+            <div className="p-6 pb-4 border-b border-gray-800">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center">
+                  <span className="text-2xl">🥞</span>
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">PancakeSwap 交换</h2>
+                  <p className="text-sm text-gray-400">USDT ↔ CAKE 代币交换</p>
+                </div>
+              </div>
+
+              {/* 协议信息 */}
+              <div className="grid grid-cols-3 gap-4 mt-4">
+                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 text-center">
+                  <div className="text-xs text-gray-400 mb-1">TVL</div>
+                  <div className="text-sm font-semibold text-white">$450M</div>
+                </div>
+                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 text-center">
+                  <div className="text-xs text-gray-400 mb-1">24h 交易量</div>
+                  <div className="text-sm font-semibold text-white">$234K</div>
+                </div>
+                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 text-center">
+                  <div className="text-xs text-gray-400 mb-1">APR</div>
+                  <div className="text-sm font-semibold text-green-400">6.8%</div>
+                </div>
+              </div>
+            </div>
+
+            {/* 交换界面 */}
+            <div className="p-6 max-h-[calc(90vh-200px)] overflow-y-auto">
+              <div className="bg-gray-800/30 border border-gray-700 rounded-xl p-1">
+                <PancakeSwapComponent />
+              </div>
+            </div>
+
+            {/* 底部提示 */}
+            <div className="px-6 pb-6">
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <svg className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="text-xs text-blue-400">
+                    <p className="font-medium mb-1">交易提示</p>
+                    <ul className="space-y-1 text-gray-400">
+                      <li>• 请确保钱包已连接到 Sepolia 测试网</li>
+                      <li>• 交易前请检查滑点设置，建议 1-5%</li>
+                      <li>• 首次交易需要先授权代币</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-pools// Test case for Compound adapter functionality on Sepolia network
+poolspools// Test case for Compound adapter functionality on Sepolia network
 // Test to verify DefiAggregator + CompoundAdapter deposit flow using deployed contracts
 
 const { expect } = require("chai");
