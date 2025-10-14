@@ -11,19 +11,22 @@
 
 import React, { useState, useEffect } from 'react';
 import { usePancakeSwapWithClients } from '@/lib/hooks/usePancakeSwapWithClients';
-import { formatUnits, parseUnits } from 'viem';
+import { formatUnits, parseUnits, Address } from 'viem';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
+// 导入操作类型枚举
+import { PancakeSwapOperationType } from '@/lib/stores/usePancakeSwapStore';
+
 /**
  * 代币选择组件
  */
 const TokenSelector: React.FC<{
-  value: string;
-  onChange: (value: string) => void;
-  options: { value: string; label: string; address: string }[];
+  value: Address;
+  onChange: (value: Address) => void;
+  options: { value: string; label: string; address: Address }[];
   disabled?: boolean;
 }> = ({ value, onChange, options, disabled = false }) => {
   const getTokenIcon = (label: string) => {
@@ -321,8 +324,8 @@ const PancakeSwapComponent: React.FC = () => {
   } = usePancakeSwapWithClients();
 
   // 组件状态
-  const [tokenIn, setTokenIn] = useState('');
-  const [tokenOut, setTokenOut] = useState('');
+  const [tokenIn, setTokenIn] = useState<Address>('0x0000000000000000000000000000000000000000');
+  const [tokenOut, setTokenOut] = useState<Address>('0x0000000000000000000000000000000000000000');
   const [amountIn, setAmountIn] = useState('');
   const [amountOut, setAmountOut] = useState('');
   const [swapMode, setSwapMode] = useState<'exactInput' | 'exactOutput'>('exactInput');
@@ -333,8 +336,8 @@ const PancakeSwapComponent: React.FC = () => {
 
   // 代币选项
   const tokenOptions = [
-    { value: 'USDT', label: 'USDT', address: usdtTokenAddress || '' },
-    { value: 'CAKE', label: 'CAKE', address: cakeTokenAddress || '' }
+    { value: 'USDT', label: 'USDT', address: usdtTokenAddress || '0x0000000000000000000000000000000000000000' as Address },
+    { value: 'CAKE', label: 'CAKE', address: cakeTokenAddress || '0x0000000000000000000000000000000000000000' as Address }
   ];
 
   // 初始化合约
@@ -353,9 +356,15 @@ const PancakeSwapComponent: React.FC = () => {
       return;
     }
 
+    // 验证地址格式
+    if (!tokenIn.startsWith('0x') || !tokenOut.startsWith('0x') || tokenIn.length !== 42 || tokenOut.length !== 42) {
+      setEstimatedAmount('');
+      return;
+    }
+
     try {
       setIsEstimating(true);
-      const operationType = swapMode === 'exactInput' ? 6 : 8; // PancakeSwapOperationType
+      const operationType = swapMode === 'exactInput' ? PancakeSwapOperationType.SWAP_EXACT_INPUT : PancakeSwapOperationType.SWAP_EXACT_OUTPUT;
       const result = await estimateSwap(amountIn, tokenIn, tokenOut, operationType);
 
       if (result.success && result.data) {
@@ -376,14 +385,16 @@ const PancakeSwapComponent: React.FC = () => {
 
   // 监听输入变化，自动预估
   useEffect(() => {
-    if (swapMode === 'exactInput' && amountIn && tokenIn && tokenOut && tokenIn !== tokenOut) {
+    if (swapMode === 'exactInput' && amountIn && tokenIn && tokenOut && tokenIn !== tokenOut &&
+        tokenIn.startsWith('0x') && tokenOut.startsWith('0x') && tokenIn.length === 42 && tokenOut.length === 42) {
       handleEstimate();
     }
   }, [amountIn, tokenIn, tokenOut, swapMode]);
 
   // 监听输出变化，自动预估
   useEffect(() => {
-    if (swapMode === 'exactOutput' && amountOut && tokenIn && tokenOut && tokenIn !== tokenOut) {
+    if (swapMode === 'exactOutput' && amountOut && tokenIn && tokenOut && tokenIn !== tokenOut &&
+        tokenIn.startsWith('0x') && tokenOut.startsWith('0x') && tokenIn.length === 42 && tokenOut.length === 42) {
       handleEstimate();
     }
   }, [amountOut, tokenIn, tokenOut, swapMode]);
@@ -413,7 +424,7 @@ const PancakeSwapComponent: React.FC = () => {
   };
 
   // 获取当前余额
-  const getCurrentBalance = (tokenAddress: string) => {
+  const getCurrentBalance = (tokenAddress: Address) => {
     if (tokenAddress === usdtTokenAddress) {
       return formattedBalances.usdtBalance;
     }
@@ -424,7 +435,7 @@ const PancakeSwapComponent: React.FC = () => {
   };
 
   // 获取最大余额
-  const getMaxBalance = (tokenAddress: string) => {
+  const getMaxBalance = (tokenAddress: Address) => {
     if (tokenAddress === usdtTokenAddress) {
       return maxBalances.maxUSDTToSwap;
     }
@@ -435,8 +446,8 @@ const PancakeSwapComponent: React.FC = () => {
   };
 
   // 处理授权
-  const handleApprove = async (tokenAddress: string) => {
-    if (!tokenAddress) return;
+  const handleApprove = async (tokenAddress: Address) => {
+    if (!tokenAddress || tokenAddress === '0x0000000000000000000000000000000000000000') return;
 
     const balance = getCurrentBalance(tokenAddress);
     if (!balance || parseFloat(balance) <= 0) {
