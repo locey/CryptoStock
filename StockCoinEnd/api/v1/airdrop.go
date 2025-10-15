@@ -164,11 +164,11 @@ func GetRefLink(svcCtx *svc.ServerCtx) gin.HandlerFunc {
 
 func GetAndSetUserTaskProof(svcCtx *svc.ServerCtx) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		address := "123"
-		// if address == "" {
-		// 	xhttp.Error(c, errcode.NewCustomErr("user addr is null"))
-		// 	return
-		// }
+		address := "0x3c276c70Ad0447f5FbbeBC297793Be2A750704aE"
+		if address == "" {
+			xhttp.Error(c, errcode.NewCustomErr("user addr is null"))
+			return
+		}
 
 		res, err := service.GetUserTaskProof(c.Request.Context(), svcCtx, address)
 		if err != nil {

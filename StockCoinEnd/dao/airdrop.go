@@ -47,12 +47,11 @@ func (d *Dao) GetActiveTasks(tx context.Context) ([]airdrop.AirdropTask, error) 
 
 // 批量更新
 func (d *Dao) UpdateUserTasks(airdropTasks []airdrop.AirdropUserTask) {
-	// 根据id 批量更新
-	ids := make([]int64, len(airdropTasks))
-	for i, task := range airdropTasks {
-		ids[i] = task.ID
+
+	//通过id更新
+	for _, task := range airdropTasks {
+		d.DB.Debug().Model(&airdrop.AirdropUserTask{}).Where("id = ?", task.ID).Select("proof").Updates(&task)
 	}
-	d.DB.Model(&airdrop.AirdropUserTask{}).Where("id IN ?", ids).Updates(airdropTasks)
 }
 
 // GetTasksByIDs 批量获取任务

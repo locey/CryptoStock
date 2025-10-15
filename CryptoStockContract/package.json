@@ -71,6 +71,7 @@
     "axios": "^1.12.2",
     "ethers-v5": "npm:ethers@^5.8.0",
     "keccak256": "^1.0.6",
-    "merkletreejs": "^0.6.0"
+    "merkletreejs": "^0.6.0",
+    "solc": "^0.8.30"
   }
 }
