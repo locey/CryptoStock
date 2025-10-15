@@ -331,7 +331,7 @@ func GetSymbols(address string) ([]string, error) {
 	}
 
 	// Construct the path to the ABI file
-	abiPath := filepath.Join("..", "CryptoStockContract", "abi", "OracleAggregator.abi")
+	abiPath := filepath.Join("..", "CryptoStockContract", "abi", "PriceAggregator.abi")
 	parsedABI, err := utils.ReadABI(abiPath)
 	if err != nil {
 		log.Fatal("ABI解析错误:", err)

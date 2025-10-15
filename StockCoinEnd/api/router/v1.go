@@ -3,12 +3,13 @@ package router
 import (
 	"github.com/gin-gonic/gin"
 
-	docs "github.com/go-project-name/docs"
+	//docs "github.com/go-project-name/docs"
 	"github.com/locey/CryptoStock/StockCoinEnd/api/middleware"
 	v1 "github.com/locey/CryptoStock/StockCoinEnd/api/v1"
 	"github.com/locey/CryptoStock/StockCoinEnd/service/svc"
 	swaggerfiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+	"github.com/swaggo/swag/example/basic/docs"
 )
 
 func loadV1(r *gin.Engine, svcCtx *svc.ServerCtx) {
@@ -68,6 +69,7 @@ func loadV1(r *gin.Engine, svcCtx *svc.ServerCtx) {
 		airdrop.GET("task/info", v1.GetUserAirDropInfo(svcCtx))        // 领取用户空投信息
 		airdrop.GET("task/rank", v1.GetAirDropRanks(svcCtx))           // 领取空投排行
 		airdrop.GET("task/poolinfo", v1.GetAirDropPoolInfo(svcCtx))    // 领取空投排行
+		airdrop.GET("task/proof", v1.GetAndSetUserTaskProof(svcCtx))
 	}
 	stocks := apiV1.Group("/stocks")
 	{

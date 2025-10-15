@@ -2,7 +2,6 @@ package dao
 
 import (
 	"context"
-	"time"
 
 	"github.com/locey/CryptoStock/StockCoinBase/stores/gdb/airdrop"
 	"github.com/locey/CryptoStock/StockCoinEnd/types/v1"
@@ -40,10 +39,9 @@ func (d *Dao) UpdateUserTask(c context.Context, userTask *airdrop.AirdropUserTas
 	return d.DB.Save(userTask).Error
 }
 
-func (d *Dao) GetUserTasksByTime(tx context.Context, startTime time.Time, endTime time.Time) ([]airdrop.AirdropUserTask, error) {
-	var userTasks []airdrop.AirdropUserTask
-	d.DB.WithContext(tx).Table(airdrop.AirdropUserTaskTableName()).Where("created_at >= ? AND created_at <= ?", startTime, endTime).Find(&userTasks)
-
+func (d *Dao) GetActiveTasks(tx context.Context) ([]airdrop.AirdropTask, error) {
+	var userTasks []airdrop.AirdropTask
+	d.DB.Find(&userTasks, "status = ?", 1)
 	return userTasks, nil
 }
 
@@ -55,5 +53,12 @@ func (d *Dao) UpdateUserTasks(airdropTasks []airdrop.AirdropUserTask) {
 		ids[i] = task.ID
 	}
 	d.DB.Model(&airdrop.AirdropUserTask{}).Where("id IN ?", ids).Updates(airdropTasks)
-	d.DB.Model(&airdrop.AirdropUserTask{}).Where("id IN ?")
+}
+
+// GetTasksByIDs 批量获取任务
+func (d *Dao) GetUserTasksByIDs(c context.Context, taskIds []int64) ([]airdrop.AirdropUserTask, error) {
+	var tasks []airdrop.AirdropUserTask
+	err := d.DB.WithContext(c).
+		Table(airdrop.AirdropUserTaskTableName()).Where("task_id in ?", taskIds).Find(&tasks).Error
+	return tasks, err
 }

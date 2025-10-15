@@ -161,3 +161,20 @@ func GetRefLink(svcCtx *svc.ServerCtx) gin.HandlerFunc {
 		xhttp.OkJson(c, res)
 	}
 }
+
+func GetAndSetUserTaskProof(svcCtx *svc.ServerCtx) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		address := "123"
+		// if address == "" {
+		// 	xhttp.Error(c, errcode.NewCustomErr("user addr is null"))
+		// 	return
+		// }
+
+		res, err := service.GetUserTaskProof(c.Request.Context(), svcCtx, address)
+		if err != nil {
+			xhttp.Error(c, errcode.NewCustomErr(err.Error()))
+			return
+		}
+		xhttp.OkJson(c, res)
+	}
+}

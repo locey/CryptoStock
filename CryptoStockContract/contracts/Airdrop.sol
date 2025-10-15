@@ -7,7 +7,7 @@ import "../contracts/mock/MockERC20.sol";
 contract Airdrop {
     MockERC20 token;
     //不可变的默克尔根
-    mapping(uint256 => mapping(address => bytes32)) public merkleRootMap;
+    mapping(uint256 => bytes32) public merkleRootMap;
     //任务ID对应的奖励数量
     mapping(uint256 => uint256) public rewardMap;
     //账户的空投Claim状态
@@ -28,7 +28,7 @@ contract Airdrop {
     ) {
         token = MockERC20(_token);
         for (uint256 i = 0; i < taskIds.length; i++) {
-            merkleRootMap[taskIds[i]][msg.sender] = bytes32(merkleRoots[i]);
+            merkleRootMap[taskIds[i]] = bytes32(merkleRoots[i]);
         }
     }
 
@@ -38,13 +38,13 @@ contract Airdrop {
         bytes32[] calldata merkleRoots
     ) public {
         for (uint256 i = 0; i < taskIds.length; i++) {
-            merkleRootMap[taskIds[i]][msg.sender] = merkleRoots[i];
+            merkleRootMap[taskIds[i]] = merkleRoots[i];
         }
     }
 
     //获取任务 merkleRoot
     function getMerkleRoot(uint256 taskId) public view returns (bytes32) {
-        return merkleRootMap[taskId][msg.sender];
+        return merkleRootMap[taskId];
     }
 
     //设置任务奖励数量
@@ -68,18 +68,14 @@ contract Airdrop {
         uint256 amount,
         bytes32[] memory merkleProof
     ) public {
-        require(merkleRootMap[taskId][msg.sender] != 0, "Task not found");
+        require(merkleRootMap[taskId] != 0, "Task not found");
         require(!claimStatus[taskId][msg.sender], "Already claimed");
         require(amount > 0, unicode"不合法的奖励大小");
         require(rewardMap[taskId] == amount, unicode"提取的奖励等于应得奖励");
 
         bytes32 leaf = keccak256(abi.encodePacked(msg.sender, amount, taskId));
         require(
-            MerkleProof.verify(
-                merkleProof,
-                merkleRootMap[taskId][msg.sender],
-                leaf
-            ),
+            MerkleProof.verify(merkleProof, merkleRootMap[taskId], leaf),
             "Invalid proof"
         );
         claimStatus[taskId][msg.sender] = true;
