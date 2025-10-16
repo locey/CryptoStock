@@ -25,8 +25,8 @@ func (d *Dao) GetUserTask(c context.Context, taskId, userId int64) (*airdrop.Air
 func (d *Dao) GetUserTasksByUserID(c context.Context, userID string) ([]types.AirdropTaskWithStatus, error) {
 	var userTasks []types.AirdropTaskWithStatus
 	err := d.DB.WithContext(c).
-		Table(airdrop.AirdropTaskTableName()).Select(`airdrop_tasks.*, airdrop_user_tasks.status as user_status`).
-		Joins(`LEFT JOIN airdrop_user_tasks ON airdrop_tasks.id = airdrop_user_tasks.task_id AND airdrop_user_tasks.user_id = ?`, userID).
+		Table(airdrop.AirdropTaskTableName()).Select(`airdrop_task.*, airdrop_user_task.status as user_status`).
+		Joins(`LEFT JOIN airdrop_user_task ON airdrop_task.id = airdrop_user_task.task_id AND airdrop_user_task.user_id = ?`, userID).
 		Scan(&userTasks).Error
 	return userTasks, err
 }

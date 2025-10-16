@@ -162,15 +162,15 @@ func GetRefLink(svcCtx *svc.ServerCtx) gin.HandlerFunc {
 	}
 }
 
-func GetAndSetUserTaskProof(svcCtx *svc.ServerCtx) gin.HandlerFunc {
+func StartAirdrop(svcCtx *svc.ServerCtx) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		address := "0x3c276c70Ad0447f5FbbeBC297793Be2A750704aE"
+		address := c.Query("address")
 		if address == "" {
 			xhttp.Error(c, errcode.NewCustomErr("user addr is null"))
 			return
 		}
 
-		res, err := service.GetUserTaskProof(c.Request.Context(), svcCtx, address)
+		res, err := service.StartAirdrop(c.Request.Context(), svcCtx, address)
 		if err != nil {
 			xhttp.Error(c, errcode.NewCustomErr(err.Error()))
 			return

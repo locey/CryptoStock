@@ -69,7 +69,7 @@ func loadV1(r *gin.Engine, svcCtx *svc.ServerCtx) {
 		airdrop.GET("task/info", v1.GetUserAirDropInfo(svcCtx))        // 领取用户空投信息
 		airdrop.GET("task/rank", v1.GetAirDropRanks(svcCtx))           // 领取空投排行
 		airdrop.GET("task/poolinfo", v1.GetAirDropPoolInfo(svcCtx))    // 领取空投排行
-		airdrop.GET("task/proof", v1.GetAndSetUserTaskProof(svcCtx))
+		airdrop.POST("task/start", v1.StartAirdrop(svcCtx))            // 开启空投
 	}
 	stocks := apiV1.Group("/stocks")
 	{

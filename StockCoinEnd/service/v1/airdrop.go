@@ -20,7 +20,8 @@ import (
 	"github.com/locey/CryptoStock/StockCoinEnd/service/svc"
 	mytype "github.com/locey/CryptoStock/StockCoinEnd/types/v1"
 	"github.com/pkg/errors"
-	"github.com/txaty/go-merkletree"
+	merkletree "github.com/wealdtech/go-merkletree/v2"
+	"github.com/wealdtech/go-merkletree/v2/keccak256"
 	"gorm.io/gorm"
 )
 
@@ -110,7 +111,7 @@ func GetUserTasks(tx context.Context, s *svc.ServerCtx, userID string) ([]mytype
 }
 
 // 查出某段时间内的所有airdrop.AirdropUserTask，并且批量计算proof
-func GetUserTaskProof(tx context.Context, s *svc.ServerCtx, address string) ([]airdrop.AirdropUserTask, error) {
+func StartAirdrop(tx context.Context, s *svc.ServerCtx, address string) ([]airdrop.AirdropUserTask, error) {
 	tasks, error := s.Dao.GetActiveTasks(tx)
 	var airdropTasks []airdrop.AirdropUserTask
 	if error != nil || len(tasks) == 0 {
@@ -163,149 +164,102 @@ func CalculateProof(tasks []airdrop.AirdropUserTask, reward int64, taskId int64)
 	if len(tasks) == 0 {
 		return []airdrop.AirdropUserTask{}, []byte{}
 	}
-
-	var leaves []merkletree.DataBlock
-	// 存储content以便后续生成证明时使用
-	var contents []*MerkleContent
-
-	for _, task := range tasks {
-		// 使用ABI编码方式确保与Solidity合约一致
-		addr := common.HexToAddress(task.Address)
-
-		// 构造与Solidity中abi.encodePacked相同的数据
-		// Solidity: keccak256(abi.encodePacked(msg.sender, amount, taskId))
-		// 使用ethereum的abi包来确保编码一致性
-		rewardBig := big.NewInt(reward)
-		taskIDBig := big.NewInt(task.TaskID)
-		
-		var data []byte
-		data = append(data, addr.Bytes()...)           // address: 20 bytes
-		data = append(data, padBytesLeft(rewardBig.Bytes(), 32)...)  // uint256: 32 bytes
-		data = append(data, padBytesLeft(taskIDBig.Bytes(), 32)...)  // uint256: 32 bytes
-
-		keccak256Data := crypto.Keccak256(data)
-
-		// 创建一个实现 Content 接口的结构体并保存引用
-		content := &MerkleContent{
-			Data: keccak256Data,
-		}
-
-		leaves = append(leaves, content)
-		contents = append(contents, content)
+	//构建默克尔树
+	tree, leaves, err := buildTree(tasks, reward, taskId)
+	if err != nil {
+		log.Println("buildTree err:", err)
+		return []airdrop.AirdropUserTask{}, []byte{}
 	}
 
+	// 使用预先创建的leaves来生成证明
+	for i, _ := range tasks {
+
+		//获取默克尔证明，使用预先创建的content
+		log.Println("GetProof:", leaves[i])
+		//获取proof
+		hexProof, err := getProof(tree, leaves[i])
+		if err != nil {
+			log.Println("getProof err:", err)
+			return []airdrop.AirdropUserTask{}, []byte{}
+		}
+		tasks[i].Proof = hexProof
+
+	}
+	airdropTasks = tasks
+	return airdropTasks, tree.Root()
+}
+
+// 构建默克尔树
+func buildTree(tasks []airdrop.AirdropUserTask, reward int64, taskId int64) (*merkletree.MerkleTree, [][]byte, error) {
+	var leaves [][]byte
+
+	for _, task := range tasks {
+
+		addr := common.HexToAddress(task.Address)
+
+		rewardBig := big.NewInt(reward)
+		taskIDBig := big.NewInt(taskId)
+
+		// （左侧填充0）（address无需填充）模拟 Solidity 中的 abi.encodePacked(msg.sender, amount, taskId)
+		data := append(addr.Bytes(), common.LeftPadBytes(rewardBig.Bytes(), 32)...)
+		data = append(data, common.LeftPadBytes(taskIDBig.Bytes(), 32)...)
+
+		leaves = append(leaves, data)
+	}
 	// 如果没有有效数据，返回空字符串
 	if len(leaves) == 0 {
-		return []airdrop.AirdropUserTask{}, []byte{}
+		return nil, nil, errors.New("No valid data")
 	}
 
 	//循环打印leaves
 	log.Println("leaves:", leaves)
 
-	tree, err := merkletree.New(&merkletree.Config{
-		HashFunc:         keccak256Wrapper,
-		Mode:             merkletree.ModeProofGenAndTreeBuild,
-		SortSiblingPairs: true,
-	}, leaves)
+	//创建Merkle树时统一keccak256 hash 统一做排序
+	tree, err := merkletree.NewTree(merkletree.WithData(leaves), merkletree.WithSorted(true), merkletree.WithHashType(&keccak256.Keccak256{}))
 
 	if err != nil {
 		log.Println("Failed to create merkle tree:", err)
-		return []airdrop.AirdropUserTask{}, []byte{}
+		return nil, nil, err
 	}
 
 	//打印树结构
 	log.Println("Merkle Tree:", tree)
 	//打印树根
-	log.Println("Merkle Root:", tree.Root)
-
-	// 使用预先创建的contents来生成证明，而不是重新创建content
-	for i, _ := range tasks {
-
-		//获取默克尔证明，使用预先创建的content
-		log.Println("GetProof:", contents[i])
-		proof, err := tree.Proof(contents[i])
-		log.Println("proof:", proof)
-		if err != nil {
-			log.Println("GetProof err:", err)
-			return []airdrop.AirdropUserTask{}, []byte{}
-		}
-
-		// 将proof转换为合约可接受的格式（仅包含Siblings）
-		// 合约需要的是bytes32[]，对应Go中的[][]byte
-		// Siblings已经是哈希值，不需要额外的ABI编码
-		proofData := make([][]byte, len(proof.Siblings))
-		for j, sibling := range proof.Siblings {
-			proofData[j] = sibling
-		}
-
-		proofBytes, err := json.Marshal(proofData)
-		if err != nil {
-			return []airdrop.AirdropUserTask{}, []byte{}
-		}
-		log.Println("proofBytes:", string(proofBytes))
-
-		//proofBytes转成Hex 16进制字符串
-		// 转换为十六进制字符串数组格式，例如["0xd733915f41c130f3dfba966cb715edafd213dcdaf99dec8764297f12cd8393c6"]
-		// 这与Solidity中的bytes32[]类型兼容
-		hexStrings := make([]string, len(proofData))
-		for k, data := range proofData {
-			hexStrings[k] = "0x" + hex.EncodeToString(data)
-		}
-
-		jsonHexStrings, err := json.Marshal(hexStrings)
-		if err != nil {
-			return []airdrop.AirdropUserTask{}, []byte{}
-		}
-
-		tasks[i].Proof = string(jsonHexStrings)
-
-	}
-	airdropTasks = tasks
-	return airdropTasks, tree.Root
+	log.Println("Merkle Root:", common.Bytes2Hex(tree.Root()))
+	return tree, leaves, nil
 }
 
-type MerkleContent struct {
-	Data []byte
-}
+func getProof(tree *merkletree.MerkleTree, leave []byte) (string, error) {
 
-// Serialize 实现 DataBlock 接口的 Serialize 方法
-func (m *MerkleContent) Serialize() ([]byte, error) {
-	return m.Data, nil
-}
-
-// 包装 Keccak256 为 merkletree 所需的 HashFunc 类型
-func keccak256Wrapper(data []byte) ([]byte, error) {
-	return crypto.Keccak256(data), nil
-}
-
-// ConvertProofStringToBytes 将proof字符串转换为智能合约可使用的字节切片
-func ConvertProofStringToBytes(proofStr string) ([][]byte, error) {
-	// 解析十六进制字符串数组
-	var hexStrings []string
-	err := json.Unmarshal([]byte(proofStr), &hexStrings)
+	proof, err := tree.GenerateProof(leave, 0)
+	log.Println("proof:", proof)
 	if err != nil {
-		return nil, err
+		log.Println("GetProof err:", err)
+		return "", err
 	}
 
-	// 将十六进制字符串转换为字节
-	proofData := make([][]byte, len(hexStrings))
-	for i, hexStr := range hexStrings {
-		// 移除"0x"前缀
-		if len(hexStr) >= 2 && hexStr[:2] == "0x" {
-			hexStr = hexStr[2:]
-		}
-
-		// 解码十六进制字符串
-		bytes, err := hex.DecodeString(hexStr)
-		if err != nil {
-			return nil, err
-		}
-		proofData[i] = bytes
+	// 将proof转换为合约可接受的格式（仅包含Siblings）
+	// 合约需要的是bytes32[]，对应Go中的[][]byte
+	proofData := make([][]byte, len(proof.Hashes))
+	for j, hash := range proof.Hashes {
+		proofData[j] = hash
 	}
 
-	return proofData, nil
+	//proofBytes转成Hex 16进制字符串
+	// 转换为十六进制字符串数组格式，例如["0xd733915f41c130f3dfba966cb715edafd213dcdaf99dec8764297f12cd8393c6"]
+	hexStrings := make([]string, len(proofData))
+	for k, data := range proofData {
+		hexStrings[k] = "0x" + hex.EncodeToString(data)
+	}
+
+	jsonHexStrings, err := json.Marshal(hexStrings)
+	if err != nil {
+		return "", err
+	}
+	return string(jsonHexStrings), nil
 }
 
+// 更新指定默克尔树根
 func updateMerkleRoot(address string, taskIds []int64, roots [][]byte, client *ethclient.Client, privateKey *ecdsa.PrivateKey) {
 
 	// 1. 解析ABI
@@ -367,14 +321,4 @@ func updateMerkleRoot(address string, taskIds []int64, roots [][]byte, client *e
 
 	log.Println("交易已发送，交易哈希:", signedTx.Hash().Hex())
 
-}
-
-// 添加辅助函数，确保字节数组左填充到指定长度
-func padBytesLeft(original []byte, targetLength int) []byte {
-	if len(original) >= targetLength {
-		return original
-	}
-	padded := make([]byte, targetLength)
-	copy(padded[targetLength-len(original):], original)
-	return padded
 }
