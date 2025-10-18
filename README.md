@@ -23,7 +23,7 @@ CryptoStock 致力于构建一个“传统股票资产代币化 + 多协议 DeFi
 | 安全与治理 | 可升级（UUPS）、多合约隔离、事件审计、未来引入多签治理、风险监控 |
 | 前端体验 | 实时价格、资产视图、交易表单、收益曲线、策略展示、钱包连接、响应式界面 |
 ### 1.2 业务架构图
- ![系统架构图](.\stock-fe\docs\images\image.png)
+ ![系统架构图](./stock-fe/docs/images/image.png)
 
 ```mermaid
 graph LR
