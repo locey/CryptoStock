@@ -22,7 +22,107 @@ CryptoStock 致力于构建一个“传统股票资产代币化 + 多协议 DeFi
 | 数据保障 | 多源预言机（Pyth + RedStone），未来可扩展 Chainlink / API3，提高韧性 |
 | 安全与治理 | 可升级（UUPS）、多合约隔离、事件审计、未来引入多签治理、风险监控 |
 | 前端体验 | 实时价格、资产视图、交易表单、收益曲线、策略展示、钱包连接、响应式界面 |
+### 1.2 业务架构图
+ ![系统架构图](.\stock-fe\docs\images\image.png)
 
+```mermaid
+graph LR
+  subgraph Users & Apps
+    UI[前端DApp/钱包]
+    Svc[后端索引/风控&收益计算]
+  end
+
+  subgraph On-chain Contracts
+    AGG[DefiAggregator<br/>UUPS/Pausable/Ownable]
+    ORA[PriceAggregator<br/>Pyth/RedStone/Chainlink]
+    FACT[TokenFactory / V2<br/>ERC1967Proxy创建]
+    TOK[StockToken / V2<br/>CSToken]
+    AIR[Airdrop]
+    AAVE[AaveAdapter]
+    COMP[CompoundAdapter]
+    CURV[CurveAdapter]
+    UNI[UniswapV3Adapter]
+    CAKE[PancakeAdapter]
+    YV3[YearnV3Adapter]
+  end
+
+  subgraph External Protocols
+    Aave[(Aave)]
+    Compound[(Compound)]
+    Curve[(Curve)]
+    UniswapV3[(Uniswap V3)]
+    Pancake[(PancakeSwap)]
+    YearnV3[(Yearn V3)]
+    Oracles[(Pyth / RedStone / Chainlink)]
+  end
+
+  UI -->|签名/调用| AGG
+  Svc <-->|监听事件/计算收益| AGG
+  Svc --> ORA
+
+  AGG -->|注册/调用| AAVE
+  AGG --> COMP
+  AGG --> CURV
+  AGG --> UNI
+  AGG --> CAKE
+  AGG --> YV3
+
+  AAVE --> Aave
+  COMP --> Compound
+  CURV --> Curve
+  UNI --> UniswapV3
+  CAKE --> Pancake
+  YV3 --> YearnV3
+
+  AGG -->|询价/风控| ORA
+  ORA --> Oracles
+
+  UI -->|创建资产| FACT
+  FACT --> TOK
+  UI --> AIR
+```
+
+### 1.3 功能流程图
+
+#### 1.3.1 用户通过聚合器存入外部协议（以 Aave 为例）
+```mermaid
+sequenceDiagram
+  autonumber
+  participant U as User/Front-end
+  participant AGG as DefiAggregator
+  participant ADA as AaveAdapter
+  participant PRO as Aave Protocol
+  participant ORA as PriceAggregator
+
+  U->>AGG: execute(Deposit, tokens, amounts, data)
+  AGG->>ORA: getPrice() 校验报价/滑点/风控
+  ORA-->>AGG: price, decimals
+  AGG->>ADA: validate(user, tokens, amounts, data)
+  ADA-->>AGG: ok or revert(reason)
+  AGG->>ADA: execute(user, tokens, amounts, data)
+  ADA->>PRO: supply/approve/deposit(...)
+  PRO-->>ADA: receipt/position
+  ADA-->>AGG: returnData(份额/产出)
+  AGG-->>U: OperationExecuted(事件&回执)
+  AGG-->>U: 若有fee, FeeCollected(事件)
+```
+#### 1.3.2 用工厂创建新资产（StockToken）
+```mermaid
+sequenceDiagram
+  autonumber
+  participant U as Admin/Operator
+  participant FACT as TokenFactory
+  participant IMP as StockToken Impl
+  participant PROX as ERC1967Proxy
+  participant TOK as StockToken(New)
+
+  U->>FACT: createStockToken(symbol,name,params...)
+  FACT->>IMP: 准备初始化数据(init calldata)
+  FACT->>PROX: 部署ERC1967Proxy(指向IMP)
+  PROX-->>FACT: 新地址
+  FACT->>TOK: 初始化(oracle,元数据,权限)
+  FACT-->>U: token address & 注册映射(symbol→address)
+```
 ---
 ## 2. 子系统分层与职责
 | 子系统 | 目录 | 主要职责 | 关键技术 |
