@@ -20,7 +20,7 @@ type = "node"
 
 [db]
 database = "cryptostock"
-password = "1q2w3e4r@"
+password = ""
 port = 3306 #4000
 max_open_conns = 1500
 host = "127.0.0.1"

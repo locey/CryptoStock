@@ -12,6 +12,29 @@ type ClaimRequest struct {
 	Address string `json:"address" binding:"required"`
 }
 
+// CreateTaskRequest 创建空投任务请求
+type CreateTaskRequest struct {
+	Name         string  `json:"name" binding:"required,max=200"`
+	Description  string  `json:"description" binding:"max=1000"`
+	RewardAmount float64 `json:"reward_amount" binding:"required,gt=0"`
+	TaskType     string  `json:"task_type" binding:"required,max=20"`
+	Level        string  `json:"level" binding:"max=20"`
+	StartTime    string  `json:"start_time"` // ISO 8601 格式时间字符串
+	EndTime      string  `json:"end_time"`   // ISO 8601 格式时间字符串
+}
+
+// UpdateTaskRequest 更新空投任务请求
+type UpdateTaskRequest struct {
+	Name         string  `json:"name" binding:"max=200"`
+	Description  string  `json:"description" binding:"max=1000"`
+	RewardAmount float64 `json:"reward_amount" binding:"gt=0"`
+	TaskType     string  `json:"task_type" binding:"max=20"`
+	Level        string  `json:"level" binding:"max=20"`
+	StartTime    string  `json:"start_time"`
+	EndTime      string  `json:"end_time"`
+	Status       string  `json:"status" binding:"omitempty,oneof=active completed expired"`
+}
+
 type AirdropStats struct {
 	TotalUsers      int64  `json:"total_users"`
 	TotalInvites    int64  `json:"total_invites"`

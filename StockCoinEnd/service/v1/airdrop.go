@@ -322,3 +322,151 @@ func updateMerkleRoot(address string, taskIds []int64, roots [][]byte, client *e
 	log.Println("交易已发送，交易哈希:", signedTx.Hash().Hex())
 
 }
+
+// CreateTask 创建空投任务
+func CreateTask(ctx context.Context, s *svc.ServerCtx, req *mytype.CreateTaskRequest) (*airdrop.AirdropTask, error) {
+	// 解析时间字符串
+	var startTime, endTime time.Time
+	var err error
+
+	if req.StartTime != "" {
+		startTime, err = time.Parse(time.RFC3339, req.StartTime)
+		if err != nil {
+			return nil, errors.Wrap(err, "Invalid start_time format, expected ISO 8601")
+		}
+	} else {
+		startTime = time.Now()
+	}
+
+	if req.EndTime != "" {
+		endTime, err = time.Parse(time.RFC3339, req.EndTime)
+		if err != nil {
+			return nil, errors.Wrap(err, "Invalid end_time format, expected ISO 8601")
+		}
+
+		// 检查结束时间是否晚于开始时间
+		if !endTime.After(startTime) {
+			return nil, errors.New("end_time must be after start_time")
+		}
+	}
+
+	// 创建任务对象
+	task := &airdrop.AirdropTask{
+		Name:         req.Name,
+		Description:  req.Description,
+		RewardAmount: req.RewardAmount,
+		TaskType:     req.TaskType,
+		Level:        req.Level,
+		StartTime:    startTime,
+		EndTime:      endTime,
+		Status:       "active",
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+
+	// 创建任务
+	err = s.Dao.CreateTask(ctx, task)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to create task")
+	}
+
+	return task, nil
+}
+
+// UpdateTask 更新空投任务
+func UpdateTask(ctx context.Context, s *svc.ServerCtx, taskId int64, req *mytype.UpdateTaskRequest) (*airdrop.AirdropTask, error) {
+	// 获取现有任务
+	task, err := s.Dao.GetTaskByID(ctx, taskId)
+	if err != nil {
+		return nil, errors.Wrap(err, "Task not found")
+	}
+
+	// 解析时间字符串（如果提供）
+	if req.StartTime != "" {
+		startTime, err := time.Parse(time.RFC3339, req.StartTime)
+		if err != nil {
+			return nil, errors.Wrap(err, "Invalid start_time format, expected ISO 8601")
+		}
+		task.StartTime = startTime
+	}
+
+	if req.EndTime != "" {
+		endTime, err := time.Parse(time.RFC3339, req.EndTime)
+		if err != nil {
+			return nil, errors.Wrap(err, "Invalid end_time format, expected ISO 8601")
+		}
+
+		// 检查结束时间是否晚于开始时间
+		if !endTime.After(task.StartTime) {
+			return nil, errors.New("end_time must be after start_time")
+		}
+		task.EndTime = endTime
+	}
+
+	// 更新其他字段
+	if req.Name != "" {
+		task.Name = req.Name
+	}
+	if req.Description != "" {
+		task.Description = req.Description
+	}
+	if req.RewardAmount > 0 {
+		task.RewardAmount = req.RewardAmount
+	}
+	if req.TaskType != "" {
+		task.TaskType = req.TaskType
+	}
+	if req.Level != "" {
+		task.Level = req.Level
+	}
+	if req.Status != "" {
+		task.Status = req.Status
+	}
+
+	task.UpdatedAt = time.Now()
+
+	// 更新任务
+	err = s.Dao.UpdateTask(ctx, task)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to update task")
+	}
+
+	return task, nil
+}
+
+// DeleteTask 删除空投任务
+func DeleteTask(ctx context.Context, s *svc.ServerCtx, taskId int64) error {
+	// 检查任务是否存在
+	_, err := s.Dao.GetTaskByID(ctx, taskId)
+	if err != nil {
+		return errors.Wrap(err, "Task not found")
+	}
+
+	// 检查是否有用户已参与该任务
+	userCount, err := s.Dao.GetTaskUserCount(ctx, taskId)
+	if err != nil {
+		return errors.Wrap(err, "Failed to check task participants")
+	}
+
+	if userCount > 0 {
+		return errors.New("Cannot delete task with existing participants. Please set status to 'expired' instead.")
+	}
+
+	// 删除任务
+	err = s.Dao.DeleteTask(ctx, taskId)
+	if err != nil {
+		return errors.Wrap(err, "Failed to delete task")
+	}
+
+	return nil
+}
+
+// GetAllTasks 获取所有空投任务
+func GetAllTasks(ctx context.Context, s *svc.ServerCtx) ([]airdrop.AirdropTask, error) {
+	return s.Dao.GetAllTasks(ctx)
+}
+
+// GetTasksByStatus 根据状态获取任务
+func GetTasksByStatus(ctx context.Context, s *svc.ServerCtx, status string) ([]airdrop.AirdropTask, error) {
+	return s.Dao.GetTasksByStatus(ctx, status)
+}

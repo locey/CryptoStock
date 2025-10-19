@@ -6,12 +6,12 @@ type AirdropTask struct {
 	ID           int64     `gorm:"primaryKey" json:"id"`
 	Name         string    `gorm:"size:200;not null" json:"name"`
 	Description  string    `gorm:"type:text" json:"description"`
-	TaskType     string    `gorm:"task_type:20;not null" json:"task_type"`
-	RewardAmount uint      `gorm:"size:20;not null" json:"reward_amount"`
-	Level        string    `gorm:"level:20;not null" json:"level"` // 难度等级
+	RewardAmount float64   `gorm:"type:decimal(20,8);not null" json:"reward_amount"`
+	TaskType     string    `gorm:"size:20" json:"task_type"`
+	Level        string    `gorm:"size:20" json:"level"`
 	StartTime    time.Time `json:"start_time"`
 	EndTime      time.Time `json:"end_time"`
-	Status       uint      `gorm:"size:20;default:1" json:"status"`
+	Status       string    `gorm:"size:20;default:'active'" json:"status"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }

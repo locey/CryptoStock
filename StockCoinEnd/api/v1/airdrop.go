@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 	"github.com/locey/CryptoStock/StockCoinBase/errcode"
 	"github.com/locey/CryptoStock/StockCoinBase/xhttp"
@@ -12,13 +14,8 @@ import (
 // 获取空投任务列表
 func GetAirDropTasks(svcCtx *svc.ServerCtx) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userId := c.Query("userId")
-		if userId == "" {
-			xhttp.Error(c, errcode.NewCustomErr("userId addr is null"))
-			return
-		}
-
-		res, err := service.GetUserTasks(c.Request.Context(), svcCtx, userId)
+		// 获取所有任务
+		res, err := service.GetAllTasks(c.Request.Context(), svcCtx)
 		if err != nil {
 			xhttp.Error(c, errcode.NewCustomErr(err.Error()))
 			return
@@ -178,3 +175,98 @@ func StartAirdrop(svcCtx *svc.ServerCtx) gin.HandlerFunc {
 		xhttp.OkJson(c, res)
 	}
 }
+
+// CreateAirdropTask 创建空投任务
+func CreateAirdropTask(svcCtx *svc.ServerCtx) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req types.CreateTaskRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			xhttp.Error(c, errcode.NewCustomErr("Invalid request format: "+err.Error()))
+			return
+		}
+
+		// 基本验证
+		if req.Name == "" {
+			xhttp.Error(c, errcode.NewCustomErr("Task name is required"))
+			return
+		}
+		if req.RewardAmount <= 0 {
+			xhttp.Error(c, errcode.NewCustomErr("Reward amount must be greater than 0"))
+			return
+		}
+		if req.TaskType == "" {
+			xhttp.Error(c, errcode.NewCustomErr("Task type is required"))
+			return
+		}
+
+		// 创建任务
+		task, err := service.CreateTask(c.Request.Context(), svcCtx, &req)
+		if err != nil {
+			xhttp.Error(c, errcode.NewCustomErr(err.Error()))
+			return
+		}
+
+		xhttp.OkJson(c, task)
+	}
+}
+
+// UpdateAirdropTask 更新空投任务
+func UpdateAirdropTask(svcCtx *svc.ServerCtx) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// 获取任务ID
+		taskIdStr := c.Param("taskId")
+		if taskIdStr == "" {
+			xhttp.Error(c, errcode.NewCustomErr("Task ID is required"))
+			return
+		}
+
+		var taskId int64
+		if _, err := fmt.Sscanf(taskIdStr, "%d", &taskId); err != nil {
+			xhttp.Error(c, errcode.NewCustomErr("Invalid task ID format"))
+			return
+		}
+
+		var req types.UpdateTaskRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			xhttp.Error(c, errcode.NewCustomErr("Invalid request format: "+err.Error()))
+			return
+		}
+
+		// 更新任务
+		task, err := service.UpdateTask(c.Request.Context(), svcCtx, taskId, &req)
+		if err != nil {
+			xhttp.Error(c, errcode.NewCustomErr(err.Error()))
+			return
+		}
+
+		xhttp.OkJson(c, task)
+	}
+}
+
+// DeleteAirdropTask 删除空投任务
+func DeleteAirdropTask(svcCtx *svc.ServerCtx) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// 获取任务ID
+		taskIdStr := c.Param("taskId")
+		if taskIdStr == "" {
+			xhttp.Error(c, errcode.NewCustomErr("Task ID is required"))
+			return
+		}
+
+		var taskId int64
+		if _, err := fmt.Sscanf(taskIdStr, "%d", &taskId); err != nil {
+			xhttp.Error(c, errcode.NewCustomErr("Invalid task ID format"))
+			return
+		}
+
+		// 删除任务
+		err := service.DeleteTask(c.Request.Context(), svcCtx, taskId)
+		if err != nil {
+			xhttp.Error(c, errcode.NewCustomErr(err.Error()))
+			return
+		}
+
+		xhttp.OkJson(c, gin.H{"message": "Task deleted successfully"})
+	}
+}
+

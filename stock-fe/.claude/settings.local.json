@@ -28,7 +28,16 @@
       "Bash(chmod:*)",
       "Bash(curl:*)",
       "Bash(lsof:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(python3:*)",
+      "Bash(brew services:*)",
+      "Bash(mysql:*)",
+      "Bash(sudo:*)",
+      "Bash(xargs:*)",
+      "Bash(kill:*)",
+      "Bash(nvm use:*)",
+      "Read(//usr/local/bin/**)",
+      "Bash(npm run dev:force -- --port:*)"
     ],
     "deny": [],
     "ask": []

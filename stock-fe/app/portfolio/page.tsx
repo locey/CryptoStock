@@ -7,11 +7,23 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertCircle, CheckCircle, Clock, Gift, Trophy, RefreshCw, AlertTriangle } from "lucide-react";
+import { AlertCircle, CheckCircle, Clock, Gift, Trophy, RefreshCw, AlertTriangle, Wallet, ExternalLink } from "lucide-react";
 import { useAirdrop } from "@/hooks/useAirdrop";
+import { useSimpleTokenBalance } from "@/hooks/useTokenBalance";
+import { StartAirdropButton } from "@/components/StartAirdropButton";
+import { AdminToggle } from "@/components/AdminToggle";
+import { FormattedAddress } from "@/components/FormattedAddress";
+import { isAdminAddress } from "@/lib/admin";
+import { ERC20_TOKEN_ADDRESS, getTokenExplorerUrl, getTokenSymbol } from "@/lib/token";
 
 export default function PortfolioPage() {
   const { address, isConnected } = useAccount();
+
+  // 检查当前用户是否为管理员
+  const isAdmin = isAdminAddress(address);
+
+  // 获取代币余额
+  const { balance: tokenBalance, symbol: tokenSymbol, isLoading: balanceLoading, error: balanceError } = useSimpleTokenBalance();
   const {
     tasks,
     error,
@@ -19,6 +31,7 @@ export default function PortfolioPage() {
     fetching,
     claimTask,
     claimReward,
+    startAirdrop,
     clearError,
     refresh
   } = useAirdrop({
@@ -126,9 +139,10 @@ export default function PortfolioPage() {
         </div>
 
         <Tabs defaultValue="airdrop" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview">总览</TabsTrigger>
             <TabsTrigger value="airdrop">空投奖励</TabsTrigger>
+            <TabsTrigger value="admin">管理员</TabsTrigger>
             <TabsTrigger value="assets">资产</TabsTrigger>
             <TabsTrigger value="history">历史</TabsTrigger>
           </TabsList>
@@ -202,15 +216,23 @@ export default function PortfolioPage() {
                     <Gift className="w-5 h-5" />
                     空投任务
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={refresh}
-                    disabled={fetching}
-                    className="text-gray-400 hover:text-white"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${fetching ? 'animate-spin' : ''}`} />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {isAdmin && (
+                      <StartAirdropButton
+                        onStartAirdrop={startAirdrop}
+                        isStarting={claiming === -1}
+                      />
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={refresh}
+                      disabled={fetching}
+                      className="text-gray-400 hover:text-white"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${fetching ? 'animate-spin' : ''}`} />
+                    </Button>
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -268,15 +290,122 @@ export default function PortfolioPage() {
             </Card>
           </TabsContent>
 
+          <TabsContent value="admin" className="space-y-6">
+            <AdminToggle />
+          </TabsContent>
+
           <TabsContent value="overview">
             <div className="text-center py-20 text-gray-400">
               总览页面开发中...
             </div>
           </TabsContent>
 
-          <TabsContent value="assets">
-            <div className="text-center py-20 text-gray-400">
-              资产页面开发中...
+          <TabsContent value="assets" className="space-y-6">
+            {/* Token Balance Card */}
+            <Card className="bg-gray-900/50 border-gray-800">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Wallet className="w-5 h-5" />
+                  代币余额
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-400 mb-1">{getTokenSymbol(ERC20_TOKEN_ADDRESS)} 代币余额</p>
+                      <div className="flex items-center gap-3">
+                        {balanceLoading ? (
+                          <div className="flex items-center gap-2">
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+                            <span className="text-gray-400">加载中...</span>
+                          </div>
+                        ) : balanceError ? (
+                          <div className="text-red-400">
+                            <span className="text-sm">获取余额失败</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-3">
+                            <span className="text-3xl font-bold text-blue-400">
+                              {tokenBalance}
+                            </span>
+                            <span className="text-lg text-gray-300">{tokenSymbol}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(getTokenExplorerUrl(ERC20_TOKEN_ADDRESS), '_blank')}
+                      className="text-blue-400 border-blue-400/30 hover:bg-blue-400/10 flex items-center gap-2"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      查看代币
+                    </Button>
+                  </div>
+
+                  <div className="pt-3 border-t border-gray-700">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-400">代币合约:</span>
+                        <div className="mt-1">
+                          <FormattedAddress
+                            address={ERC20_TOKEN_ADDRESS}
+                            startLength={6}
+                            endLength={4}
+                            className="text-gray-300"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">钱包地址:</span>
+                        <div className="mt-1">
+                          <FormattedAddress
+                            address={address || ''}
+                            startLength={6}
+                            endLength={4}
+                            className="text-gray-300"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Additional Asset Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card className="bg-gray-900/50 border-gray-800">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-gray-400">
+                    空投奖励总计
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-green-400">
+                    {tasks?.filter(t => t.user_status === "rewarded").reduce((sum, task) => sum + (task.reward_amount || 0), 0).toFixed(2) || '0.00'}
+                    <span className="text-lg text-gray-300 ml-2">{tokenSymbol}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">已获得的空投奖励总和</p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gray-900/50 border-gray-800">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-gray-400">
+                    待领取奖励
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-yellow-400">
+                    {tasks?.filter(t => t.user_status === "completed").reduce((sum, task) => sum + (task.reward_amount || 0), 0).toFixed(2) || '0.00'}
+                    <span className="text-lg text-gray-300 ml-2">{tokenSymbol}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">完成任务待领取的奖励</p>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
 
