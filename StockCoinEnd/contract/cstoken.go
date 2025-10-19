@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -101,10 +102,22 @@ const contractABI = `[
 ]`
 
 func NewCSTokenContract(cfg *config.Config) (*CSTokenContract, error) {
-	// 连接以太坊节点
-	client, err := ethclient.Dial(cfg.AirdropContract.RPCEndpoint)
+	// 连接以太坊节点，增加超时和重试机制
+	var client *ethclient.Client
+	var err error
+	
+	// 最多重试3次
+	for i := 0; i < 3; i++ {
+		client, err = connectWithTimeout(cfg.AirdropContract.RPCEndpoint, 30*time.Second)
+		if err == nil {
+			break
+		}
+		log.Printf("Failed to connect to Ethereum node (attempt %d): %v", i+1, err)
+		time.Sleep(2 * time.Second)
+	}
+	
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to Ethereum node: %v", err)
+		return nil, fmt.Errorf("failed to connect to Ethereum node after 3 attempts: %v", err)
 	}
 
 	// 解析合约ABI
@@ -125,6 +138,21 @@ func NewCSTokenContract(cfg *config.Config) (*CSTokenContract, error) {
 		contractABI: parsedABI,
 		address:     contractAddress,
 	}, nil
+}
+
+// connectWithTimeout 带超时的连接函数
+func connectWithTimeout(endpoint string, timeout time.Duration) (*ethclient.Client, error) {
+	// 创建带超时的上下文
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	// 使用HTTP客户端创建连接
+	client, err := ethclient.DialContext(ctx, endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to Ethereum node: %v", err)
+	}
+
+	return client, nil
 }
 
 // CheckContractStatus 检查合约状态
@@ -158,7 +186,11 @@ func (c *CSTokenContract) GetRemainingMintable() (*big.Int, error) {
 		Data: common.FromHex("0x4f4477d0"), // getRemainingMintable的函数选择器
 	}
 
-	result, err := c.client.CallContract(context.Background(), callMsg, nil)
+	// 添加超时控制
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	result, err := c.client.CallContract(ctx, callMsg, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call contract: %v", err)
 	}
@@ -195,7 +227,11 @@ func (c *CSTokenContract) AirdropTokens(recipients []common.Address, amount *big
 
 	// 获取nonce
 	from := crypto.PubkeyToAddress(privateKey.PublicKey)
-	nonce, err := c.client.PendingNonceAt(context.Background(), from)
+	
+	// 添加超时控制
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	nonce, err := c.client.PendingNonceAt(ctx, from)
+	cancel()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get nonce: %v", err)
 	}
@@ -210,12 +246,14 @@ func (c *CSTokenContract) AirdropTokens(recipients []common.Address, amount *big
 	}
 
 	// 估算gas
-	gasLimit, err := c.client.EstimateGas(context.Background(), ethereum.CallMsg{
+	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
+	gasLimit, err := c.client.EstimateGas(ctx, ethereum.CallMsg{
 		From:  from,
 		To:    &c.address,
 		Data:  data,
 		Value: big.NewInt(0),
 	})
+	cancel()
 	if err != nil {
 		return nil, fmt.Errorf("failed to estimate gas: %v", err)
 	}
@@ -237,13 +275,17 @@ func (c *CSTokenContract) AirdropTokens(recipients []common.Address, amount *big
 	}
 
 	// 发送交易
-	err = c.client.SendTransaction(context.Background(), signedTx)
+	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
+	err = c.client.SendTransaction(ctx, signedTx)
+	cancel()
 	if err != nil {
 		return nil, fmt.Errorf("failed to send transaction: %v", err)
 	}
 
 	// 等待交易确认
-	receipt, err := bind.WaitMined(context.Background(), c.client, signedTx)
+	ctx, cancel = context.WithTimeout(context.Background(), 120*time.Second)
+	receipt, err := bind.WaitMined(ctx, c.client, signedTx)
+	cancel()
 	if err != nil {
 		return nil, fmt.Errorf("failed to wait for transaction: %v", err)
 	}

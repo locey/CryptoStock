@@ -20,7 +20,7 @@ type Config struct {
 	//Evm            *erc.NftErc       `toml:"evm" json:"evm"`
 	MetadataParse   *MetadataParse    `toml:"metadata_parse" mapstructure:"metadata_parse" json:"metadata_parse"`
 	ChainSupported  []*ChainSupported `toml:"chain_supported" mapstructure:"chain_supported" json:"chain_supported"`
-	AirdropContract *AirdropContract
+	AirdropContract *AirdropContract  `toml:"airdrop_contract" mapstructure:"airdrop_contract" json:"airdrop_contract"`
 }
 
 type ProjectCfg struct {
@@ -58,14 +58,14 @@ type ChainSupported struct {
 }
 
 type AirdropContract struct {
-	RPCEndpoint     string // 以太坊节点RPC地址
-	PrivateKey      string // 私钥（用于签名交易）
-	ContractAddress string // 合约地址
-	GasLimit        uint64 // Gas限制
-	GasPrice        int64  // Gas价格（单位：wei）
-	ChainID         int64  // 链ID
-	AirdropInterval int    // 每次空投的间隔（秒）
-	BatchSize       int    // 批量处理大小
+	RPCEndpoint     string `toml:"rpc_endpoint" mapstructure:"rpc_endpoint" json:"rpc_endpoint"`           // 以太坊节点RPC地址
+	PrivateKey      string `toml:"private_key" mapstructure:"private_key" json:"private_key"`             // 私钥（用于签名交易）
+	ContractAddress string `toml:"contract_address" mapstructure:"contract_address" json:"contract_address"` // 合约地址
+	GasLimit        uint64 `toml:"gas_limit" mapstructure:"gas_limit" json:"gas_limit"`                   // Gas限制
+	GasPrice        int64  `toml:"gas_price" mapstructure:"gas_price" json:"gas_price"`                   // Gas价格（单位：wei）
+	ChainID         int64  `toml:"chain_id" mapstructure:"chain_id" json:"chain_id"`                      // 链ID
+	AirdropInterval int    `toml:"airdrop_interval" mapstructure:"airdrop_interval" json:"airdrop_interval"` // 每次空投的间隔（秒）
+	BatchSize       int    `toml:"batch_size" mapstructure:"batch_size" json:"batch_size"`                // 批量处理大小
 }
 
 // UnmarshalConfig unmarshal conifg file

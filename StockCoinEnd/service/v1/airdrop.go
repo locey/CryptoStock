@@ -52,6 +52,7 @@ func ClaimTask(tx context.Context, s *svc.ServerCtx, userID string, taskID int64
 		TaskID:    taskID,
 		Address:   address,
 		Status:    airdrop.UserTaskStatusClaimed,
+		Address:   address,
 		ClaimedAt: time.Now(),
 	}
 

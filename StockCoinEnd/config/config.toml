@@ -54,3 +54,13 @@ image_tags = ["image", "image_url", "animation_url", "media_url", "image_data", 
 attributes_tags = ["attributes", "properties", "attribute"]
 trait_name_tags = ["trait_type"]
 trait_value_tags = ["value"]
+
+[airdrop_contract]
+rpc_endpoint = "https://rpc.ankr.com/eth_sepolia"
+private_key = ""
+contract_address = ""
+gas_limit = 3000000
+gas_price = 20000000000
+chain_id = 11155111
+airdrop_interval = 1
+batch_size = 50
