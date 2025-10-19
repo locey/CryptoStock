@@ -12,9 +12,9 @@ import (
 // 获取空投任务列表
 func GetAirDropTasks(svcCtx *svc.ServerCtx) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userId := c.Query("userId")
+		userId := c.Query("address")
 		if userId == "" {
-			xhttp.Error(c, errcode.NewCustomErr("userId addr is null"))
+			xhttp.Error(c, errcode.NewCustomErr("address addr is null"))
 			return
 		}
 
@@ -28,7 +28,7 @@ func GetAirDropTasks(svcCtx *svc.ServerCtx) gin.HandlerFunc {
 	}
 }
 
-// 领取空投
+// 领取空投任务
 func GetAirDropClaim(svcCtx *svc.ServerCtx) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		req := new(types.ClaimRequest)
