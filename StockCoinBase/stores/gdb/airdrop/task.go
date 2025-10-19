@@ -31,7 +31,7 @@ const (
 
 type AirdropUserTask struct {
 	ID          int64          `gorm:"primaryKey" json:"id"`
-	UserID      int64          `gorm:"size:100;not null;index" json:"user_id"`
+	UserID      string         `gorm:"not null;index" json:"user_id"`
 	TaskID      int64          `gorm:"not null;index" json:"task_id"`
 	Address     string         `gorm:"size:100;not null;index" json:"address"`
 	Status      UserTaskStatus `gorm:"size:20;default:claimed" json:"status"`
