@@ -26,7 +26,7 @@ import (
 )
 
 // ClaimTask 用户领取任务
-func ClaimTask(tx context.Context, s *svc.ServerCtx, userID, taskID int64) error {
+func ClaimTask(tx context.Context, s *svc.ServerCtx, userID string, taskID int64) error {
 	// 检查用户是否已领取该任务
 	task, err := s.Dao.GetUserTask(tx, taskID, userID)
 	if err != nil {
@@ -67,7 +67,7 @@ func CompleteTask(tx context.Context, s *svc.ServerCtx, userID string, taskID ui
 }
 
 // ClaimReward 用户领取奖励
-func ClaimReward(ctx context.Context, s *svc.ServerCtx, userID, taskID int64, userAddr string) error {
+func ClaimReward(ctx context.Context, s *svc.ServerCtx, userID string, taskID int64, userAddr string) error {
 	task, err := s.Dao.GetTaskByID(ctx, taskID)
 	if err != nil || task == nil {
 		return errors.Wrap(err, "GetTaskByIDErr")

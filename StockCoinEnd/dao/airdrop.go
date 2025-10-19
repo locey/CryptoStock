@@ -15,7 +15,7 @@ func (d *Dao) GetTaskByID(c context.Context, taskId int64) (*airdrop.AirdropTask
 }
 
 // func (d *Dao) GetUserTask(c context.Context, taskId, userId int64) ()
-func (d *Dao) GetUserTask(c context.Context, taskId, userId int64) (*airdrop.AirdropUserTask, error) {
+func (d *Dao) GetUserTask(c context.Context, taskId int64, userId string) (*airdrop.AirdropUserTask, error) {
 	var task airdrop.AirdropUserTask
 	err := d.DB.WithContext(c).
 		Table(airdrop.AirdropUserTaskTableName()).Where("task_id = ? and user_id = ?", taskId, userId).First(&task).Error
@@ -50,7 +50,7 @@ func (d *Dao) UpdateUserTasks(airdropTasks []airdrop.AirdropUserTask) {
 
 	//通过id更新
 	for _, task := range airdropTasks {
-		d.DB.Debug().Model(&airdrop.AirdropUserTask{}).Where("id = ?", task.ID).Select("proof").Updates(&task)
+		d.DB.Debug().Model(&airdrop.AirdropUserTask{}).Where("task_id = ?", task.ID).Select("proof").Updates(&task)
 	}
 }
 
