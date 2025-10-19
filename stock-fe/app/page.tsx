@@ -12,10 +12,9 @@ export default function Home() {
       <DigitalRain />
       <FloatingParticles />
       <Hero />
-
+      page
       {/* Stats Section */}
       <StatsSection />
-
       {/* Features Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
@@ -68,7 +67,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
       {/* Trending Stocks Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gray-900/20">
         <div className="max-w-7xl mx-auto">
@@ -133,13 +131,15 @@ export default function Home() {
           </div>
 
           <div className="text-center mt-12">
-            <Link href="/pool" className="inline-block bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium px-8 py-3 rounded-lg transition-all duration-300 font-chinese">
+            <Link
+              href="/pool"
+              className="inline-block bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium px-8 py-3 rounded-lg transition-all duration-300 font-chinese"
+            >
               查看币股池
             </Link>
           </div>
         </div>
       </section>
-
       {/* CTA Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto text-center">

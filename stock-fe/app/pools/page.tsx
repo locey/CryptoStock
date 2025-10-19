@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { ArrowRight, TrendingUp, DollarSign, Shield, Droplets, Activity, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -10,6 +10,11 @@ import CompoundUSDTBuyModal from '@/components/CompoundUSDTBuyModal'
 import CompoundUSDTSellModal from '@/components/CompoundUSDTSellModal'
 import UniswapLiquidityModal from '@/components/UniswapLiquidityModal'
 import UniswapSellModal from '@/components/UniswapSellModal'
+import CurveLiquidityModal from '@/components/CurveLiquidityModal'
+import CurveWithdrawModal from '@/components/CurveWithdrawModal'
+import YearnV3DepositModal from '@/components/YearnV3DepositModal'
+import YearnV3WithdrawModal from '@/components/YearnV3WithdrawModal'
+import PancakeSwapComponent from '@/components/PancakeSwap'
 
 const poolCategories = [
   {
@@ -29,6 +34,24 @@ const poolCategories = [
     color: 'from-pink-500 to-purple-500',
     href: '/pools/uniswap',
     features: ['集中流动性', '交易手续费', '无常损失风险', '主动管理', 'MEV奖励']
+  },
+  {
+    id: 'curve',
+    name: 'Curve Finance',
+    description: '稳定币交易平台，低滑点交易和高收益',
+    icon: '🌀',
+    tvl: 1500000000,
+    apr: 12.5,
+    volume24h: 345678.90,
+    invested: 234567.89,
+    earned: 15678.34,
+    pools: 6,
+    minDeposit: 100,
+    token: 'USDC/USDT/DAI',
+    lockPeriod: '灵活取款',
+    color: 'from-cyan-500 to-blue-500',
+    href: '/pools/curve',
+    features: ['稳定币交易', '低滑点', '高收益', 'CRV奖励', '智能池管理']
   },
   {
     id: 'aave',
@@ -65,10 +88,55 @@ const poolCategories = [
     color: 'from-green-500 to-blue-500',
     href: '#',
     features: ['算法利率', 'COMP治理奖励', '清算保护', '跨资产支持', '透明度高']
+  },
+  {
+    id: 'yearnv3',
+    name: 'Yearn Finance V3',
+    description: '领先的DeFi收益聚合器，通过自动化策略为用户提供最优收益',
+    icon: '🌾',
+    tvl: 2000000000,
+    apr: 15.8,
+    volume24h: 567890.12,
+    invested: 345678.90,
+    earned: 23456.78,
+    pools: 8,
+    minDeposit: 100,
+    token: 'USDT',
+    lockPeriod: '灵活取款',
+    color: 'from-yellow-500 to-orange-500',
+    href: '#',
+    features: ['自动收益优化', '多策略投资', '低风险收益', 'YFI代币奖励', '智能金库管理']
+  },
+  {
+    id: 'pancakeswap',
+    name: 'PancakeSwap',
+    description: '领先的去中心化交易所，支持USDT和CAKE代币交换',
+    icon: '🥞',
+    tvl: 450000000,
+    apr: 6.8,
+    volume24h: 234567.89,
+    invested: 123456.78,
+    earned: 8901.23,
+    pools: 2,
+    minDeposit: 10,
+    token: 'USDT/CAKE',
+    lockPeriod: '无锁定期',
+    color: 'from-amber-500 to-yellow-500',
+    href: '#',
+    features: ['代币交换', '低手续费', '快速交易', '滑点保护', '流动性挖矿']
   }
 ]
 
 const featuredPools = [
+  {
+    token0: { symbol: 'USDC', name: 'USD Coin', icon: '$' },
+    token1: { symbol: 'USDT', name: 'Tether', icon: '₮' },
+    token2: { symbol: 'DAI', name: 'Dai Stablecoin', icon: '◈' },
+    tvl: 456789.12,
+    apr: 12.5,
+    volume24h: 789.12,
+    type: 'Curve 3Pool'
+  },
   {
     token0: { symbol: 'ETH', name: 'Ethereum', icon: 'Ξ' },
     token1: { symbol: 'USDC', name: 'USD Coin', icon: '$' },
@@ -91,7 +159,15 @@ const featuredPools = [
     tvl: 234567.89,
     apr: 2.15,
     volume24h: 567.89,
-    type: 'Uniswap V3'
+    type: 'Curve Stable'
+  },
+  {
+    token0: { symbol: 'USDT', name: 'Tether', icon: '₮' },
+    token1: { symbol: 'yvUSDT', name: 'Yearn USDT Vault', icon: '🌾' },
+    tvl: 892345.67,
+    apr: 15.8,
+    volume24h: 234567.89,
+    type: 'YearnV3 Vault'
   }
 ]
 
@@ -114,9 +190,21 @@ export default function PoolsPage() {
   const [compoundSellModalOpen, setCompoundSellModalOpen] = useState(false)
   const [uniswapLiquidityModalOpen, setUniswapLiquidityModalOpen] = useState(false)
   const [uniswapSellModalOpen, setUniswapSellModalOpen] = useState(false)
+  const [curveLiquidityModalOpen, setCurveLiquidityModalOpen] = useState(false)
+  const [curveWithdrawModalOpen, setCurveWithdrawModalOpen] = useState(false)
+  const [yearnV3DepositModalOpen, setYearnV3DepositModalOpen] = useState(false)
+  const [yearnV3WithdrawModalOpen, setYearnV3WithdrawModalOpen] = useState(false)
+  const [pancakeSwapModalOpen, setPancakeSwapModalOpen] = useState(false)
 
-  const totalTVL = poolCategories.reduce((sum, category) => sum + category.tvl, 0)
-  const totalVolume = poolCategories.reduce((sum, category) => sum + category.volume24h, 0)
+  // 使用 useMemo 缓存计算结果，防止每次渲染都重新计算
+  const totalTVL = useMemo(() =>
+    poolCategories.reduce((sum, category) => sum + category.tvl, 0),
+    [poolCategories]
+  );
+  const totalVolume = useMemo(() =>
+    poolCategories.reduce((sum, category) => sum + category.volume24h, 0),
+    [poolCategories]
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black text-white">
@@ -246,10 +334,16 @@ export default function PoolsPage() {
                     onClick={() => {
                       if (category.id === 'uniswap') {
                         setUniswapLiquidityModalOpen(true)
+                      } else if (category.id === 'curve') {
+                        setCurveLiquidityModalOpen(true)
                       } else if (category.id === 'aave') {
                         setAaveBuyModalOpen(true)
                       } else if (category.id === 'compound') {
                         setCompoundBuyModalOpen(true)
+                      } else if (category.id === 'yearnv3') {
+                        setYearnV3DepositModalOpen(true)
+                      } else if (category.id === 'pancakeswap') {
+                        setPancakeSwapModalOpen(true)
                       }
                     }}
                   >
@@ -261,10 +355,16 @@ export default function PoolsPage() {
                     onClick={() => {
                       if (category.id === 'uniswap') {
                         setUniswapSellModalOpen(true)
+                      } else if (category.id === 'curve') {
+                        setCurveWithdrawModalOpen(true)
                       } else if (category.id === 'aave') {
                         setAaveSellModalOpen(true)
                       } else if (category.id === 'compound') {
                         setCompoundSellModalOpen(true)
+                      } else if (category.id === 'yearnv3') {
+                        setYearnV3WithdrawModalOpen(true)
+                      } else if (category.id === 'pancakeswap') {
+                        setPancakeSwapModalOpen(true)
                       }
                     }}
                   >
@@ -294,12 +394,19 @@ export default function PoolsPage() {
                     <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center border-2 border-gray-900">
                       <span className="text-sm font-bold">{pool.token0.icon}</span>
                     </div>
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center border-2 border-gray-900">
+                    <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center border-2 border-gray-900">
                       <span className="text-sm font-bold">{pool.token1.icon}</span>
                     </div>
+                    {pool.token2 && (
+                      <div className="w-10 h-10 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-full flex items-center justify-center border-2 border-gray-900">
+                        <span className="text-sm font-bold">{pool.token2.icon}</span>
+                      </div>
+                    )}
                   </div>
                   <div>
-                    <div className="font-semibold">{pool.token0.symbol}/{pool.token1.symbol}</div>
+                    <div className="font-semibold">
+                      {pool.token2 ? `${pool.token0.symbol}/${pool.token1.symbol}/${pool.token2.symbol}` : `${pool.token0.symbol}/${pool.token1.symbol}`}
+                    </div>
                     <div className="text-sm text-gray-400">{pool.type}</div>
                   </div>
                 </div>
@@ -320,10 +427,18 @@ export default function PoolsPage() {
                 </div>
 
                 <button
-                  onClick={() => setUniswapLiquidityModalOpen(true)}
+                  onClick={() => {
+                    if (pool.type === 'Curve 3Pool' || pool.type === 'Curve Stable') {
+                      setCurveLiquidityModalOpen(true)
+                    } else if (pool.type === 'YearnV3 Vault') {
+                      setYearnV3DepositModalOpen(true)
+                    } else {
+                      setUniswapLiquidityModalOpen(true)
+                    }
+                  }}
                   className="w-full mt-6 py-3 bg-gradient-to-r from-pink-500 to-yellow-400 hover:from-pink-600 hover:to-yellow-500 text-white font-semibold rounded-lg transition-all"
                 >
-                  添加流动性
+                  {pool.type === 'YearnV3 Vault' ? '存入' : '添加流动性'}
                 </button>
               </div>
             ))}
@@ -413,6 +528,119 @@ export default function PoolsPage() {
           setUniswapSellModalOpen(false)
         }}
       />
+
+      {/* Curve 添加流动性弹窗 */}
+      <CurveLiquidityModal
+        isOpen={curveLiquidityModalOpen}
+        onClose={() => setCurveLiquidityModalOpen(false)}
+        onSuccess={(result) => {
+          console.log('Curve 添加流动性成功:', result)
+          setCurveLiquidityModalOpen(false)
+        }}
+      />
+
+      {/* Curve 提取流动性弹窗 */}
+      <CurveWithdrawModal
+        isOpen={curveWithdrawModalOpen}
+        onClose={() => setCurveWithdrawModalOpen(false)}
+        onSuccess={(result) => {
+          console.log('Curve 提取流动性成功:', result)
+          setCurveWithdrawModalOpen(false)
+        }}
+      />
+
+      {/* YearnV3 存款弹窗 */}
+      <YearnV3DepositModal
+        isOpen={yearnV3DepositModalOpen}
+        onClose={() => setYearnV3DepositModalOpen(false)}
+        onSuccess={(result) => {
+          console.log('YearnV3 存款成功:', result)
+          setYearnV3DepositModalOpen(false)
+        }}
+      />
+
+      {/* YearnV3 提取弹窗 */}
+      <YearnV3WithdrawModal
+        isOpen={yearnV3WithdrawModalOpen}
+        onClose={() => setYearnV3WithdrawModalOpen(false)}
+        onSuccess={(result) => {
+          console.log('YearnV3 提取成功:', result)
+          setYearnV3WithdrawModalOpen(false)
+        }}
+      />
+
+      {/* PancakeSwap 弹窗 */}
+      {pancakeSwapModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-2xl mx-4 relative">
+            {/* 关闭按钮 */}
+            <button
+              onClick={() => setPancakeSwapModalOpen(false)}
+              className="absolute top-4 right-4 p-2 hover:bg-gray-800 rounded-lg transition-colors z-10"
+              title="关闭弹窗"
+            >
+              <svg className="w-5 h-5 text-gray-400 hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* 标题区域 */}
+            <div className="p-6 pb-4 border-b border-gray-800">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center">
+                  <span className="text-2xl">🥞</span>
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">PancakeSwap 交换</h2>
+                  <p className="text-sm text-gray-400">USDT ↔ CAKE 代币交换</p>
+                </div>
+              </div>
+
+              {/* 协议信息 */}
+              <div className="grid grid-cols-3 gap-4 mt-4">
+                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 text-center">
+                  <div className="text-xs text-gray-400 mb-1">TVL</div>
+                  <div className="text-sm font-semibold text-white">$450M</div>
+                </div>
+                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 text-center">
+                  <div className="text-xs text-gray-400 mb-1">24h 交易量</div>
+                  <div className="text-sm font-semibold text-white">$234K</div>
+                </div>
+                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 text-center">
+                  <div className="text-xs text-gray-400 mb-1">APR</div>
+                  <div className="text-sm font-semibold text-green-400">6.8%</div>
+                </div>
+              </div>
+            </div>
+
+            {/* 交换界面 */}
+            <div className="p-6 max-h-[calc(90vh-200px)] overflow-y-auto">
+              <div className="bg-gray-800/30 border border-gray-700 rounded-xl p-1">
+                <PancakeSwapComponent />
+              </div>
+            </div>
+
+            {/* 底部提示 */}
+            <div className="px-6 pb-6">
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <svg className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="text-xs text-blue-400">
+                    <p className="font-medium mb-1">交易提示</p>
+                    <ul className="space-y-1 text-gray-400">
+                      <li>• 请确保钱包已连接到 Sepolia 测试网</li>
+                      <li>• 交易前请检查滑点设置，建议 1-5%</li>
+                      <li>• 首次交易需要先授权代币</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

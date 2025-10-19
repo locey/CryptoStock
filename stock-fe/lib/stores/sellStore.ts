@@ -568,7 +568,6 @@ export const useSellStore = create<SellStoreState>()(
           }
 
           const updateData = await fetchUpdateData([tokenSymbol]);
-          console.log('🔍 获取到的原始数据类型:', typeof updateData, updateData);
 
           // 确保 updateData 是有效的数组
           if (!updateData || !Array.isArray(updateData)) {
@@ -641,7 +640,7 @@ export const useSellStore = create<SellStoreState>()(
             []              // RedStone 数据作为第二个数组（暂时为空）
           ];
 
-          console.log('🔍 调试信息:', {
+          console.log("🚀 准备调用合约 sell 方法:", {
             walletClient,
             walletClientType: typeof walletClient,
             hasWriteContract: typeof walletClient.writeContract,

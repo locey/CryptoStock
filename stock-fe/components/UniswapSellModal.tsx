@@ -102,13 +102,6 @@ export const UniswapSellModal: React.FC<UniswapSellModalProps> = ({
 
   // 自动选择第一个位置
   useEffect(() => {
-    console.log("🔍 [DEBUG] UniswapSellModal - 检查用户位置状态:", {
-      userPositionsLength: storeUserPositions.length,
-      positions: storeUserPositions,
-      isConnected,
-      selectedPosition: selectedPosition,
-    });
-
     if (storeUserPositions.length > 0 && !selectedPosition) {
       // 修复类型不匹配问题：确保 liquidity 字段是 string 类型
       const firstPosition = storeUserPositions[0];
@@ -119,38 +112,17 @@ export const UniswapSellModal: React.FC<UniswapSellModalProps> = ({
         tokensOwed1: firstPosition.tokensOwed1.toString(), // 转换为字符串
       };
       setSelectedPosition(compatiblePosition);
-      console.log("🔍 [DEBUG] 自动选择第一个位置:", compatiblePosition);
     }
   }, [storeUserPositions, selectedPosition, isConnected]);
 
   // 自动刷新位置信息
   useEffect(() => {
-    console.log("🔍 [DEBUG] UniswapSellModal useEffect 触发:", {
-      isOpen,
-      isConnected,
-      timestamp: new Date().toISOString(),
-    });
-
     if (isOpen && isConnected) {
-      console.log("🔍 [DEBUG] UniswapSellModal: 开始刷新位置信息...");
-      console.log("🔍 [DEBUG] 当前用户位置数量:", storeUserPositions.length);
-      console.log(
-        "🔍 [DEBUG] 用户地址:",
-        formattedBalances.address || "未连接"
-      );
-
       fetchUserPositions()
         .then(() => {
           // 使用 setTimeout 确保 store 更新后再读取
           setTimeout(() => {
-            console.log(
-              "🔍 [DEBUG] fetchUserPositions 完成，新位置数量:",
-              storeUserPositions.length
-            );
-            console.log(
-              "🔍 [DEBUG] fetchUserPositions 完成，位置详情:",
-              userPositions
-            );
+            // 刷新完成
           }, 100);
         })
         .catch((error) => {
@@ -158,9 +130,7 @@ export const UniswapSellModal: React.FC<UniswapSellModalProps> = ({
         });
 
       refreshUserInfo()
-        .then(() => {
-          console.log("🔍 [DEBUG] refreshUserInfo 完成");
-        })
+        .then(() => {})
         .catch((error) => {
           console.error("❌ refreshUserInfo 失败:", error);
         });
@@ -175,13 +145,6 @@ export const UniswapSellModal: React.FC<UniswapSellModalProps> = ({
 
   // 计算属性
   const hasPositions = useMemo(() => {
-    console.log("🔍 [DEBUG] hasPositions 检查:", {
-      userPositionsLength: storeUserPositions.length,
-      hasPositionsResult: storeUserPositions.length > 0,
-      positions: storeUserPositions,
-      formattedBalances,
-      selectedPosition,
-    });
     return storeUserPositions.length > 0;
   }, [storeUserPositions, formattedBalances, selectedPosition]);
 
@@ -249,17 +212,11 @@ export const UniswapSellModal: React.FC<UniswapSellModalProps> = ({
       setStep("approve");
       setError(null);
 
-      console.log("🔑 开始NFT授权流程...");
-
       // 优先使用全局授权（如果还没有授权）
-      console.log("📝 执行全局NFT授权...");
       await approveAllNFT();
-      console.log("✅ 全局NFT授权完成");
 
       // 如果全局授权失败，尝试单个NFT授权
-      console.log("📝 备用：单个NFT授权...");
       await approveNFT(selectedPosition.tokenId);
-      console.log("✅ 单个NFT授权完成");
 
       // 根据操作类型进入下一步
       setStep(operationType);
@@ -297,51 +254,26 @@ export const UniswapSellModal: React.FC<UniswapSellModalProps> = ({
         recipient: undefined, // 使用默认用户地址
       };
 
-      console.log("🚀 执行移除流动性操作...");
-      console.log("   Token ID:", removeParams.tokenId.toString());
-
       // 🔧 严格按照测试用例格式：amounts 写死为 [0, 0]
       // 测试用例参考: test/08-uniswap-sepolia.test.js (第150行)
       const removeLiquidityParams = {
-        tokens: [UNISWAP_CONFIG.tokens.USDT.address, UNISWAP_CONFIG.tokens.WETH.address],
+        tokens: [
+          UNISWAP_CONFIG.tokens.USDT.address,
+          UNISWAP_CONFIG.tokens.WETH.address,
+        ],
         amounts: [0, 0], // 🔧 严格按照测试用例：amount0Min, amount1Min 写死为 0
         recipient: formattedBalances.address, // 使用实际用户地址
         deadline: Math.floor(Date.now() / 1000) + 3600, // 1小时后过期
         tokenId: removeParams.tokenId.toString(), // 🔑 关键：NFT Token ID (字符串格式)
-        extraData: "0x" // 额外数据，移除流动性时通常为空
+        extraData: "0x", // 额外数据，移除流动性时通常为空
       };
-
-      console.log("   移除流动性参数:", JSON.stringify({
-        tokens: removeLiquidityParams.tokens,
-        amounts: removeLiquidityParams.amounts,
-        recipient: removeLiquidityParams.recipient,
-        deadline: removeLiquidityParams.deadline,
-        tokenId: removeLiquidityParams.tokenId,
-        extraData: removeLiquidityParams.extraData
-      }, null, 2));
-
-      console.log("🔍 [DEBUG] 移除流动性合约地址详情:");
-      console.log("📋 DefiAggregator:", UNISWAP_CONFIG.contracts.DefiAggregator);
-      console.log("📋 UniswapV3Adapter:", UNISWAP_CONFIG.contracts.UniswapV3Adapter);
-      console.log("📋 PositionManager:", UNISWAP_CONFIG.contracts.MockPositionManager);
-      console.log("📋 Token ID:", removeParams.tokenId.toString());
-      console.log("📋 Amount0 Min:", removeParams.amount0Min);
-      console.log("📋 Amount1 Min:", removeParams.amount1Min);
-      console.log("📋 Recipient:", removeLiquidityParams.recipient);
-      console.log("📋 Deadline:", removeLiquidityParams.deadline);
 
       const result = await removeLiquidity(removeParams);
       setTxHash(result.hash);
       setStep("success");
-      console.log("✅ 移除流动性成功:", result);
 
       // 解析操作结果（从事件日志中）
       if (result.result && result.result.outputAmounts) {
-        console.log("📊 操作结果解析:");
-        console.log("   成功:", result.result.success);
-        console.log("   输出数量:", result.result.outputAmounts.map(a => a.toString()));
-        console.log("   返回数据:", result.result.returnData);
-        console.log("   消息:", result.result.message);
       }
 
       // 刷新用户信息
@@ -357,9 +289,15 @@ export const UniswapSellModal: React.FC<UniswapSellModalProps> = ({
       // 🔧 增强错误处理，根据测试用例常见错误提供更好的提示
       if (errorMessage.includes("deadline")) {
         setError("交易已过期，请重试");
-      } else if (errorMessage.includes("ERC721") || errorMessage.includes("unauthorized")) {
+      } else if (
+        errorMessage.includes("ERC721") ||
+        errorMessage.includes("unauthorized")
+      ) {
         setError("NFT 授权失败，请重新授权");
-      } else if (errorMessage.includes("invalid") || errorMessage.includes("nonexistent")) {
+      } else if (
+        errorMessage.includes("invalid") ||
+        errorMessage.includes("nonexistent")
+      ) {
         setError("无效的 Token ID，请重新选择位置");
       } else if (errorMessage.includes("insufficient")) {
         setError("流动性不足，无法完成移除操作");
@@ -386,12 +324,9 @@ export const UniswapSellModal: React.FC<UniswapSellModalProps> = ({
         recipient: undefined, // 使用默认用户地址
       };
 
-      console.log("🔍 [DEBUG] 收取手续费参数:", collectParams);
-
       const result = await collectFees(collectParams);
       setTxHash(result.hash);
       setStep("success");
-      console.log("收取手续费成功:", result);
 
       // 刷新用户信息
       await refreshUserInfo();

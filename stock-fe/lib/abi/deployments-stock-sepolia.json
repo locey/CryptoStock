@@ -1,0 +1,32 @@
+{
+  "network": "sepolia",
+  "chainId": "11155111",
+  "deployer": "0x46b43ad9F6C20c400aC17a282022E578417F796A",
+  "architecture": "统一预言机架构 (复用已部署的预言机)",
+  "contracts": {
+    "PriceAggregator": "0x9F491D7e329BF6CfC2672F01dF9f856F45379034",
+    "TokenFactory": {
+      "proxy": "0xe2e0aC10A1EEE33382BcE32D3dE374C8833eA0ae",
+      "implementation": "0x1f6BA3cAD5606a6d86d4eC099A0EAfF871520c0E"
+    },
+    "StockTokenImplementation": "0x5E21a3C0F6467598f86FA5Df9164b6BAcB689a49",
+    "USDT": "0xd6faef0e3D03282fd38B22980000C3b2FF3e0565"
+  },
+  "stockTokens": {
+    "AAPL": "0xa3BCE5f241991cc4c0FeBFE33C14e7cFaE864a9c",
+    "TSLA": "0x87150dA0Bebb21287E9de6979f52bc40647b7875",
+    "GOOGL": "0x6Ce65E8dD8869E3691EFd080Ebb972394Ae0CA9C",
+    "MSFT": "0xF001A6F2363BdCc6FdE5c2FA6913eCe27D02126d",
+    "AMZN": "0x187dd9D56161e399a7B400EC586A9b6c2296F31A",
+    "NVDA": "0x5195B988D6375ef210f171b4D7e4E5D5B5e6ff40"
+  },
+  "priceFeeds": {
+    "AAPL": "0x49f6b65cb1de6b10eaf75e7c03ca029c306d0357e91b5311b175084a5ad55688",
+    "TSLA": "0x82c4d954fce9132f936100aa0b51628d7ac01888e4b46728d5d3f5778eb4c1d2",
+    "GOOGL": "0x5a48c03e9b9cb337801073ed9d166817473697efff0d138874e0f6a33d6d5aa6",
+    "MSFT": "0xd0ca23c1cc005e004ccf1db5bf76aeb6a49218f43dac3d4b275e92de12ded4d1",
+    "AMZN": "0xb5d0e0fa58a1f8b81498ae670ce93c872d14434b72c364885d4fa1b257cbb07a",
+    "NVDA": "0xb1073854ed24cbc755dc527418f52b7d271f6cc967bbf8d8129112b18860a593"
+  },
+  "timestamp": "2025-10-11T06:42:25.102Z"
+}

@@ -319,7 +319,6 @@ export const useAaveStore = create<AaveState>((set, get) => ({
 
     try {
       set({ isLoading: true, error: null });
-      console.log('🔍 获取 Aave 池信息...');
 
       const [feeRateBps, usdtToken, aUsdtToken, adapterName, adapterVersion, contractVersion] = await Promise.all([
         publicClient.readContract({
@@ -389,7 +388,6 @@ export const useAaveStore = create<AaveState>((set, get) => ({
 
     try {
       set({ isLoading: true, error: null });
-      console.log('🔍 获取用户余额信息...');
 
       const [usdtBalance, aUsdtBalance, { usdtAllowance, aUsdtAllowance }] = await Promise.all([
         get().fetchUserUSDTBalance(publicClient, userAddress),

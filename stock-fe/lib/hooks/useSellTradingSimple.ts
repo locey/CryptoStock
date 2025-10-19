@@ -100,7 +100,6 @@ export function useSellTradingSimple({
         const sellAmountWei = parseUnits(sellStore.sellAmount, 18);
 
         // 获取价格更新数据
-        console.log("🔍 获取价格更新数据...");
         const updateDataResult = await sellStore.fetchPriceUpdateData(publicClient as any, sellStore.token?.symbol || "");
         if (!updateDataResult.success || !updateDataResult.data) {
           throw new Error(updateDataResult.error || '获取价格更新数据失败');

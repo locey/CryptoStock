@@ -2,23 +2,30 @@
   "network": "sepolia",
   "chainId": "11155111",
   "deployer": "0x46b43ad9F6C20c400aC17a282022E578417F796A",
-  "timestamp": "2025-10-07T08:31:36.186Z",
+  "timestamp": "2025-10-13T08:39:51.848Z",
   "feeRateBps": 30,
   "basedOn": "deployments-defi-infrastructure-sepolia.json",
   "contracts": {
-    "DefiAggregator": "0xEf3bB3e03251533cE0609530f742F1FFA3766EBB",
-    "MockERC20_USDT": "0x01C8918bd02437C52ab0034A73c6Fecc448e2B5f",
-    "MockAavePool": "0xD9553590245d3C2bd947f664DED70500C0f3455B",
-    "MockAToken_aUSDT": "0x2Fae42c558dA206ACb8DcE1e15ED555447c18513",
-    "AaveAdapter": "0x0f330Fd1215E66CE8aFbb0E17C1941C1B67C9797",
+    "DefiAggregator": "0x885D8317087e292F713d2FFfb9B9E74D49a7cfa0",
+    "MockERC20_USDT": "0xd6faef0e3D03282fd38B22980000C3b2FF3e0565",
+    "MockAavePool": "0x0fA369DD875A7972597D18f4f0bFf841244920A0",
+    "MockAToken_aUSDT": "0x0D593c5B4A3AC45D81132490c0256aF539DB6009",
+    "AaveAdapter": "0xe0E1216442190DEc68830ae751E7b20097626a14",
     "AaveAdapter_Implementation": "0xCFd0dA8b47B772e488890F268Edd0C4989b33A6d"
   },
   "adapterRegistrations": {
-    "aave": "0xc84cCaDa821939902e7f3D728440e193d6903fCb"
+    "aave": "0xe0E1216442190DEc68830ae751E7b20097626a14"
   },
   "notes": {
     "description": "Aave适配器部署，复用了基础设施合约",
-    "reusedContracts": ["DefiAggregator", "MockERC20_USDT"],
-    "newContracts": ["MockAavePool", "MockAToken_aUSDT", "AaveAdapter"]
+    "reusedContracts": [
+      "DefiAggregator",
+      "MockERC20_USDT"
+    ],
+    "newContracts": [
+      "MockAavePool",
+      "MockAToken_aUSDT",
+      "AaveAdapter"
+    ]
   }
 }

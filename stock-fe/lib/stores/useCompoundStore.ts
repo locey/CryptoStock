@@ -252,7 +252,6 @@ export const useCompoundStore = create<CompoundStore>((set, get) => ({
 
     try {
       set({ isLoading: true, error: null });
-      console.log('🔍 获取 Compound 池信息...');
 
       const [feeRateBps, usdtToken, cUsdtToken, adapterName, adapterVersion, contractVersion, currentAPY, currentExchangeRate] = await Promise.all([
         publicClient.readContract({
@@ -326,7 +325,6 @@ export const useCompoundStore = create<CompoundStore>((set, get) => ({
 
     try {
       set({ isLoading: true, error: null });
-      console.log('🔍 获取用户 Compound 余额...');
 
       const [usdtBalance, cUsdtBalance, usdtAllowance, cUsdtAllowance] = await Promise.all([
         get().fetchUserUSDTBalance(publicClient, userAddress),
@@ -391,7 +389,7 @@ export const useCompoundStore = create<CompoundStore>((set, get) => ({
     if (!compoundAdapterAddress || !defiAggregatorAddress) return;
 
     try {
-      console.log('🔍 获取 Compound 授权额度...', {
+      console.log("🔍 获取 Compound 授权额度:", {
         compoundAdapterAddress,
         userAddress
       });
@@ -402,7 +400,7 @@ export const useCompoundStore = create<CompoundStore>((set, get) => ({
         get().fetchUserCUSDTAllowance(publicClient, userAddress, compoundAdapterAddress),
       ]);
 
-      console.log('🔍 Compound 授权额度获取结果:', {
+      console.log("💰 Compound 授权额度获取结果:", {
         usdtAllowance: usdtAllowance.toString(),
         cUsdtAllowance: cUsdtAllowance.toString(),
         usdtAllowanceFormatted: formatUnits(usdtAllowance, 6),

@@ -90,18 +90,7 @@ export const UniswapLiquidityModal: React.FC<UniswapLiquidityModalProps> = ({
   const isInputValid = useMemo(() => {
     const hasAmount0 = amount0 && parseFloat(amount0) > 0;
     const hasAmount1 = amount1 && parseFloat(amount1) > 0;
-    const isValid = hasAmount0 && hasAmount1;
-
-    // 调试信息
-    console.log('🔍 [DEBUG] 输入验证:', {
-      amount0,
-      amount1,
-      hasAmount0,
-      hasAmount1,
-      isInputValid: isValid
-    });
-
-    return isValid;
+    return hasAmount0 && hasAmount1;
   }, [amount0, amount1]);
 
   const hasSufficientBalance = useMemo(() => {
@@ -117,30 +106,6 @@ export const UniswapLiquidityModal: React.FC<UniswapLiquidityModalProps> = ({
 
     const hasBalance0 = amount0Num <= balance0;
     const hasBalance1 = amount1Num <= balance1;
-
-    // 调试信息
-    console.log('🔍 [DEBUG] 余额检查:', {
-      // 基本信息
-      token0Symbol: token0.symbol,
-      token1Symbol: token1.symbol,
-      amount0: amount0Num,
-      amount1: amount1Num,
-
-      // 余额信息
-      balanceKey0,
-      balanceKey1,
-      balance0,
-      balance1,
-
-      // 检查结果
-      hasBalance0,
-      hasBalance1,
-      hasSufficient: hasBalance0 && hasBalance1,
-
-      // 原始数据
-      formattedBalances,
-      allBalanceKeys: Object.keys(formattedBalances)
-    });
 
     return hasBalance0 && hasBalance1;
   }, [amount0, amount1, formattedBalances, token0, token1]);
@@ -284,21 +249,15 @@ export const UniswapLiquidityModal: React.FC<UniswapLiquidityModalProps> = ({
       setStep('approve');
       setError(null);
 
-      console.log('🔑 开始授权流程...');
-
       // 1. 强制授权两种代币
       const tokenApprovals = [];
       tokenApprovals.push(approveUSDT(amount1)); // USDT 使用 amount1
       tokenApprovals.push(approveWETH(amount0)); // WETH 使用 amount0
 
-      console.log('📝 授权代币交易...');
       await Promise.all(tokenApprovals);
-      console.log('✅ 代币授权完成');
 
       // 2. 全局授权所有 NFT（用于未来的流动性位置）
-      console.log('📝 授权 NFT（全局授权）...');
       await approveAllNFT();
-      console.log('✅ NFT 全局授权完成');
 
       // 🔧 等待一下让区块链状态更新
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -331,28 +290,6 @@ export const UniswapLiquidityModal: React.FC<UniswapLiquidityModalProps> = ({
 
       const hasUSDTAllowance = usdtAllowanceValue >= usdtNeededValue;
       const hasWETHAllowance = wethAllowanceValue >= wethNeededValue;
-
-      console.log('🔍 [DEBUG] 详细授权状态验证:', {
-        // 基本信息
-        token0Symbol: token0.symbol,
-        token1Symbol: token1.symbol,
-
-        // USDT 授权信息
-        usdtNeeded: usdtNeededValue,
-        usdtAllowance: usdtAllowanceValue,
-        usdtNeedsApproval: needsApproval.usdt,
-        hasUSDTAllowance,
-
-        // WETH 授权信息
-        wethNeeded: wethNeededValue,
-        wethAllowance: wethAllowanceValue,
-        wethNeedsApproval: needsApproval.weth,
-        hasWETHAllowance,
-
-        // 原始数据
-        rawFormattedBalances: formattedBalances,
-        rawNeedsApproval: needsApproval
-      });
 
       return hasUSDTAllowance && hasWETHAllowance;
     } catch (error) {
@@ -405,17 +342,10 @@ export const UniswapLiquidityModal: React.FC<UniswapLiquidityModalProps> = ({
         recipient: '0x0000000000000000000000000000000000000000' as Address, // hook 会自动替换为用户地址
       };
 
-      console.log('🔍 [DEBUG] 添加流动性参数:', liquidityParams);
-      console.log('🔍 [DEBUG] amount0:', amount0, '类型:', typeof amount0);
-      console.log('🔍 [DEBUG] amount1:', amount1, '类型:', typeof amount1);
-      console.log('🔍 [DEBUG] amount0Min:', amount0Min, '类型:', typeof amount0Min);
-      console.log('🔍 [DEBUG] amount1Min:', amount1Min, '类型:', typeof amount1Min);
-
       const result = await addLiquidity(liquidityParams);
 
       setTxHash(result.hash);
       setStep('success');
-      console.log('添加流动性成功:', result);
 
       // 成功回调
       onSuccess?.(result);
@@ -654,59 +584,7 @@ export const UniswapLiquidityModal: React.FC<UniswapLiquidityModalProps> = ({
               </div>
             </div>
           </div>
-
-          {/* 调试信息 */}
-          {process.env.NODE_ENV === 'development' && (
-            <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 text-xs">
-              <h4 className="text-white font-semibold mb-2">🔍 调试信息</h4>
-              <div className="space-y-1 text-gray-300">
-                <div>isConnected: {isConnected ? '✅' : '❌'}</div>
-                <div>isInputValid: {isInputValid ? '✅' : '❌'}</div>
-                <div>hasSufficientBalance: {hasSufficientBalance ? '✅' : '❌'}</div>
-                <div>isOperating: {isOperating ? '✅' : '❌'}</div>
-                <div>amount0: {amount0}</div>
-                <div>amount1: {amount1}</div>
-                <div>WETH 余额: {formattedBalances.wethBalance || '0'}</div>
-                <div>USDT 余额: {formattedBalances.usdtBalance || '0'}</div>
-                <div>钱包地址: {formattedBalances.address || '未连接'}</div>
-                <div>所有余额键: {Object.keys(formattedBalances).join(', ')}</div>
-              </div>
-            </div>
-          )}
-
-          {/* 汇总信息 */}
-          {isInputValid && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-white">汇总信息</h3>
-              <div className="bg-gray-800 rounded-xl p-4 space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">{token0.symbol} 投入</span>
-                  <span className="text-white font-mono">{amount0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">{token1.symbol} 投入</span>
-                  <span className="text-white font-mono">{amount1}</span>
-                </div>
-                <div className="border-t border-gray-700 pt-3 space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">最小 {token0.symbol}</span>
-                    <span className="text-yellow-400 font-mono">{calculatedAmounts.amount0Min}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">最小 {token1.symbol}</span>
-                    <span className="text-yellow-400 font-mono">{calculatedAmounts.amount1Min}</span>
-                  </div>
-                </div>
-                <div className="border-t border-gray-700 pt-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">预估收益</span>
-                    <span className="text-green-400 font-semibold">8.92% APY</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
+  
           {/* 错误提示 */}
           {error && (
             <Alert className="border-red-500/20 bg-red-500/10">

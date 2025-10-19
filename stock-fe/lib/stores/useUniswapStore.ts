@@ -426,7 +426,6 @@ export const useUniswapStore = create<UniswapState>()(
 
     try {
       set({ isLoading: true, error: null });
-      console.log('🔍 获取 Uniswap V3 池信息...');
 
       const [feeRateBps, usdtToken, wethToken, positionManager, adapterName, adapterVersion, contractVersion] = await Promise.all([
         publicClient.readContract({
@@ -494,7 +493,6 @@ export const useUniswapStore = create<UniswapState>()(
   fetchUserBalance: async (publicClient: PublicClient, userAddress: Address) => {
     try {
       set({ isLoading: true, error: null });
-      console.log('🔍 获取用户余额信息...');
 
       const [usdtBalance, wethBalance, { usdtAllowance, wethAllowance, nftAllowance }] = await Promise.all([
         get().fetchUserUSDTBalance(publicClient, userAddress),
@@ -540,7 +538,6 @@ export const useUniswapStore = create<UniswapState>()(
 
     try {
       set({ isLoading: true, error: null });
-      console.log('🔍 开始获取用户 Uniswap V3 位置信息...');
       console.log(`👤 用户地址: ${userAddress}`);
 
       // ========== 方法2：通过NFT余额获取用户拥有的Token ID ==========
@@ -565,7 +562,6 @@ export const useUniswapStore = create<UniswapState>()(
       }
 
       // 步骤2.2：通过索引遍历获取所有Token ID
-      console.log(`🔍 通过索引获取 ${nftBalance.toString()} 个 NFT 的详细信息...`);
       const positions: UniswapPositionInfo[] = [];
 
       // 遍历用户拥有的所有NFT
@@ -573,10 +569,8 @@ export const useUniswapStore = create<UniswapState>()(
 
       for (let i = 0; i < Number(nftBalance); i++) {
         try {
-          console.log(`🔍 获取第 ${i + 1} 个 NFT 的 Token ID...`);
 
           // 检查合约是否支持 tokenOfOwnerByIndex 方法
-          console.log(`🔍 尝试通过索引获取 Token ID (index: ${i})...`);
 
           let tokenId: bigint;
           try {
@@ -1482,7 +1476,6 @@ export const useUniswapStore = create<UniswapState>()(
       console.log('排序后 amount1:', sortedAmounts[1]);
 
       // 🔧 调试：确认代币和金额的对应关系
-      console.log('🔍 调试信息:');
       console.log('排序后 token0 地址:', sortedTokens[0]);
       console.log('排序后 token0 是 WETH:', sortedTokens[0].toLowerCase() === wethAddress.toLowerCase());
       console.log('排序后 token0 是 USDT:', sortedTokens[0].toLowerCase() === usdtAddress.toLowerCase());
@@ -1540,11 +1533,6 @@ export const useUniswapStore = create<UniswapState>()(
       });
 
       console.log('📋 最终操作参数:', operationParams);
-      console.log('🔍 [DEBUG] amounts数组长度:', operationParams.amounts.length);
-      console.log('🔍 [DEBUG] amounts内容 (字符串格式):', operationParams.amounts);
-      console.log('🔍 [DEBUG] amounts类型检查:', operationParams.amounts.map(a => typeof a));
-      console.log('🔍 [DEBUG] tokenId类型:', typeof operationParams.tokenId);
-      console.log('🔍 [DEBUG] tokenId值:', operationParams.tokenId);
 
       console.log('🚀 操作参数构造完成，准备发送交易');
 
