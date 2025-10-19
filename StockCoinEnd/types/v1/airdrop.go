@@ -7,8 +7,8 @@ import (
 )
 
 type ClaimRequest struct {
-	UsesrId string `json:"user_id" binding:"required"`
-	TaskId  int64  `json:"task_id" binding:"required"`
+	UserID  string `json:"user_id" binding:"required"`
+	TaskID  int64  `json:"task_id" binding:"required"`
 	Address string `json:"address" binding:"required"`
 }
 

@@ -26,18 +26,19 @@ import (
 )
 
 // ClaimTask 用户领取任务
-func ClaimTask(tx context.Context, s *svc.ServerCtx, userID string, taskID int64) error {
+func ClaimTask(tx context.Context, s *svc.ServerCtx, userID string, taskID int64, address string) error {
 	// 检查用户是否已领取该任务
-	task, err := s.Dao.GetUserTask(tx, taskID, userID)
+	task, err := s.Dao.GetUserTaskByStringUserID(tx, taskID, userID)
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.Wrap(err, "airdrop task is active")
+			return errors.Wrap(err, "database error")
 		}
-		return err
-	}
-
-	if task != nil && task.Status != airdrop.UserTaskStatusFailed {
-		return errors.Wrap(err, "airdrop task is active")
+		// 记录不存在，说明是第一次领取，继续执行
+	} else {
+		// 记录存在，检查状态
+		if task != nil && task.Status != airdrop.UserTaskStatusFailed {
+			return errors.New("airdrop task is active")
+		}
 	}
 
 	// 检查任务是否已满
@@ -49,6 +50,7 @@ func ClaimTask(tx context.Context, s *svc.ServerCtx, userID string, taskID int64
 	userTask := &airdrop.AirdropUserTask{
 		UserID:    userID,
 		TaskID:    taskID,
+		Address:   address,
 		Status:    airdrop.UserTaskStatusClaimed,
 		ClaimedAt: time.Now(),
 	}
@@ -73,7 +75,7 @@ func ClaimReward(ctx context.Context, s *svc.ServerCtx, userID string, taskID in
 		return errors.Wrap(err, "GetTaskByIDErr")
 	}
 	// 获取用户任务
-	userTask, err := s.Dao.GetUserTask(ctx, taskID, userID)
+	userTask, err := s.Dao.GetUserTaskByStringUserID(ctx, taskID, userID)
 	if err != nil {
 		return err
 	}
@@ -532,6 +534,11 @@ func DeleteTask(ctx context.Context, s *svc.ServerCtx, taskId int64) error {
 // GetAllTasks 获取所有空投任务
 func GetAllTasks(ctx context.Context, s *svc.ServerCtx) ([]airdrop.AirdropTask, error) {
 	return s.Dao.GetAllTasks(ctx)
+}
+
+// GetUserTasksByIDs 获取指定任务ID的用户任务记录
+func GetUserTasksByIDs(ctx context.Context, s *svc.ServerCtx, taskIds []int64) ([]airdrop.AirdropUserTask, error) {
+	return s.Dao.GetUserTasksByIDs(ctx, taskIds)
 }
 
 // GetTasksByStatus 根据状态获取任务

@@ -10,12 +10,19 @@ import (
 func (d *Dao) GetTaskByID(c context.Context, taskId int64) (*airdrop.AirdropTask, error) {
 	var task airdrop.AirdropTask
 	err := d.DB.WithContext(c).
-		Table(airdrop.AirdropTaskTableName()).Where("task_id  = ?", taskId).First(&task).Error
+		Table(airdrop.AirdropTaskTableName()).Where("id = ?", taskId).First(&task).Error
 	return &task, err
 }
 
 // func (d *Dao) GetUserTask(c context.Context, taskId, userId int64) ()
 func (d *Dao) GetUserTask(c context.Context, taskId int64, userId string) (*airdrop.AirdropUserTask, error) {
+	var task airdrop.AirdropUserTask
+	err := d.DB.WithContext(c).
+		Table(airdrop.AirdropUserTaskTableName()).Where("task_id = ? and user_id = ?", taskId, userId).First(&task).Error
+	return &task, err
+}
+
+func (d *Dao) GetUserTaskByStringUserID(c context.Context, taskId int64, userId string) (*airdrop.AirdropUserTask, error) {
 	var task airdrop.AirdropUserTask
 	err := d.DB.WithContext(c).
 		Table(airdrop.AirdropUserTaskTableName()).Where("task_id = ? and user_id = ?", taskId, userId).First(&task).Error

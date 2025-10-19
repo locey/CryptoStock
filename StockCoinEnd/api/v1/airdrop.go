@@ -14,9 +14,12 @@ import (
 // 获取空投任务列表
 func GetAirDropTasks(svcCtx *svc.ServerCtx) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userId := c.Query("address")
+		userId := c.Query("userId")
 		if userId == "" {
-			xhttp.Error(c, errcode.NewCustomErr("address addr is null"))
+			userId = c.Query("address")
+		}
+		if userId == "" {
+			xhttp.Error(c, errcode.NewCustomErr("address/userId parameter is required"))
 			return
 		}
 
@@ -39,7 +42,7 @@ func GetAirDropClaim(svcCtx *svc.ServerCtx) gin.HandlerFunc {
 			return
 		}
 
-		err := service.ClaimTask(c.Request.Context(), svcCtx, req.UsesrId, req.TaskId)
+		err := service.ClaimTask(c.Request.Context(), svcCtx, req.UserID, req.TaskID, req.Address)
 		if err != nil {
 			xhttp.Error(c, errcode.NewCustomErr(err.Error()))
 			return
@@ -58,7 +61,7 @@ func GetAirDropClaimReward(svcCtx *svc.ServerCtx) gin.HandlerFunc {
 			return
 		}
 
-		err := service.ClaimReward(c.Request.Context(), svcCtx, req.UsesrId, req.TaskId, req.Address)
+		err := service.ClaimReward(c.Request.Context(), svcCtx, req.UserID, req.TaskID, req.Address)
 		if err != nil {
 			xhttp.Error(c, errcode.NewCustomErr(err.Error()))
 			return
@@ -272,6 +275,25 @@ func DeleteAirdropTask(svcCtx *svc.ServerCtx) gin.HandlerFunc {
 		}
 
 		xhttp.OkJson(c, gin.H{"message": "Task deleted successfully"})
+	}
+}
+
+// DebugGetUserTasks 获取所有用户任务数据（调试用）
+func DebugGetUserTasks(svcCtx *svc.ServerCtx) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// 获取所有任务ID
+		taskIds := []int64{1, 2, 3, 4, 5, 6}
+
+		tasks, err := service.GetUserTasksByIDs(c.Request.Context(), svcCtx, taskIds)
+		if err != nil {
+			xhttp.Error(c, errcode.NewCustomErr(err.Error()))
+			return
+		}
+
+		xhttp.OkJson(c, gin.H{
+			"total": len(tasks),
+			"data": tasks,
+		})
 	}
 }
 

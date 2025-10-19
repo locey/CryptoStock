@@ -60,7 +60,7 @@ func loadV1(r *gin.Engine, svcCtx *svc.ServerCtx) {
 	{
 		orders.GET("", v1.OrderInfosHandler(svcCtx)) // 批量查询出价信息
 	}
-	airdrop := apiV1.Group("airdrop")
+	airdrop := apiV1.Group("/airdrop")
 	{
 		airdrop.GET("tasks", v1.GetAirDropTasks(svcCtx))                           // 获取空投任务列表
 		airdrop.POST("task", v1.CreateAirdropTask(svcCtx))                         // 创建空投任务（管理员）
@@ -73,6 +73,7 @@ func loadV1(r *gin.Engine, svcCtx *svc.ServerCtx) {
 		// airdrop.GET("task/rank", v1.GetAirDropRanks(svcCtx))                    // 领取空投排行
 		// airdrop.GET("task/poolinfo", v1.GetAirDropPoolInfo(svcCtx))             // 领取空投排行
 		airdrop.POST("task/start", v1.StartAirdrop(svcCtx))                        // 开启空投
+		airdrop.GET("debug/user-tasks", v1.DebugGetUserTasks(svcCtx))              // 调试：获取所有用户任务数据
 	}
 	stocks := apiV1.Group("/stocks")
 	{

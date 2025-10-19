@@ -94,7 +94,7 @@
     },
     {
       "inputs": [
-        {Air
+        {
           "internalType": "uint256",
           "name": "taskId",
           "type": "uint256"
