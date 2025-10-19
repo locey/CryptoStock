@@ -259,9 +259,61 @@ func getProof(tree *merkletree.MerkleTree, leave []byte) (string, error) {
 	return string(jsonHexStrings), nil
 }
 
-// 更新指定默克尔树根
-func updateMerkleRoot(address string, taskIds []int64, roots [][]byte, client *ethclient.Client, privateKey *ecdsa.PrivateKey) {
+// sendTransaction 发送交易到区块链的通用函数
+// 参数:
+// - client: 以太坊客户端
+// - contractAddress: 合约地址
+// - data: 交易数据
+// - privateKey: 私钥用于签名
+// 返回值:
+// - *types.Transaction: 已签名的交易
+func sendTransaction(client *ethclient.Client, contractAddress common.Address, data []byte, privateKey *ecdsa.PrivateKey) error {
+	// 获取账户地址
+	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
 
+	// 获取nonce
+	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
+	if err != nil {
+		log.Fatal("获取nonce错误:", err)
+	}
+
+	// 获取gas price
+	gasPrice, err := client.SuggestGasPrice(context.Background())
+	if err != nil {
+		log.Fatal("获取gas price错误:", err)
+	}
+
+	// 创建交易
+	tx := types.NewTransaction(nonce, contractAddress, big.NewInt(0), 1000000, gasPrice, data)
+
+	// 获取链ID用于签名
+	chainID, err := client.NetworkID(context.Background())
+	if err != nil {
+		log.Fatal("获取chain ID错误:", err)
+	}
+
+	// 签名交易
+	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), privateKey)
+	if err != nil {
+		log.Fatal("签名交易错误:", err)
+	}
+	// 5. 提交交易到网络
+	err = client.SendTransaction(context.Background(), signedTx)
+	if err != nil {
+		log.Fatal("发送交易错误:", err)
+	}
+	log.Println("交易已发送，交易哈希:", signedTx.Hash().Hex())
+	return err
+}
+
+// updateMerkleRoot 更新指定默克尔树根
+// 参数:
+// - address: 合约地址
+// - taskIds: 任务ID数组
+// - roots: 默克尔树根哈希数组
+// - client: 以太坊客户端
+// - privateKey: 私钥用于签名交易
+func updateMerkleRoot(address string, taskIds []int64, roots [][]byte, client *ethclient.Client, privateKey *ecdsa.PrivateKey) {
 	// 1. 解析ABI
 	abiPath := filepath.Join("..", "CryptoStockContract", "abi", "Airdrop.abi")
 	parsedABI, err := utils.ReadABI(abiPath)
@@ -269,7 +321,7 @@ func updateMerkleRoot(address string, taskIds []int64, roots [][]byte, client *e
 		log.Fatal("ABI解析错误:", err)
 	}
 
-	// 转换参数类型
+	// 2. 转换参数类型
 	taskIdBigInts := make([]*big.Int, len(taskIds))
 	for i, id := range taskIds {
 		taskIdBigInts[i] = big.NewInt(id)
@@ -280,45 +332,61 @@ func updateMerkleRoot(address string, taskIds []int64, roots [][]byte, client *e
 		rootHashes[i] = common.BytesToHash(root)
 	}
 
-	// 2. 构造调用数据
+	// 3. 构造调用数据
 	data, err := parsedABI.Pack("setMerkleRoot", taskIdBigInts, rootHashes)
 	if err != nil {
 		log.Fatal("数据打包错误:", err)
 	}
 
-	// 3. 获取nonce
-	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
-	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
-	if err != nil {
-		log.Fatal("获取nonce错误:", err)
-	}
-
-	// 4. 设置交易参数
-	gasPrice, err := client.SuggestGasPrice(context.Background())
-	if err != nil {
-		log.Fatal("获取gas price错误:", err)
-	}
-
+	// 4. 发送交易
 	contractAddress := common.HexToAddress(address)
-	tx := types.NewTransaction(nonce, contractAddress, big.NewInt(0), 1000000, gasPrice, data)
-
-	// 5. 签名交易
-	chainID, err := client.NetworkID(context.Background())
+	err = sendTransaction(client, contractAddress, data, privateKey)
 	if err != nil {
-		log.Fatal("获取chain ID错误:", err)
+		log.Fatal("交易发送错误:", err)
 	}
 
-	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), privateKey)
+}
+
+// UpdateReward 更新空投奖励
+// 参数:
+// - svcCtx: 服务上下文
+// - address: 合约地址
+// - taskIds: 任务ID数组
+// - amounts: 奖励金额数组
+// - client: 以太坊客户端
+// - privateKey: 私钥用于签名交易
+func UpdateReward(svcCtx *svc.ServerCtx, address string, taskIds []int64, amounts []int64, client *ethclient.Client, privateKey *ecdsa.PrivateKey) {
+	// 1. 解析ABI
+	abiPath := filepath.Join("..", "CryptoStockContract", "abi", "Airdrop.abi")
+	parsedABI, err := utils.ReadABI(abiPath)
 	if err != nil {
-		log.Fatal("签名交易错误:", err)
+		log.Fatal("ABI文件解析错误:", err)
 	}
 
-	// 6. 发送交易
-	err = client.SendTransaction(context.Background(), signedTx)
-	if err != nil {
-		log.Fatal("发送交易错误:", err)
+	// 2. 转换参数类型，将int64转换为big.Int以支持智能合约调用
+	// 转换任务ID数组
+	taskIdBigInts := make([]*big.Int, len(taskIds))
+	for i, id := range taskIds {
+		taskIdBigInts[i] = big.NewInt(id)
 	}
 
-	log.Println("交易已发送，交易哈希:", signedTx.Hash().Hex())
+	// 转换奖励金额数组
+	amountBigInts := make([]*big.Int, len(amounts))
+	for i, amount := range amounts {
+		amountBigInts[i] = big.NewInt(amount)
+	}
+
+	// 3. 打包调用数据，准备调用合约的setReward函数
+	rewardData, err := parsedABI.Pack("setReward", taskIdBigInts, amountBigInts)
+	if err != nil {
+		log.Fatal("ABI解析错误:", err)
+	}
+
+	// 4. 发送交易
+	contractAddress := common.HexToAddress(address)
+	err = sendTransaction(client, contractAddress, rewardData, privateKey)
+	if err != nil {
+		log.Fatal("交易发送错误:", err)
+	}
 
 }

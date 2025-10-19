@@ -26,3 +26,14 @@ type AirdropTaskWithStatus struct {
 	Reward          string     `json:"reward"`            // 奖励金额
 	RewardClaimedAt *time.Time `json:"reward_claimed_at"` // 领取奖励时间
 }
+
+type AddAirdropTaskRequest struct {
+	Name    string `json:"name"`
+	Desc    string `json:"desc"`
+	Type    int64  `json:"type"`
+	Reward  int64  `json:"reward"`
+	Level   int64  `json:"level"`
+	StartAt int64  `json:"start_at"`
+	EndAt   int64  `json:"end_at"`
+	Status  int64  `json:"status"`
+}
