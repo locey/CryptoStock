@@ -55,8 +55,8 @@ export function AirdropTaskManager({ isAdmin = false }: AirdropTaskManagerProps)
     fetchAllTasks(statusFilter || undefined);
   }, [statusFilter]); // 移除 fetchAllTasks 依赖
 
-  const handleCreateTask = async (taskData: CreateTaskRequest) => {
-    const success = await createTask(taskData);
+  const handleCreateTask = async (taskData: CreateTaskRequest | UpdateTaskRequest) => {
+    const success = await createTask(taskData as CreateTaskRequest);
     if (success) {
       setShowCreateForm(false);
     }
@@ -201,9 +201,11 @@ export function AirdropTaskManager({ isAdmin = false }: AirdropTaskManagerProps)
                     <span className={`px-2 py-1 rounded-full text-xs ${getStatusBadgeClass(task.status)}`}>
                       {getStatusText(task.status)}
                     </span>
-                    <span className={`px-2 py-1 rounded-full text-xs ${getLevelBadgeClass(task.level)}`}>
-                      {getLevelText(task.level)}
-                    </span>
+                    {task.level && (
+                      <span className={`px-2 py-1 rounded-full text-xs ${getLevelBadgeClass(task.level)}`}>
+                        {getLevelText(task.level)}
+                      </span>
+                    )}
                   </div>
 
                   <p className="text-gray-300 mb-3">{task.description}</p>

@@ -9,10 +9,11 @@ let userTasksCache: Map<string, { data: any; time: number }> = new Map();
 const CACHE_DURATION = 5 * 60 * 1000; // 5分钟缓存
 
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const userId = searchParams.get('userId');
+  const now = Date.now();
+
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-    const now = Date.now();
 
     // 如果有 userId 参数，使用用户任务缓存
     if (userId) {

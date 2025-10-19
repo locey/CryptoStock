@@ -201,7 +201,7 @@ export function useAirdrop(options: UseAirdropOptions = {}): UseAirdropReturn {
     clearError();
 
     try {
-      const response = await airdropApi.getAllTasks(status);
+      const response = await airdropApi.getAllTasks();
       setAllTasks(response.data);
     } catch (err) {
       handleError(err);

@@ -23,8 +23,12 @@ export interface AirdropTask {
   status: "active" | "completed" | "expired";
   start_date?: string;
   end_date?: string;
+  start_time?: string; // 后端返回的字段
+  end_time?: string;   // 后端返回的字段
   max_participants?: number;
   current_participants?: number;
+  task_type?: string; // 任务类型
+  level?: string;     // 难度等级
 }
 
 export interface AirdropTaskWithStatus extends AirdropTask {
