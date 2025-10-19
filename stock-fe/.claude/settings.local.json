@@ -21,7 +21,14 @@
       "Bash(do:*)",
       "Bash(echo:*)",
       "Bash(done)",
-      "Bash(npx next@latest build:*)"
+      "Bash(npx next@latest build:*)",
+      "WebFetch(domain:app.apifox.com)",
+      "Bash(npm run dev:*)",
+      "Bash(nvm list:*)",
+      "Bash(chmod:*)",
+      "Bash(curl:*)",
+      "Bash(lsof:*)",
+      "Bash(pkill:*)"
     ],
     "deny": [],
     "ask": []
