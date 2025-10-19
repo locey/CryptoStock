@@ -61,3 +61,39 @@ func (d *Dao) GetUserTasksByIDs(c context.Context, taskIds []int64) ([]airdrop.A
 		Table(airdrop.AirdropUserTaskTableName()).Where("task_id in ?", taskIds).Find(&tasks).Error
 	return tasks, err
 }
+
+// CreateTask 创建空投任务
+func (d *Dao) CreateTask(c context.Context, task *airdrop.AirdropTask) error {
+	return d.DB.WithContext(c).Table(airdrop.AirdropTaskTableName()).Create(task).Error
+}
+
+// UpdateTask 更新空投任务
+func (d *Dao) UpdateTask(c context.Context, task *airdrop.AirdropTask) error {
+	return d.DB.WithContext(c).Table(airdrop.AirdropTaskTableName()).Save(task).Error
+}
+
+// DeleteTask 删除空投任务
+func (d *Dao) DeleteTask(c context.Context, taskId int64) error {
+	return d.DB.WithContext(c).Table(airdrop.AirdropTaskTableName()).Where("id = ?", taskId).Delete(&airdrop.AirdropTask{}).Error
+}
+
+// GetAllTasks 获取所有空投任务
+func (d *Dao) GetAllTasks(c context.Context) ([]airdrop.AirdropTask, error) {
+	var tasks []airdrop.AirdropTask
+	err := d.DB.WithContext(c).Table(airdrop.AirdropTaskTableName()).Find(&tasks).Error
+	return tasks, err
+}
+
+// GetTasksByStatus 根据状态获取任务
+func (d *Dao) GetTasksByStatus(c context.Context, status string) ([]airdrop.AirdropTask, error) {
+	var tasks []airdrop.AirdropTask
+	err := d.DB.WithContext(c).Table(airdrop.AirdropTaskTableName()).Where("status = ?", status).Find(&tasks).Error
+	return tasks, err
+}
+
+// GetTaskUserCount 获取任务的参与人数
+func (d *Dao) GetTaskUserCount(c context.Context, taskId int64) (int64, error) {
+	var count int64
+	err := d.DB.WithContext(c).Table(airdrop.AirdropUserTaskTableName()).Where("task_id = ?", taskId).Count(&count).Error
+	return count, err
+}
