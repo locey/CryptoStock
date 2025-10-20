@@ -8,7 +8,7 @@
         },
         {
           "internalType": "uint256[]",
-          "name": "taskIds",
+          "name": "batchIds",
           "type": "uint256[]"
         },
         {
@@ -32,6 +32,12 @@
         {
           "indexed": true,
           "internalType": "uint256",
+          "name": "batchId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
           "name": "taskId",
           "type": "uint256"
         },
@@ -47,6 +53,11 @@
     },
     {
       "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "batchId",
+          "type": "uint256"
+        },
         {
           "internalType": "uint256",
           "name": "taskId",
@@ -76,6 +87,11 @@
           "type": "uint256"
         },
         {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
           "internalType": "address",
           "name": "",
           "type": "address"
@@ -96,7 +112,7 @@
       "inputs": [
         {
           "internalType": "uint256",
-          "name": "taskId",
+          "name": "batchId",
           "type": "uint256"
         }
       ],
@@ -106,25 +122,6 @@
           "internalType": "bytes32",
           "name": "",
           "type": "bytes32"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "taskId",
-          "type": "uint256"
-        }
-      ],
-      "name": "getReward",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
         }
       ],
       "stateMutability": "view",
@@ -152,27 +149,8 @@
     {
       "inputs": [
         {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "rewardMap",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
           "internalType": "uint256[]",
-          "name": "taskIds",
+          "name": "batchIds",
           "type": "uint256[]"
         },
         {
@@ -182,24 +160,6 @@
         }
       ],
       "name": "setMerkleRoot",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256[]",
-          "name": "taskIds",
-          "type": "uint256[]"
-        },
-        {
-          "internalType": "uint256[]",
-          "name": "amounts",
-          "type": "uint256[]"
-        }
-      ],
-      "name": "setReward",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
