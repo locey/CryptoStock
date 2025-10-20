@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import "./MockERC20.sol";
+import "./mock/MockERC20.sol";
 
 contract Airdrop {
     MockERC20 token;
