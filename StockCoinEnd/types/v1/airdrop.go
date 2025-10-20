@@ -46,7 +46,6 @@ type AirdropTaskWithStatus struct {
 	airdrop.AirdropTask
 	UserStatus      *string    `json:"user_status"`       // 用户参与状态，未参与为nil
 	Proof           string     `json:"proof"`             // 完成证明
-	Reward          string     `json:"reward"`            // 奖励金额
 	RewardClaimedAt *time.Time `json:"reward_claimed_at"` // 领取奖励时间
 }
 

@@ -8,6 +8,7 @@ import (
 	"github.com/locey/CryptoStock/StockCoinEnd/app"
 	"github.com/locey/CryptoStock/StockCoinEnd/config"
 	"github.com/locey/CryptoStock/StockCoinEnd/service/svc"
+	"github.com/locey/CryptoStock/StockCoinEnd/service/v1"
 )
 
 const (
@@ -41,6 +42,8 @@ func main() {
 
 	// 定时获取股票信息，市值需要更新（其它基础信息不需要更新）
 	//go v1.Init(serverCtx, 1*time.Minute)
+	go service.StartAirdropEventListener(serverCtx)
+
 	app, err := app.NewPlatform(c, r, serverCtx)
 	if err != nil {
 		panic(err)

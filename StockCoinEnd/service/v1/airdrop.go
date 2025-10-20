@@ -156,6 +156,7 @@ func StartAirdrop(tx context.Context, s *svc.ServerCtx, address string) ([]airdr
 		log.Fatal(err)
 	}
 	//调用合约abi接口设置merkleRoot
+	log.Println("updateMerkleRoot:taskIds: ", taskIds, "roots: ", roots)
 	updateMerkleRoot(address, taskIds, roots, client, privateKey)
 	return airdropTasks, nil
 }
@@ -167,19 +168,19 @@ func CalculateProof(tasks []airdrop.AirdropUserTask, reward int64, taskId int64)
 		return []airdrop.AirdropUserTask{}, []byte{}
 	}
 	//构建默克尔树
-	tree, leaves, err := buildTree(tasks, reward, taskId)
+	tree, _, err := buildTree(tasks, reward, taskId)
 	if err != nil {
 		log.Println("buildTree err:", err)
 		return []airdrop.AirdropUserTask{}, []byte{}
 	}
 
-	// 使用预先创建的leaves来生成证明
-	for i, _ := range tasks {
+	for i, task := range tasks {
 
 		//获取默克尔证明，使用预先创建的content
-		log.Println("GetProof:", leaves[i])
+		data := generateMerkleData(task.Address, reward, taskId)
+
 		//获取proof
-		hexProof, err := getProof(tree, leaves[i])
+		hexProof, err := getProof(tree, data)
 		if err != nil {
 			log.Println("getProof err:", err)
 			return []airdrop.AirdropUserTask{}, []byte{}
@@ -197,14 +198,7 @@ func buildTree(tasks []airdrop.AirdropUserTask, reward int64, taskId int64) (*me
 
 	for _, task := range tasks {
 
-		addr := common.HexToAddress(task.Address)
-
-		rewardBig := big.NewInt(reward)
-		taskIDBig := big.NewInt(taskId)
-
-		// （左侧填充0）（address无需填充）模拟 Solidity 中的 abi.encodePacked(msg.sender, amount, taskId)
-		data := append(addr.Bytes(), common.LeftPadBytes(rewardBig.Bytes(), 32)...)
-		data = append(data, common.LeftPadBytes(taskIDBig.Bytes(), 32)...)
+		data := generateMerkleData(task.Address, reward, taskId)
 
 		leaves = append(leaves, data)
 	}
@@ -229,6 +223,21 @@ func buildTree(tasks []airdrop.AirdropUserTask, reward int64, taskId int64) (*me
 	//打印树根
 	log.Println("Merkle Root:", common.Bytes2Hex(tree.Root()))
 	return tree, leaves, nil
+}
+
+// generateMerkleData 生成用于默克尔树的数据
+// 模拟 Solidity 中的 abi.encodePacked(msg.sender, amount, taskId)
+func generateMerkleData(address string, reward int64, taskId int64) []byte {
+	addr := common.HexToAddress(address)
+
+	rewardBig := big.NewInt(reward)
+	taskIDBig := big.NewInt(taskId)
+
+	// （左侧填充0）（address无需填充）模拟 Solidity 中的 abi.encodePacked(msg.sender, amount, taskId)
+	data := append(addr.Bytes(), common.LeftPadBytes(rewardBig.Bytes(), 32)...)
+	data = append(data, common.LeftPadBytes(taskIDBig.Bytes(), 32)...)
+
+	return data
 }
 
 func getProof(tree *merkletree.MerkleTree, leave []byte) (string, error) {

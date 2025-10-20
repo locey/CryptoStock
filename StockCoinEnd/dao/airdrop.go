@@ -2,6 +2,9 @@ package dao
 
 import (
 	"context"
+	"log"
+	"math/big"
+	"time"
 
 	"github.com/locey/CryptoStock/StockCoinBase/stores/gdb/airdrop"
 	"github.com/locey/CryptoStock/StockCoinEnd/types/v1"
@@ -32,7 +35,7 @@ func (d *Dao) GetUserTaskByStringUserID(c context.Context, taskId int64, userId 
 func (d *Dao) GetUserTasksByUserID(c context.Context, userID string) ([]types.AirdropTaskWithStatus, error) {
 	var userTasks []types.AirdropTaskWithStatus
 	err := d.DB.WithContext(c).
-		Table(airdrop.AirdropTaskTableName()).Select(`airdrop_task.*, airdrop_user_task.status as user_status`).
+		Table(airdrop.AirdropTaskTableName()).Select(`airdrop_task.*, airdrop_user_task.proof as proof,airdrop_user_task.claimed_at as reward_claimed_at,airdrop_user_task.status as user_status`).
 		Joins(`LEFT JOIN airdrop_user_task ON airdrop_task.id = airdrop_user_task.task_id AND airdrop_user_task.user_id = ?`, userID).
 		Scan(&userTasks).Error
 	return userTasks, err
@@ -69,6 +72,7 @@ func (d *Dao) GetUserTasksByIDs(c context.Context, taskIds []int64) ([]airdrop.A
 	return tasks, err
 }
 
+<<<<<<< Updated upstream
 // CreateTask 创建空投任务
 func (d *Dao) CreateTask(c context.Context, task *airdrop.AirdropTask) error {
 	return d.DB.WithContext(c).Table(airdrop.AirdropTaskTableName()).Create(task).Error
@@ -103,4 +107,27 @@ func (d *Dao) GetTaskUserCount(c context.Context, taskId int64) (int64, error) {
 	var count int64
 	err := d.DB.WithContext(c).Table(airdrop.AirdropUserTaskTableName()).Where("task_id = ?", taskId).Count(&count).Error
 	return count, err
+=======
+// UpdateAirdropUserTaskStatus 更新单个用户任务状态
+func (d *Dao) UpdateAirdropUserTaskStatus(userAddress string, taskId *big.Int, status string, txHash string) error {
+	//更新用户地址、任务id更新任务状态、txHash、提现时间
+	now := time.Now()
+
+	log.Printf("更新用户任务状态: 用户地址=%s, 任务ID=%s, 状态=%s, 交易哈希=%s",
+		userAddress, taskId.String(), status, txHash)
+
+	result := d.DB.Model(&airdrop.AirdropUserTask{}).Where("address = ? and task_id = ?", userAddress, taskId.Int64()).Updates(map[string]interface{}{
+		"status":     status,
+		"tx_hash":    txHash,
+		"claimed_at": now,
+	})
+
+	if result.Error != nil {
+		log.Printf("更新用户任务状态失败: %v", result.Error)
+		return result.Error
+	}
+
+	log.Printf("成功更新 %d 条用户任务记录", result.RowsAffected)
+	return nil
+>>>>>>> Stashed changes
 }

@@ -115,6 +115,7 @@ describe('Airdrop', function () {
         const tree = new MerkleTree(leaves, keccak256, { sort: true });
         const proof = tree.getHexProof(leaf);
         console.log(`   📜 获取默克尔证明:`, proof);
+        console.log(`   🔑 获取任务 ${taskIds[0]} 的 merkleRoot:`, await airdrop.getMerkleRoot(taskIds[0]));
 
         // 使用user1调用claim（与叶子节点中的地址一致）
         console.log(`   💸 用户 ${user1.address} 尝试领取任务 ${taskIds[0]} 的奖励...`);
