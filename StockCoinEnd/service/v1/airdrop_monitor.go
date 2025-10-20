@@ -17,9 +17,10 @@ import (
 
 // AirdropClaimEvent represents the AirDropClaim event from the Airdrop contract
 type AirdropClaimEvent struct {
-	User   common.Address
-	TaskId *big.Int
-	Amount *big.Int
+	User    common.Address
+	BatchID *big.Int
+	TaskID  *big.Int
+	Amount  *big.Int
 }
 
 // TokenPurchasedEvent represents the TokenPurchased event from the StockToken contract
@@ -49,7 +50,7 @@ type OperationExecutedEvent struct {
 
 func StartAirdropEventListener(svcCtx *svc.ServerCtx) {
 	// Airdrop contract
-	airdropContractAddressStr := "0x4aD10F9F9D655B287C7402d3Ebb643bc4b2bE2BF"
+	airdropContractAddressStr := svcCtx.C.AirdropContract.ContractAddress
 	if airdropContractAddressStr == "" {
 		log.Fatal("请设置 AIRDROP_CONTRACT_ADDRESS 环境变量")
 	}
@@ -87,7 +88,7 @@ func StartAirdropEventListener(svcCtx *svc.ServerCtx) {
 
 	// 事件的 topic hashes
 	// AirDropClaim 事件签名: AirDropClaim(address indexed user, uint256 indexed taskId, uint256 amount)
-	airdropTopicHash := crypto.Keccak256Hash([]byte("AirDropClaim(address,uint256,uint256)"))
+	airdropTopicHash := crypto.Keccak256Hash([]byte("AirDropClaim(address,uint256,uint256,uint256)"))
 
 	// TokenPurchased 事件签名: TokenPurchased(address indexed buyer, string stockSymbol, uint256 usdtAmount, uint256 tokenAmount, uint256 price)
 	tokenPurchasedTopicHash := crypto.Keccak256Hash([]byte("TokenPurchased(address,string,uint256,uint256,uint256)"))
@@ -138,7 +139,7 @@ func StartAirdropEventListener(svcCtx *svc.ServerCtx) {
 				// 打印事件信息
 				fmt.Printf("检测到 AirDropClaim 事件:\n")
 				fmt.Printf("  用户地址: %s\n", event.User.Hex())
-				fmt.Printf("  任务ID: %s\n", event.TaskId.String())
+				fmt.Printf("  任务ID: %s\n", event.BatchID.String())
 				fmt.Printf("  奖励数量: %s\n", event.Amount.String())
 				fmt.Printf("  交易哈希: %s\n", vLog.TxHash.Hex())
 				fmt.Printf("  区块号: %d\n", vLog.BlockNumber)
@@ -146,10 +147,10 @@ func StartAirdropEventListener(svcCtx *svc.ServerCtx) {
 
 				// 更新任务状态
 				fmt.Printf("正在更新用户任务状态: 用户地址=%s, 任务ID=%s, 状态=claimed, 交易哈希=%s\n",
-					event.User.Hex(), event.TaskId.String(), vLog.TxHash.Hex())
+					event.User.Hex(), event.BatchID.String(), vLog.TxHash.Hex())
 
 				// 调用DAO方法更新任务状态
-				if err := svcCtx.Dao.UpdateAirdropUserTaskStatus(event.User.Hex(), event.TaskId, "claimed", vLog.TxHash.Hex()); err != nil {
+				if err := svcCtx.Dao.UpdateAirdropUserTaskStatus(event.User.Hex(), event.BatchID, event.TaskID, "rewarded", vLog.TxHash.Hex()); err != nil {
 					log.Printf("更新用户任务状态失败: %v", err)
 				} else {
 					fmt.Printf("用户任务状态更新完成\n")
@@ -226,9 +227,11 @@ func parseAirDropClaimEvent(vLog types.Log) (*AirdropClaimEvent, error) {
 	// 从 topics 中解析 indexed 参数
 	// topics[0] = 事件签名哈希
 	// topics[1] = user (indexed)
-	// topics[2] = taskId (indexed)
+	// topics[2] = batchId (indexed)
+	// topics[3] = taskId (indexed)
 	event.User = common.BytesToAddress(vLog.Topics[1].Bytes())
-	event.TaskId = new(big.Int).SetBytes(vLog.Topics[2].Bytes())
+	event.BatchID = new(big.Int).SetBytes(vLog.Topics[2].Bytes())
+	event.TaskID = new(big.Int).SetBytes(vLog.Topics[3].Bytes())
 
 	// 从 data 中解析非 indexed 参数
 	// data[0:32] = amount

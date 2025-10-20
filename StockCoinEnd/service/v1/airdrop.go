@@ -114,6 +114,9 @@ func GetUserTasks(tx context.Context, s *svc.ServerCtx, userID string) ([]mytype
 
 // 查出某段时间内的所有airdrop.AirdropUserTask，并且批量计算proof
 func StartAirdrop(tx context.Context, s *svc.ServerCtx, address string) ([]airdrop.AirdropUserTask, error) {
+	//使用当前时间戳生成唯一的批次ID，确保可以入库且唯一
+	batchID := uint64(time.Now().UnixNano() & 0x7FFFFFFF)
+
 	tasks, error := s.Dao.GetActiveTasks(tx)
 	var airdropTasks []airdrop.AirdropUserTask
 	if error != nil || len(tasks) == 0 {
@@ -134,41 +137,42 @@ func StartAirdrop(tx context.Context, s *svc.ServerCtx, address string) ([]airdr
 		tasksMap[task.TaskID] = append(tasksMap[task.TaskID], task)
 	}
 
-	var roots [][]byte
-	for taskId, tasks := range tasksMap {
-		//计算proof
-		var root []byte
-		airdropTasks, root = CalculateProof(tasks, taskRewardMap[taskId], taskId)
-		//调用Dao批量更新airdrop.AirdropUserTask
-		s.Dao.UpdateUserTasks(airdropTasks)
-		roots = append(roots, root)
-	}
+	//计算proof
+	var root []byte
+	airdropTasks, root = CalculateProof(userTasks, taskRewardMap, batchID)
+	//调用Dao批量更新airdrop.AirdropUserTask
+	s.Dao.UpdateUserTasks(airdropTasks)
 
 	//privateKey转成edsa密钥
-	privateKey, err := crypto.HexToECDSA("d4f92103da1106a9eac579281458f51a541e0525253993246d8e08f440b28e77")
+	privateKey, err := crypto.HexToECDSA(s.C.AirdropContract.PrivateKey)
 	if err != nil {
 		log.Println("Failed to convert private key:", err)
 		return nil, err
 	}
 	// 1. 连接以太坊节点
-	client, err := ethclient.Dial("https://ethereum-sepolia-rpc.publicnode.com")
+	client, err := ethclient.Dial(s.C.AirdropContract.RPCEndpoint)
 	if err != nil {
 		log.Fatal(err)
 	}
+	//batchID、root转数组
+	var batchIDs []uint64
+	batchIDs = append(batchIDs, batchID)
+	var roots [][]byte
+	roots = append(roots, root)
 	//调用合约abi接口设置merkleRoot
-	log.Println("updateMerkleRoot:taskIds: ", taskIds, "roots: ", roots)
-	updateMerkleRoot(address, taskIds, roots, client, privateKey)
+	log.Println("updateMerkleRoot:batchIDs: ", batchIDs, "roots: ", roots)
+	updateMerkleRoot(address, batchIDs, roots, client, privateKey)
 	return airdropTasks, nil
 }
 
 // 计算proof（每一个人每一个任务计算一个proof）
-func CalculateProof(tasks []airdrop.AirdropUserTask, reward int64, taskId int64) (airdropTasks []airdrop.AirdropUserTask, merkleRoot []byte) {
+func CalculateProof(tasks []airdrop.AirdropUserTask, rewardMap map[int64]int64, batchID uint64) (airdropTasks []airdrop.AirdropUserTask, merkleRoot []byte) {
 	//通过用户地址、reward、taskId生成默克尔proof
 	if len(tasks) == 0 {
 		return []airdrop.AirdropUserTask{}, []byte{}
 	}
 	//构建默克尔树
-	tree, _, err := buildTree(tasks, reward, taskId)
+	tree, _, err := buildTree(tasks, rewardMap, batchID)
 	if err != nil {
 		log.Println("buildTree err:", err)
 		return []airdrop.AirdropUserTask{}, []byte{}
@@ -177,7 +181,7 @@ func CalculateProof(tasks []airdrop.AirdropUserTask, reward int64, taskId int64)
 	for i, task := range tasks {
 
 		//获取默克尔证明，使用预先创建的content
-		data := generateMerkleData(task.Address, reward, taskId)
+		data := generateMerkleData(task.Address, rewardMap[task.TaskID], int64(batchID), task.TaskID)
 
 		//获取proof
 		hexProof, err := getProof(tree, data)
@@ -186,19 +190,19 @@ func CalculateProof(tasks []airdrop.AirdropUserTask, reward int64, taskId int64)
 			return []airdrop.AirdropUserTask{}, []byte{}
 		}
 		tasks[i].Proof = hexProof
-
+		tasks[i].BatchID = batchID
 	}
 	airdropTasks = tasks
 	return airdropTasks, tree.Root()
 }
 
 // 构建默克尔树
-func buildTree(tasks []airdrop.AirdropUserTask, reward int64, taskId int64) (*merkletree.MerkleTree, [][]byte, error) {
+func buildTree(tasks []airdrop.AirdropUserTask, rewardMap map[int64]int64, batchID uint64) (*merkletree.MerkleTree, [][]byte, error) {
 	var leaves [][]byte
 
 	for _, task := range tasks {
 
-		data := generateMerkleData(task.Address, reward, taskId)
+		data := generateMerkleData(task.Address, rewardMap[task.TaskID], int64(batchID), task.TaskID)
 
 		leaves = append(leaves, data)
 	}
@@ -226,15 +230,17 @@ func buildTree(tasks []airdrop.AirdropUserTask, reward int64, taskId int64) (*me
 }
 
 // generateMerkleData 生成用于默克尔树的数据
-// 模拟 Solidity 中的 abi.encodePacked(msg.sender, amount, taskId)
-func generateMerkleData(address string, reward int64, taskId int64) []byte {
+// 模拟 Solidity 中的 abi.encodePacked(msg.sender, amount, batchId,taskId)
+func generateMerkleData(address string, reward int64, batchId int64, taskId int64) []byte {
 	addr := common.HexToAddress(address)
 
 	rewardBig := big.NewInt(reward)
+	batchIDBig := big.NewInt(batchId)
 	taskIDBig := big.NewInt(taskId)
 
 	// （左侧填充0）（address无需填充）模拟 Solidity 中的 abi.encodePacked(msg.sender, amount, taskId)
 	data := append(addr.Bytes(), common.LeftPadBytes(rewardBig.Bytes(), 32)...)
+	data = append(data, common.LeftPadBytes(batchIDBig.Bytes(), 32)...)
 	data = append(data, common.LeftPadBytes(taskIDBig.Bytes(), 32)...)
 
 	return data
@@ -294,6 +300,11 @@ func sendTransaction(client *ethclient.Client, contractAddress common.Address, d
 		log.Fatal("获取gas price错误:", err)
 	}
 
+	// 增加gas price以避免replacement transaction underpriced错误
+	// 将gas price提高10%
+	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(110))
+	gasPrice = gasPrice.Div(gasPrice, big.NewInt(100))
+
 	// 创建交易
 	tx := types.NewTransaction(nonce, contractAddress, big.NewInt(0), 1000000, gasPrice, data)
 
@@ -324,7 +335,7 @@ func sendTransaction(client *ethclient.Client, contractAddress common.Address, d
 // - roots: 默克尔树根哈希数组
 // - client: 以太坊客户端
 // - privateKey: 私钥用于签名交易
-func updateMerkleRoot(address string, taskIds []int64, roots [][]byte, client *ethclient.Client, privateKey *ecdsa.PrivateKey) {
+func updateMerkleRoot(address string, batchIDs []uint64, roots [][]byte, client *ethclient.Client, privateKey *ecdsa.PrivateKey) {
 	// 1. 解析ABI
 	abiPath := filepath.Join("..", "CryptoStockContract", "abi", "Airdrop.abi")
 	parsedABI, err := utils.ReadABI(abiPath)
@@ -333,9 +344,9 @@ func updateMerkleRoot(address string, taskIds []int64, roots [][]byte, client *e
 	}
 
 	// 2. 转换参数类型
-	taskIdBigInts := make([]*big.Int, len(taskIds))
-	for i, id := range taskIds {
-		taskIdBigInts[i] = big.NewInt(id)
+	taskIdBigInts := make([]*big.Int, len(batchIDs))
+	for i, id := range batchIDs {
+		taskIdBigInts[i] = new(big.Int).SetUint64(id)
 	}
 
 	rootHashes := make([]common.Hash, len(roots))
@@ -358,49 +369,49 @@ func updateMerkleRoot(address string, taskIds []int64, roots [][]byte, client *e
 
 }
 
-// UpdateReward 更新空投奖励
-// 参数:
-// - svcCtx: 服务上下文
-// - address: 合约地址
-// - taskIds: 任务ID数组
-// - amounts: 奖励金额数组
-// - client: 以太坊客户端
-// - privateKey: 私钥用于签名交易
-func UpdateReward(svcCtx *svc.ServerCtx, address string, taskIds []int64, amounts []int64, client *ethclient.Client, privateKey *ecdsa.PrivateKey) {
-	// 1. 解析ABI
-	abiPath := filepath.Join("..", "CryptoStockContract", "abi", "Airdrop.abi")
-	parsedABI, err := utils.ReadABI(abiPath)
-	if err != nil {
-		log.Fatal("ABI文件解析错误:", err)
-	}
+// // UpdateReward 更新空投奖励
+// // 参数:
+// // - svcCtx: 服务上下文
+// // - address: 合约地址
+// // - taskIds: 任务ID数组
+// // - amounts: 奖励金额数组
+// // - client: 以太坊客户端
+// // - privateKey: 私钥用于签名交易
+// func UpdateReward(svcCtx *svc.ServerCtx, address string, taskIds []int64, amounts []int64, client *ethclient.Client, privateKey *ecdsa.PrivateKey) {
+// 	// 1. 解析ABI
+// 	abiPath := filepath.Join("..", "CryptoStockContract", "abi", "Airdrop.abi")
+// 	parsedABI, err := utils.ReadABI(abiPath)
+// 	if err != nil {
+// 		log.Fatal("ABI文件解析错误:", err)
+// 	}
 
-	// 2. 转换参数类型，将int64转换为big.Int以支持智能合约调用
-	// 转换任务ID数组
-	taskIdBigInts := make([]*big.Int, len(taskIds))
-	for i, id := range taskIds {
-		taskIdBigInts[i] = big.NewInt(id)
-	}
+// 	// 2. 转换参数类型，将int64转换为big.Int以支持智能合约调用
+// 	// 转换任务ID数组
+// 	taskIdBigInts := make([]*big.Int, len(taskIds))
+// 	for i, id := range taskIds {
+// 		taskIdBigInts[i] = big.NewInt(id)
+// 	}
 
-	// 转换奖励金额数组
-	amountBigInts := make([]*big.Int, len(amounts))
-	for i, amount := range amounts {
-		amountBigInts[i] = big.NewInt(amount)
-	}
+// 	// 转换奖励金额数组
+// 	amountBigInts := make([]*big.Int, len(amounts))
+// 	for i, amount := range amounts {
+// 		amountBigInts[i] = big.NewInt(amount)
+// 	}
 
-	// 3. 打包调用数据，准备调用合约的setReward函数
-	rewardData, err := parsedABI.Pack("setReward", taskIdBigInts, amountBigInts)
-	if err != nil {
-		log.Fatal("ABI解析错误:", err)
-	}
+// 	// 3. 打包调用数据，准备调用合约的setReward函数
+// 	rewardData, err := parsedABI.Pack("setReward", taskIdBigInts, amountBigInts)
+// 	if err != nil {
+// 		log.Fatal("ABI解析错误:", err)
+// 	}
 
-	// 4. 发送交易
-	contractAddress := common.HexToAddress(address)
-	err = sendTransaction(client, contractAddress, rewardData, privateKey)
-	if err != nil {
-		log.Fatal("交易发送错误:", err)
-	}
+// 	// 4. 发送交易
+// 	contractAddress := common.HexToAddress(address)
+// 	err = sendTransaction(client, contractAddress, rewardData, privateKey)
+// 	if err != nil {
+// 		log.Fatal("交易发送错误:", err)
+// 	}
 
-}
+// }
 
 // CreateTask 创建空投任务
 func CreateTask(ctx context.Context, s *svc.ServerCtx, req *mytype.CreateTaskRequest) (*airdrop.AirdropTask, error) {

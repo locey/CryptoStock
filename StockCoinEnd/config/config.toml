@@ -20,7 +20,7 @@ type = "node"
 
 [db]
 database = "cryptostock"
-password = ""
+password = "1q2w3e4r@"
 port = 3306 #4000
 max_open_conns = 1500
 host = "127.0.0.1"
@@ -56,9 +56,9 @@ trait_name_tags = ["trait_type"]
 trait_value_tags = ["value"]
 
 [airdrop_contract]
-rpc_endpoint = "https://rpc.ankr.com/eth_sepolia"
-private_key = ""
-contract_address = ""
+rpc_endpoint = "https://ethereum-sepolia-rpc.publicnode.com"
+private_key = "d4f92103da1106a9eac579281458f51a541e0525253993246d8e08f440b28e77"
+contract_address = "0xb812549f154Ab18B22D129B0FF71874E01B72f5a"
 gas_limit = 3000000
 gas_price = 20000000000
 chain_id = 11155111

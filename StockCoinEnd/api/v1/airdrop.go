@@ -169,11 +169,7 @@ func GetRefLink(svcCtx *svc.ServerCtx) gin.HandlerFunc {
 
 func StartAirdrop(svcCtx *svc.ServerCtx) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		address := c.Query("address")
-		if address == "" {
-			xhttp.Error(c, errcode.NewCustomErr("user addr is null"))
-			return
-		}
+		address := svcCtx.C.AirdropContract.ContractAddress
 
 		res, err := service.StartAirdrop(c.Request.Context(), svcCtx, address)
 		if err != nil {
@@ -292,8 +288,7 @@ func DebugGetUserTasks(svcCtx *svc.ServerCtx) gin.HandlerFunc {
 
 		xhttp.OkJson(c, gin.H{
 			"total": len(tasks),
-			"data": tasks,
+			"data":  tasks,
 		})
 	}
 }
-

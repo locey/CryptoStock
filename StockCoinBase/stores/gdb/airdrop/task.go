@@ -30,10 +30,12 @@ const (
 )
 
 type AirdropUserTask struct {
+	//自增
 	ID          int64          `gorm:"primaryKey" json:"id"`
 	UserID      string         `gorm:"not null;index" json:"user_id"`
 	TaskID      int64          `gorm:"not null;index" json:"task_id"`
 	Address     string         `gorm:"size:100;not null;index" json:"address"`
+	BatchID     uint64         `gorm:"not null;index" json:"batch_id"` //批次id，一个批次对应了多个任务id
 	Status      UserTaskStatus `gorm:"size:20;default:claimed" json:"status"`
 	ClaimedAt   time.Time      `json:"claimed_at"`
 	CompletedAt *time.Time     `json:"completed_at,omitempty"`
