@@ -15,8 +15,8 @@ struct PriceResult {
     string errorMessage; // 错误信息（如果有）
 }
 
-interface IPriceOracleV2 {
+interface IPriceFeedV2 {
     function getPrice(
         GetPriceParams calldata params
-    ) external view virtual returns (PriceResult memory);
+    ) external payable virtual returns (PriceResult memory);
 }

@@ -1,58 +1,48 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+
+pragma solidity ^0.8.0;
 
 import "@pythnetwork/pyth-sdk-solidity/IPyth.sol";
 import "@pythnetwork/pyth-sdk-solidity/PythStructs.sol";
 import "../interfaces/IPriceOracle.sol";
 
-// Pyth 预言机，支持多股票符号管理
-contract PythPriceFeed is IPriceFeed {
-    IPyth public pyth;
-    address public owner;
+contract PythPriceFeedV2 is IPriceFeed {
+    IPyth pyth;
 
-    // 股票符号 => Pyth Feed ID 映射（从 OracleAggregator 移过来）
-    mapping(string => bytes32) public symbolToFeedId;
-
-    // 已支持的股票符号列表（从 OracleAggregator 移过来）
-    string[] public supportedSymbols;
-
-    // 事件（从 OracleAggregator 移过来）
-    event FeedIdUpdated(string indexed symbol, bytes32 indexed feedId);
+    mapping(string => bytes32) public symbolFeedIdMap;
 
     constructor(address pythContract) {
-        owner = msg.sender;
         pyth = IPyth(pythContract);
     }
 
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Not owner");
-        _;
+    function getPriceFeedId(
+        string memory symbol
+    ) external view returns (bytes32) {
+        return symbolFeedIdMap[symbol];
     }
 
-    // ============ Feed ID 管理（从 OracleAggregator 移过来）============
-
-    /**
-     * @notice 设置股票符号对应的 Feed ID
-     * @param symbol 股票符号
-     * @param feedId Pyth Feed ID
-     */
-    function setFeedId(
+    function setPriceFeedId(
         string memory symbol,
-        bytes32 feedId
-    ) external onlyOwner {
-        require(bytes(symbol).length > 0, "Symbol cannot be empty");
-        require(feedId != bytes32(0), "Feed ID cannot be zero");
-
-        // 如果是新符号，添加到支持列表
-        if (symbolToFeedId[symbol] == bytes32(0)) {
-            supportedSymbols.push(symbol);
-        }
-
-        symbolToFeedId[symbol] = feedId;
-        emit FeedIdUpdated(symbol, feedId);
+        bytes32 priceFeedId
+    ) external {
+        symbolFeedIdMap[symbol] = priceFeedId;
     }
 
-    // ============ IPriceFeed 接口实现 ============
+    function updateAndGetLatestPrice(
+        bytes32 feedId,
+        bytes[] calldata priceUpdate
+    ) public payable returns (uint256) {
+        uint fee = getUpdateFee(priceUpdate);
+        pyth.updatePriceFeeds{value: fee}(priceUpdate);
+
+        try pyth.getPriceUnsafe(feedId) returns (
+            PythStructs.Price memory newPrice
+        ) {
+            return _convertPrice(newPrice);
+        } catch (bytes memory) {
+            return 0;
+        }
+    }
 
     /**
      * @notice 获取股票价格（先更新价格再获取最新数据）
@@ -61,7 +51,7 @@ contract PythPriceFeed is IPriceFeed {
     function getPrice(
         OperationParams calldata params
     ) external payable override returns (OperationResult memory) {
-        bytes32 feedId = symbolToFeedId[params.symbol];
+        bytes32 feedId = symbolFeedIdMap[params.symbol];
         if (feedId == bytes32(0)) {
             return
                 OperationResult({
@@ -144,7 +134,11 @@ contract PythPriceFeed is IPriceFeed {
         }
     }
 
-    // ============ 内部辅助函数 ============
+    function getUpdateFee(
+        bytes[] calldata updateData
+    ) public view returns (uint feeAmount) {
+        return pyth.getUpdateFee(updateData);
+    }
 
     /**
      * @notice 转换 Pyth 价格为 18 位小数
@@ -165,34 +159,5 @@ contract PythPriceFeed is IPriceFeed {
                 return absPrice * (10 ** adjustment);
             }
         }
-    }
-
-    // ============ 查询功能 ============
-
-    /**
-     * @notice 获取价格更新费用
-     * @param updateData 价格更新数据
-     * @return 更新费用 (wei)
-     */
-    function getUpdateFee(
-        bytes[] calldata updateData
-    ) external view returns (uint256) {
-        return pyth.getUpdateFee(updateData);
-    }
-
-    /**
-     * @notice 获取所有支持的股票符号
-     */
-    function getSupportedSymbols() external view returns (string[] memory) {
-        return supportedSymbols;
-    }
-
-    /**
-     * @notice 检查是否支持某个股票符号
-     */
-    function isSymbolSupported(
-        string memory symbol
-    ) external view returns (bool) {
-        return symbolToFeedId[symbol] != bytes32(0);
     }
 }

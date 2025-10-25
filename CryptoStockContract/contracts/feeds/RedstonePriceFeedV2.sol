@@ -1,29 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "../interfaces/IPriceOracleV2.sol";
-import "../interfaces/IRedstoneManualV2.sol";
+import "../interfaces/IPriceOracle.sol";
+import "@redstone-finance/evm-connector/contracts/data-services/MainDemoConsumerBase.sol";
 
-contract RedstonePriceFeedV2 is IPriceOracleV2 {
-    address public owner;
-    IRedstoneManualV2 public redstone;
-
-    constructor(address ownerAddr, address redstonePriceAddr) {
-        owner = ownerAddr;
-        redstone = IRedstoneManualV2(redstonePriceAddr);
+contract RedstonePriceFeedV2 is IPriceFeed, MainDemoConsumerBase {
+    function getLatestPrice(
+        bytes32 assetDataFeedId,
+        bytes calldata
+    ) external view returns (uint256) {
+        return getOracleNumericValueFromTxMsg(assetDataFeedId);
     }
 
     function getPrice(
-        GetPriceParams calldata params
-    ) external view override returns (PriceResult memory) {
+        OperationParams calldata params
+    ) external payable override returns (OperationResult memory) {
         bytes32 symbol = stringToBytes32(params.symbol);
-        uint256 price = redstone.getLatestPrice(symbol, params.updateData[0]);
-        try redstone.getLatestPrice(symbol, params.updateData[0]) returns (
+        try this.getLatestPrice(symbol, params.updateData[0]) returns (
             uint256 price
         ) {
             return
-                PriceResult({
-                    price: price,
+                OperationResult({
+                    price: _convertPrice(price, -8),
                     minPrice: (price * 98) / 100, // -2%
                     maxPrice: (price * 102) / 100, // +2%
                     publishTime: block.timestamp,
@@ -32,7 +30,7 @@ contract RedstonePriceFeedV2 is IPriceOracleV2 {
                 });
         } catch Error(string memory errorMessage) {
             return
-                PriceResult({
+                OperationResult({
                     price: 0,
                     minPrice: 0,
                     maxPrice: 0,
@@ -57,6 +55,28 @@ contract RedstonePriceFeedV2 is IPriceOracleV2 {
         }
         assembly {
             result := mload(add(source, 32))
+        }
+    }
+
+    /**
+     * @notice 转换 价格为 18 位小数
+     */
+    function _convertPrice(
+        uint256 price,
+        int32 expo
+    ) internal pure returns (uint256) {
+        uint256 absPrice = uint256(uint64(price));
+
+        if (expo >= 0) {
+            return absPrice * (10 ** uint256(int256(expo))) * 1e18;
+        } else {
+            int256 negExpo = -int256(expo);
+            if (negExpo >= 18) {
+                return (absPrice * 1e18) / (10 ** uint256(negExpo));
+            } else {
+                uint256 adjustment = 18 - uint256(negExpo);
+                return absPrice * (10 ** adjustment);
+            }
         }
     }
 }
